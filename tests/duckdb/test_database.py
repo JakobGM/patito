@@ -1,0 +1,130 @@
+"""Tests for patito.Database."""
+from typing import Literal, Optional
+
+import pandas as pd
+import patito as pt
+import pytest
+
+
+def test_database(tmp_path):
+    """Test functionality of Database class."""
+    # Create a new in-memory database
+    db = pt.Database()
+
+    # Insert a simple dataframe as a new table
+    table_df = pd.DataFrame(
+        {
+            "column_1": [1, 2, 3],
+            "column_2": ["a", "b", "c"],
+        }
+    )
+    db.to_relation(table_df).create_table(name="table_name_1")
+
+    # Check that a round-trip to and from the database preserves the data
+    db_table = db.table("table_name_1").to_pandas()
+    assert db_table is not table_df
+    pd.testing.assert_frame_equal(table_df, db_table)
+
+    # Check that new database objects are isolated from previous ones
+    another_db = pt.Database()
+    with pytest.raises(RuntimeError, match="Table does not exist!"):
+        db_table = another_db.table("table_name_1")
+
+    # Check the parquet reading functionality
+    parquet_path = tmp_path / "tmp.parquet"
+    table_df.to_parquet(str(parquet_path))
+    another_db.to_relation(parquet_path).create_table(name="parquet_table")
+    assert another_db.table("parquet_table").count() == 3
+
+
+def test_file_database(tmp_path):
+    """Check if the Database can be persisted to a file."""
+    # Insert some data into a file-backed database
+    db_path = tmp_path / "tmp.db"
+    file_db = pt.Database(path=db_path)
+    file_db.to_relation("select 1 as a, 2 as b").create_table(name="table")
+    before_df = file_db.table("table").to_df()
+
+    # Delete the database
+    del file_db
+
+    # And restore tha data from the file
+    restored_db = pt.Database(path=db_path)
+    after_df = restored_db.table("table").to_df()
+
+    # The data should still be the same
+    assert before_df.frame_equal(after_df)
+
+
+def test_database_create_table():
+    """Tests for patito.Database.create_table()."""
+
+    # A pydantic basemodel is used to specify the table schema
+    # We inherit here in order to make sure that inheritance works as intended
+    class BaseModel(pt.Model):
+        int_column: int
+        optional_int_column: Optional[int]
+        str_column: str
+
+    class Model(BaseModel):
+        optional_str_column: Optional[str]
+        bool_column: bool
+        optional_bool_column: Optional[bool]
+        enum_column: Literal["a", "b", "c"]
+
+    # We crate the table schema
+    db = pt.Database()
+    table = db.create_table(name="test_table", model=Model)
+
+    # We insert some dummy data into the new table
+    dummy_relation = db.to_relation(Model.example({"optional_int_column": [1, None]}))
+    dummy_relation.insert_into(table_name="test_table")
+
+    # But we should not be able to insert null data in non-optional columns
+    null_relation = dummy_relation.drop("int_column").project("null as int_column, *")
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "Failed to insert into table 'test_table': Constraint Error:.*"
+            "NOT NULL constraint failed: test_table.int_column"
+        ),
+    ):
+        null_relation.insert_into(table_name="test_table")
+
+    # Check if the correct columns and types have been set
+    assert table.columns == [
+        "int_column",
+        "optional_int_column",
+        "str_column",
+        "optional_str_column",
+        "bool_column",
+        "optional_bool_column",
+        "enum_column",
+    ]
+    assert table.types == [
+        "BIGINT",
+        "BIGINT",
+        "VARCHAR",
+        "VARCHAR",
+        "BOOLEAN",
+        "BOOLEAN",
+        "model__enum_column",
+    ]
+
+
+def test_table_existence_check():
+    """You should be able to check for the existence of a table."""
+
+    class Model(pt.Model):
+        column_1: str
+        column_2: int
+
+    # At first there is no table named "test_table"
+    db = pt.Database()
+    assert "test_table" not in db
+
+    # We create the table
+    db.create_table(name="test_table", model=Model)
+
+    # And now the table should exist
+    assert "test_table" in db
