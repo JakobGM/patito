@@ -703,7 +703,10 @@ class Database:
         import duckdb
 
         if isinstance(derived_from, Relation):
-            assert derived_from.database is self
+            if derived_from.database is not self:
+                raise ValueError(
+                    "Relations can't be casted between database connections."
+                )
             return derived_from
         elif isinstance(derived_from, duckdb.DuckDBPyRelation):
             relation = derived_from

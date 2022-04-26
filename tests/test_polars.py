@@ -118,7 +118,7 @@ def test_dataframe_model_dtype_casting():
         ]
     )
     casted_df = original_df.cast()
-    casted_df.dtypes == [
+    assert casted_df.dtypes == [
         pl.Int64,
         pl.UInt32,
         pl.UInt64,
@@ -127,7 +127,7 @@ def test_dataframe_model_dtype_casting():
     ]
 
     strictly_casted_df = original_df.cast(strict=True)
-    strictly_casted_df.dtypes == [
+    assert strictly_casted_df.dtypes == [
         pl.Int64,
         pl.Int64,
         pl.UInt64,
