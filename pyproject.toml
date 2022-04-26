@@ -16,6 +16,7 @@ polars = "^0.13.25"
 pandas = "^1.4.2"
 duckdb = {version = "0.3.4", optional = true}
 pyarrow = {version = "^7.0.0", optional = true}
+coverage = {version = "^6.3.2", extras = ["toml"]}
 
 [tool.poetry.extras]
 duckdb = ["duckdb", "pyarrow"]
@@ -23,7 +24,21 @@ duckdb = ["duckdb", "pyarrow"]
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
 pytest-watcher = "^0.2.3"
+coverage = "^6.3.2"
+pytest-cov = "^3.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+# pyproject.toml
+[tool.coverage.paths]
+source = ["src", "*/site-packages"]
+
+[tool.coverage.run]
+branch = true
+source = ["patito"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
