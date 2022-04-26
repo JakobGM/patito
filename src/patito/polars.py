@@ -128,15 +128,14 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         For example:
 
         >>> import patito as pt
-        ... import polars as pl
+        >>> import polars as pl
         ...
-        ...
-        ... class Foo(pt.Model):
+        >>> class Foo(pt.Model):
         ...     bar: int = pt.Field(derived_from="foo")
         ...     double_bar: int = pt.Field(derived_from=2 * pl.col("bar"))
         ...
-        ... Foo.DataFrame({"foo": [1, 2]}).derive()
-        ... shape: (2, 3)
+        >>> Foo.DataFrame({"foo": [1, 2]}).derive()
+        shape: (2, 3)
         ┌─────┬─────┬────────────┐
         │ foo ┆ bar ┆ double_bar │
         │ --- ┆ --- ┆ ---        │

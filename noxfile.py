@@ -22,9 +22,16 @@ def install_with_constraints(session, *args, **kwargs):
 
 @nox.session(python=["3.9"])
 def test(session):
-    args = session.posargs or ["--cov"]
+    """Run test suite using pytest + coverage + xdoctest."""
+    args = session.posargs or ["--cov", "--xdoctest"]
     session.run("poetry", "install", "--no-dev", "-E", "duckdb", external=True)
-    install_with_constraints(session, "coverage[toml]", "pytest", "pytest-cov")
+    install_with_constraints(
+        session,
+        "coverage[toml]",
+        "pytest",
+        "pytest-cov",
+        "xdoctest",
+    )
     session.run("pytest", *args)
 
 

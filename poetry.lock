@@ -570,13 +570,31 @@ python-versions = ">=3.6"
 [package.extras]
 watchmedo = ["PyYAML (>=3.10)"]
 
+[[package]]
+name = "xdoctest"
+version = "1.0.0"
+description = "A rewrite of the builtin doctest module"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+six = "*"
+
+[package.extras]
+all = ["ipython", "ipython", "pygments", "pygments", "attrs", "cmake", "codecov", "colorama", "debugpy", "ipykernel", "ipykernel", "jedi", "jinja2", "jupyter-client", "jupyter-client", "jupyter-core", "nbconvert", "ninja", "pybind11", "pytest-cov", "pytest-cov", "pytest-cov", "pytest-cov", "pytest", "pytest", "pytest", "pytest", "pytest", "pytest", "scikit-build", "six", "typing"]
+jupyter = ["ipython", "ipython", "attrs", "debugpy", "ipykernel", "ipykernel", "jedi", "jinja2", "jupyter-client", "jupyter-client", "jupyter-core", "nbconvert"]
+optional = ["ipython", "ipython", "pygments", "pygments", "attrs", "colorama", "debugpy", "ipykernel", "ipykernel", "jedi", "jinja2", "jupyter-client", "jupyter-client", "jupyter-core", "nbconvert"]
+colors = ["pygments", "pygments", "colorama"]
+tests = ["cmake", "codecov", "ninja", "pybind11", "pytest-cov", "pytest-cov", "pytest-cov", "pytest-cov", "pytest", "pytest", "pytest", "pytest", "pytest", "pytest", "scikit-build", "typing"]
+
 [extras]
 duckdb = ["duckdb", "pyarrow"]
 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "041b92813c26c37a4238831bc8e2c036da709c33c321400bcd321f8336a9585a"
+content-hash = "a1eca57ab700571eebb859e82135d0a08be7c1eaa0b97b077d53b587f04aa667"
 
 [metadata.files]
 atomicwrites = [
@@ -1025,4 +1043,9 @@ watchdog = [
     {file = "watchdog-2.1.7-py3-none-win_amd64.whl", hash = "sha256:340b875aecf4b0e6672076a6f05cfce6686935559bb6d34cebedee04126a9566"},
     {file = "watchdog-2.1.7-py3-none-win_ia64.whl", hash = "sha256:351e09b6d9374d5bcb947e6ac47a608ec25b9d70583e9db00b2fcdb97b00b572"},
     {file = "watchdog-2.1.7.tar.gz", hash = "sha256:3fd47815353be9c44eebc94cc28fe26b2b0c5bd889dafc4a5a7cbdf924143480"},
+]
+xdoctest = [
+    {file = "xdoctest-1.0.0-py2-none-any.whl", hash = "sha256:0b0b5958e0ac0a28c5496f96b7f0adbeb0ea7e0c0a227de1ce3bc79ddb1a4f00"},
+    {file = "xdoctest-1.0.0-py3-none-any.whl", hash = "sha256:76f44dc74515ff4bdf3cc3e91a2e408cf5699cfa03367634efaadf138c7b132d"},
+    {file = "xdoctest-1.0.0.tar.gz", hash = "sha256:7ebba7e71457e6e7cf86c463699575e52b1c9cc32ee2ee5e72256d6cd3aaeb2d"},
 ]
