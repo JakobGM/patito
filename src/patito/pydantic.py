@@ -3,13 +3,13 @@ from __future__ import annotations
 import itertools
 from collections.abc import Iterable
 from contextlib import contextmanager
-from typing import Any, ClassVar, Optional, Type, TypeVar, Union
+from typing import Any, Optional, Type, TypeVar, Union
 
 import pandas as pd
 import polars as pl
 from patito.polars import DataFrame
 from patito.validators import validate
-from pydantic import BaseConfig, BaseModel, Field
+from pydantic import BaseConfig, BaseModel, Field  # noqa: F401
 from pydantic.main import ModelMetaclass as PydanticModelMetaclass
 
 
@@ -123,7 +123,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         }
 
     @classmethod
-    def example_value(cls, field: str) -> Any:
+    def example_value(cls, field: str) -> Any:  # noqa: C901
         """Return an example value for the given field name defined on the model."""
         schema = cls.schema()
         field_data = schema["properties"]
@@ -360,7 +360,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     @property
-    def valid_dtypes(cls: Type[ModelType]) -> dict[str, tuple[Type[pl.DataType], ...]]:
+    def valid_dtypes(  # noqa: C901
+        cls: Type[ModelType],
+    ) -> dict[str, tuple[Type[pl.DataType], ...]]:
         """
         Return valid polars dtypes as a column name -> dtypes mapping.
 

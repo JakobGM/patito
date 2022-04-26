@@ -252,7 +252,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         to populate the given column.
         """
         kwargs.setdefault("dtypes", cls.model.dtypes)
-        if not kwargs.get("has_header", True) and not "columns" in kwargs:
+        if not kwargs.get("has_header", True) and "columns" not in kwargs:
             kwargs.setdefault("new_columns", cls.model.columns)
         df = cls.model.DataFrame._from_pydf(pl.read_csv(*args, **kwargs)._df)
         return df.derive()

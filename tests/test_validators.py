@@ -315,7 +315,7 @@ def test_validation_of_dtype_specifiers():
 
     valid = [
         pl.Series([-2]).cast(pl.Int64),
-        pl.Series([2 ** 32]).cast(pl.Int64),
+        pl.Series([2**32]).cast(pl.Int64),
         pl.Series([2]).cast(pl.Int8),
         pl.Series([2]).cast(pl.UInt64),
         pl.Series([2]).cast(pl.UInt8),
@@ -326,7 +326,7 @@ def test_validation_of_dtype_specifiers():
     invalid = [
         pl.Series([2.5]).cast(pl.Float64),
         pl.Series([2.5]).cast(pl.Float64),
-        pl.Series([2 ** 32]).cast(pl.Int64),
+        pl.Series([2**32]).cast(pl.Int64),
         pl.Series([-2]).cast(pl.Int64),
         pl.Series([-2]).cast(pl.Int64),
     ]
@@ -369,12 +369,12 @@ def test_custom_constraint_validation():
     assert len(errors) == 2
     assert errors[0] == {
         "loc": ("even_int",),
-        "msg": f"1 row does not match custom constraints.",
+        "msg": "1 row does not match custom constraints.",
         "type": "value_error.rowvalue",
     }
     assert errors[1] == {
         "loc": ("odd_int",),
-        "msg": f"1 row does not match custom constraints.",
+        "msg": "1 row does not match custom constraints.",
         "type": "value_error.rowvalue",
     }
     df.limit(1).validate()

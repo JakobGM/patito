@@ -38,7 +38,7 @@ VALID_POLARS_TYPES = {
 }
 
 
-def _find_errors(
+def _find_errors(  # noqa: C901
     dataframe: pl.DataFrame,
     schema: Type[Model],
 ) -> list[ErrorWrapper]:
@@ -64,9 +64,7 @@ def _find_errors(
     for missig_column in set(schema.columns) - set(dataframe.columns):
         errors.append(
             ErrorWrapper(
-                MissingColumnsError(
-                    f"Missing column",
-                ),
+                MissingColumnsError("Missing column"),
                 loc=missig_column,
             )
         )
@@ -75,7 +73,7 @@ def _find_errors(
     for superflous_column in set(dataframe.columns) - set(schema.columns):
         errors.append(
             ErrorWrapper(
-                SuperflousColumnsError(f"Superflous column"),
+                SuperflousColumnsError("Superflous column"),
                 loc=superflous_column,
             )
         )

@@ -1,5 +1,5 @@
 import re
-from typing import Literal, Optional
+from typing import Optional
 from unittest.mock import MagicMock
 
 import numpy as np
