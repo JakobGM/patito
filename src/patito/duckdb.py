@@ -716,7 +716,7 @@ class Database:
             # We must replace pd.NA with np.nan in order for it to be considered
             # as null by DuckDB. Otherwise it will casted to the string <NA>
             # or even segfault.
-            derived_from = derived_from.fillna(np.nan)
+            derived_from = cast(pd.DataFrame, derived_from).fillna(np.nan)
             relation = self.connection.from_df(derived_from)
         elif isinstance(derived_from, pl.DataFrame):
             relation = self.connection.from_arrow(derived_from.to_arrow())
@@ -780,7 +780,8 @@ class Database:
                     column += " not null"
             columns.append(column)
         self.connection.execute(f"create table {name} ({','.join(columns)})")
-        return self.table(name).set_model(model)
+        # TODO: Fix typing
+        return self.table(name).set_model(model)  # type: ignore
 
     def create_view(
         self,

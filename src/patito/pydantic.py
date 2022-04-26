@@ -37,10 +37,12 @@ PYDANTIC_TO_POLARS_TYPES = {
 class ModelMetaclass(PydanticModelMetaclass):
     def __init__(cls, name: str, bases: tuple, clsdict: dict) -> None:
         """Construct new patito.Model class."""
-        super().__init__(name, bases, clsdict)
+        super().__init__(name, bases, clsdict)  # type: ignore
         # Add a custom subclass of patito.DataFrame to the model class,
         # where .set_model() has been implicitly set.
-        cls.DataFrame = DataFrame._construct_dataframe_model_class(model=cls)
+        cls.DataFrame = DataFrame._construct_dataframe_model_class(
+            model=cls,  # type: ignore
+        )
 
 
 class Model(BaseModel, metaclass=ModelMetaclass):
@@ -269,7 +271,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     def example(
         cls: Type[ModelType],
         data: Optional[Union[dict, Iterable]] = None,
-        columns: Iterable[str] = None,
+        columns: Optional[Iterable[str]] = None,
     ) -> pl.DataFrame:
         """
         Generate polars dataframe with dummy data for all unspecified columns.
@@ -392,7 +394,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 )
             elif props["type"] == "number":
                 if props.get("format") == "time-delta":
-                    valid_dtypes[column] = (pl.Duration,)
+                    valid_dtypes[column] = (
+                        pl.Duration,
+                    )  # pyright: reportPrivateImportUsage=false
                 else:
                     valid_dtypes[column] = (pl.Float64, pl.Float32)
             elif props["type"] == "boolean":

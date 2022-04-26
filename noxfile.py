@@ -2,7 +2,7 @@ import tempfile
 
 import nox
 
-nox.options.sessions = "lint", "test"
+nox.options.sessions = "lint", "test", "type_check"
 locations = "src", "tests", "noxfile.py"
 
 
@@ -26,6 +26,14 @@ def test(session):
     session.run("poetry", "install", "--no-dev", "-E", "duckdb", external=True)
     install_with_constraints(session, "coverage[toml]", "pytest", "pytest-cov")
     session.run("pytest", *args)
+
+
+@nox.session(python=["3.9"])
+def type_check(session):
+    args = session.posargs or locations
+    session.run("poetry", "install", "--no-dev", "-E", "duckdb", external=True)
+    install_with_constraints(session, "pyright", "pytest")
+    session.run("pyright", *args)
 
 
 @nox.session(python=["3.9"])

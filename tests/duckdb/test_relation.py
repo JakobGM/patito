@@ -304,12 +304,12 @@ def test_relation_union_method():
         TypeError,
         match="Union between relations with different column names is not allowed.",
     ):
-        incompatible + right
+        incompatible + right  # type: ignore
     with pytest.raises(
         TypeError,
         match="Union between relations with different column names is not allowed.",
     ):
-        left + incompatible
+        left + incompatible  # type: ignore
 
 
 def test_relation_model_functionality():

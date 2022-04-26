@@ -1,4 +1,5 @@
 """Tests for patito.Model."""
+# pyright: reportPrivateImportUsage=false
 from datetime import date, datetime, timedelta
 from typing import Literal, Optional
 
