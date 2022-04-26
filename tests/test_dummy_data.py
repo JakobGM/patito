@@ -2,9 +2,10 @@
 from datetime import date, datetime
 from typing import Optional
 
-import patito as pt
 import polars as pl
 import pytest
+
+import patito as pt
 
 
 def test_model_example_df():

@@ -7,11 +7,11 @@ from typing import Any, Optional, Type, TypeVar, Union
 
 import pandas as pd
 import polars as pl
-from patito.polars import DataFrame
-from patito.validators import validate
 from pydantic import BaseConfig, BaseModel, Field  # noqa: F401
 from pydantic.main import ModelMetaclass as PydanticModelMetaclass
 
+from patito.polars import DataFrame
+from patito.validators import validate
 
 # The generic type of a single row in given Relation.
 # Should be a typed subclass of Model.

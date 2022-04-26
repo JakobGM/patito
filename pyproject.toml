@@ -26,12 +26,12 @@ pytest = "^7.1.2"
 pytest-watcher = "^0.2.3"
 coverage = "^6.3.2"
 pytest-cov = "^3.0.0"
+isort = "^5.10.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-# pyproject.toml
 [tool.coverage.paths]
 source = ["src", "*/site-packages"]
 
@@ -42,3 +42,6 @@ source = ["patito"]
 [tool.coverage.report]
 fail_under = 90
 show_missing = true
+
+[tool.isort]
+profile = "black"

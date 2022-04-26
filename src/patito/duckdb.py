@@ -22,9 +22,9 @@ from typing import (
 import numpy as np
 import pandas as pd
 import polars as pl
-from patito.pydantic import PYDANTIC_TO_DUCKDB_TYPES, Model, ModelType
 from pydantic import create_model
 
+from patito.pydantic import PYDANTIC_TO_DUCKDB_TYPES, Model, ModelType
 
 if TYPE_CHECKING:
     import duckdb

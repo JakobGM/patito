@@ -2,9 +2,10 @@
 import re
 from datetime import date, datetime
 
-import patito as pt
 import polars as pl
 import pytest
+
+import patito as pt
 
 
 def test_dataframe_get_method():

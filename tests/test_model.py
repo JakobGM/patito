@@ -3,9 +3,10 @@ from datetime import date, datetime, timedelta
 from typing import Literal, Optional
 
 import pandas as pd
-import patito as pt
 import polars as pl
 import pytest
+
+import patito as pt
 
 
 def test_model_dummy():

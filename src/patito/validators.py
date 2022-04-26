@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Type, Union, cast
 
 import pandas as pd
 import polars as pl
+
 from patito.exceptions import (
     ColumnDTypeError,
     ErrorWrapper,
@@ -14,7 +15,6 @@ from patito.exceptions import (
     SuperflousColumnsError,
     ValidationError,
 )
-
 
 if TYPE_CHECKING:
     from patito import Model

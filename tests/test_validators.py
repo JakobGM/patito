@@ -2,9 +2,10 @@
 from datetime import date, datetime
 from typing import Literal, Optional
 
-import patito as pt
 import polars as pl
 import pytest
+
+import patito as pt
 from patito.exceptions import ValidationError
 from patito.validators import validate
 

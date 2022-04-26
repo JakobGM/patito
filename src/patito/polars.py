@@ -13,9 +13,9 @@ from typing import (
 )
 
 import polars as pl
-from patito.exceptions import MultipleRowsReturned, RowDoesNotExist
 from pydantic import create_model
 
+from patito.exceptions import MultipleRowsReturned, RowDoesNotExist
 
 if TYPE_CHECKING:
     from patito.pydantic import Model

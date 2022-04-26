@@ -2,8 +2,9 @@
 from typing import Literal, Optional
 
 import pandas as pd
-import patito as pt
 import pytest
+
+import patito as pt
 
 
 def test_database(tmp_path):

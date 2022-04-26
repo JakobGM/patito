@@ -1,11 +1,11 @@
 import pkg_resources
+from pkg_resources import DistributionNotFound
+from polars import Expr, Series, col
+
 from patito import exceptions
 from patito.exceptions import ValidationError
 from patito.polars import DataFrame
 from patito.pydantic import Field, Model
-from pkg_resources import DistributionNotFound
-from polars import Expr, Series, col
-
 
 __all__ = [
     "DataFrame",

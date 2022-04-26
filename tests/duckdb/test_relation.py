@@ -4,9 +4,10 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pandas as pd
-import patito as pt
 import polars as pl
 import pytest
+
+import patito as pt
 
 
 @pytest.mark.skip(reason="Segmentation fault")
