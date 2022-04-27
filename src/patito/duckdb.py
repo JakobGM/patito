@@ -741,7 +741,7 @@ class Database:
             schema: A patito model which specifies the column names and types of the
                 given relation.
         """
-        return self.to_relation(schema.example()).limit(0)
+        return self.to_relation(schema.examples()).limit(0)
 
     def create_table(
         self,

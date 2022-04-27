@@ -78,7 +78,7 @@ def test_database_create_table():
     table = db.create_table(name="test_table", model=Model)
 
     # We insert some dummy data into the new table
-    dummy_relation = db.to_relation(Model.example({"optional_int_column": [1, None]}))
+    dummy_relation = db.to_relation(Model.examples({"optional_int_column": [1, None]}))
     dummy_relation.insert_into(table_name="test_table")
 
     # But we should not be able to insert null data in non-optional columns

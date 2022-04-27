@@ -106,7 +106,7 @@ This will quickly introduce a lot of boilerplate to all tests involving data fra
 For this reason Patito provides the `examples` constructor for generating test data that is fully compliant with the given model schema.
 
 ```py
-Product.example({"is_for_sale": [True, True, False]})
+Product.examples({"is_for_sale": [True, True, False]})
 # shape: (3, 3)
 # ┌─────────────┬──────────────────┬────────────┐
 # │ is_for_sale ┆ temperature_zone ┆ product_id │
@@ -121,16 +121,14 @@ Product.example({"is_for_sale": [True, True, False]})
 # └─────────────┴──────────────────┴────────────┘
 ```
 
-The `example()` method accepts the same arguments as a regular data frame constructor, the main difference being that it fills in valid dummy data for any unspecified columns.
+The `examples()` method accepts the same arguments as a regular data frame constructor, the main difference being that it fills in valid dummy data for any unspecified columns.
 The test can therefore be rewritten as:
 
 ```py
 def test_num_products_for_sale():
-    products = Product.example({"is_for_sale": [True, True, False]})
+    products = Product.examples({"is_for_sale": [True, True, False]})
     assert num_products_for_sale(products) == 2
 ```
-
-By default a polars dataframe is returned, use `example_pandas()` if a pandas data frame is required.
 
 ## 🐍 Representing rows as classes
 

@@ -11,7 +11,7 @@ import patito as pt
 def test_model_example_df():
     """Test for patito.Model.example()."""
 
-    # When inheriting from Model you get a .example() method for generating dataframes
+    # When inheriting from Model you get a .examples() method for generating dataframes
     # default values according to the type annotation.
     class MyRow(pt.Model):
         a: int
@@ -20,8 +20,8 @@ def test_model_example_df():
         d: int
         e: str
 
-    df_1 = MyRow.example({"a": [1, 2], "b": [3, 4], "c": 5})
-    df_2 = MyRow.example(
+    df_1 = MyRow.examples({"a": [1, 2], "b": [3, 4], "c": 5})
+    df_2 = MyRow.examples(
         data=[[1, 3, 5], [2, 4, 5]],
         columns=["a", "b", "c"],
     )
@@ -43,16 +43,16 @@ def test_model_example_df():
         TypeError,
         match="MyRow does not contain fields {'[fg]', '[fg]'}!",
     ):
-        MyRow.example({"a": [0], "f": [1], "g": [2]})
+        MyRow.examples({"a": [0], "f": [1], "g": [2]})
 
 
-def test_example():
+def test_examples():
     class MyModel(pt.Model):
         a: int
         b: Optional[str]
         c: Optional[int]
 
-    df = MyModel.example({"a": [1, 2]})
+    df = MyModel.examples({"a": [1, 2]})
     assert isinstance(df, pl.DataFrame)
     assert df.dtypes == [pl.Int64, pl.Utf8, pl.Int64]
     assert df.columns == ["a", "b", "c"]
@@ -83,6 +83,6 @@ def test_generation_of_unique_data():
         date_column: date = pt.Field(unique=True)
         datetime_column: datetime = pt.Field(unique=True)
 
-    example_df = UniqueModel.example({"bool_column": [True, False]})
+    example_df = UniqueModel.examples({"bool_column": [True, False]})
     for column in UniqueModel.columns:
         assert example_df[column].is_duplicated().sum() == 0

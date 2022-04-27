@@ -24,7 +24,7 @@ def test_model_dummy():
         default_value: str = "my_default"
         optional_value: Optional[int]
 
-    assert MyModel.dummy().dict() == {
+    assert MyModel.example().dict() == {
         "int_value": -1,
         "float_value": -0.5,
         "str_value": "dummy_string",
@@ -33,7 +33,7 @@ def test_model_dummy():
         "default_value": "my_default",
         "optional_value": None,
     }
-    assert MyModel.dummy(
+    assert MyModel.example(
         bool_value=True,
         default_value="override",
         optional_value=1,
@@ -60,8 +60,8 @@ def test_model_dummy_pandas():
         d: int
         e: str
 
-    df_1 = MyRow.example_pandas({"a": [1, 2], "b": [3, 4], "c": 5})
-    df_2 = MyRow.example_pandas(
+    df_1 = MyRow.pandas_examples({"a": [1, 2], "b": [3, 4], "c": 5})
+    df_2 = MyRow.pandas_examples(
         data=[[1, 3, 5], [2, 4, 5]],
         columns=["a", "b", "c"],
     )
@@ -83,7 +83,7 @@ def test_model_dummy_pandas():
         TypeError,
         match="MyRow does not contain fields {'[fg]', '[fg]'}!",
     ):
-        MyRow.example_pandas({"a": [0], "f": [1], "g": [2]})
+        MyRow.pandas_examples({"a": [0], "f": [1], "g": [2]})
 
 
 def test_instantiating_model_from_row():

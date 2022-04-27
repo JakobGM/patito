@@ -200,7 +200,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             raise NotImplementedError
 
     @classmethod
-    def dummy(cls: Type[ModelType], **kwargs) -> ModelType:
+    def example(cls: Type[ModelType], **kwargs) -> ModelType:
         """
         Produce model with dummy data for all unspecified fields.
 
@@ -224,7 +224,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         return cls(**new_kwargs)
 
     @classmethod
-    def example_pandas(
+    def pandas_examples(
         cls: Type[ModelType],
         data: Union[dict, Iterable],
         columns: Optional[Iterable[str]] = None,
@@ -264,11 +264,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         }
         dummies = []
         for values in zip(*kwargs.values()):
-            dummies.append(cls.dummy(**dict(zip(kwargs.keys(), values))))
+            dummies.append(cls.example(**dict(zip(kwargs.keys(), values))))
         return pd.DataFrame([dummy.dict() for dummy in dummies])
 
     @classmethod
-    def example(
+    def examples(
         cls: Type[ModelType],
         data: Optional[Union[dict, Iterable]] = None,
         columns: Optional[Iterable[str]] = None,

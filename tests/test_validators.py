@@ -267,7 +267,7 @@ def test_validation_of_bounds_checks():
     # The .example() method should produce the correct dtypes, except for
     # the regex-validated string field which is not supported
     BoundModel.validate(
-        BoundModel.example({"regex_column": ["value A", "value B", "value C"]})
+        BoundModel.examples({"regex_column": ["value A", "value B", "value C"]})
     )
 
     valid = [42.5, 42.4, 42.5, 42.6, 42.6, 19.5, 3.1415, "value X", "ab", "ab"]
@@ -312,7 +312,7 @@ def test_validation_of_dtype_specifiers():
     }
 
     # The .example() method should produce the correct dtypes
-    DTypeModel.validate(DTypeModel.example({"smallint_column": [1, 2, 3]}))
+    DTypeModel.validate(DTypeModel.examples({"smallint_column": [1, 2, 3]}))
 
     valid = [
         pl.Series([-2]).cast(pl.Int64),

@@ -342,7 +342,7 @@ def test_relation_model_functionality():
         b: str
 
     # Some dummy data
-    dummy_df = MyModel.example({"a": [1, 2], "b": ["one", "two"]})
+    dummy_df = MyModel.examples({"a": [1, 2], "b": ["one", "two"]})
     dummy_relation = db.to_relation(dummy_df)
 
     # Initially the relation has no custom model and it is dynamically constructed
