@@ -4,6 +4,7 @@ import nox
 
 nox.options.sessions = "lint", "test", "type_check"
 locations = "src", "tests", "noxfile.py"
+supported_python_versions = "3.8", "3.9", "3.10"
 
 
 def install_with_constraints(session, *args, **kwargs):
@@ -20,7 +21,7 @@ def install_with_constraints(session, *args, **kwargs):
         session.install(f"--constraint={requirements.name}", *args, **kwargs)
 
 
-@nox.session(python=["3.9"])
+@nox.session(python=supported_python_versions)
 def test(session):
     """Run test suite using pytest + coverage + xdoctest."""
     args = session.posargs or ["--cov", "--xdoctest"]

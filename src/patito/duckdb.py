@@ -13,6 +13,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -216,7 +217,7 @@ class Relation(Generic[ModelType]):
 
     def count(self) -> int:
         """Return the number of rows in the given relation."""
-        return cast(tuple[int], self._relation.aggregate("count(*)").fetchone())[0]
+        return cast(Tuple[int], self._relation.aggregate("count(*)").fetchone())[0]
 
     def create_table(self: RelationType, name: str) -> RelationType:
         """

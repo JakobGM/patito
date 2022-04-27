@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 from collections.abc import Iterable
 from contextlib import contextmanager
-from typing import Any, Optional, Type, TypeVar, Union
+from typing import Any, Optional, Tuple, Type, TypeVar, Union
 
 import pandas as pd
 import polars as pl
@@ -43,6 +43,119 @@ class ModelMetaclass(PydanticModelMetaclass):
         cls.DataFrame = DataFrame._construct_dataframe_model_class(
             model=cls,  # type: ignore
         )
+
+    # --- Class properties ---
+    # These properties will only be available on Model *classes*, not instantiated
+    # objects This is backwards compatible to python versions before python 3.9,
+    # unlike a combination of @classmethod and @property.
+    @property
+    def columns(cls) -> Tuple[str, ...]:
+        """Return tuple containing column names of row."""
+        return tuple(cls.schema()["properties"].keys())
+
+    @property
+    def dtypes(cls) -> dict[str, Type[pl.DataType]]:
+        """
+        Return polars dtypes as a column name -> polars type dict mapping.
+
+        Unless Field(dtype=...) is specified, the highest signed column dtype
+        is chosen for integer and float columns.
+        """
+        return {
+            column: valid_dtypes[0] for column, valid_dtypes in cls.valid_dtypes.items()
+        }
+
+    @property
+    def valid_dtypes(cls) -> dict[str, Tuple[Type[pl.DataType], ...]]:  # # noqa: C901
+        """
+        Return valid polars dtypes as a column name -> dtypes mapping.
+
+        The first item of each tuple is the default dtype chosen by Patito.
+        """
+        schema = cls.schema()
+        properties = schema["properties"]
+
+        valid_dtypes = {}
+        for column, props in properties.items():
+            if "dtype" in props:
+                valid_dtypes[column] = (props["dtype"],)
+            elif "enum" in props:
+                if props["type"] != "string":
+                    raise NotImplementedError
+                valid_dtypes[column] = (pl.Categorical, pl.Utf8)
+            elif props["type"] == "integer":
+                valid_dtypes[column] = (
+                    pl.Int64,
+                    pl.Int32,
+                    pl.Int16,
+                    pl.Int8,
+                    pl.UInt64,
+                    pl.UInt32,
+                    pl.UInt16,
+                    pl.UInt8,
+                )
+            elif props["type"] == "number":
+                if props.get("format") == "time-delta":
+                    valid_dtypes[column] = (
+                        pl.Duration,
+                    )  # pyright: reportPrivateImportUsage=false
+                else:
+                    valid_dtypes[column] = (pl.Float64, pl.Float32)
+            elif props["type"] == "boolean":
+                valid_dtypes[column] = (pl.Boolean,)
+            elif props["type"] == "string":
+                string_format = props.get("format")
+                if string_format is None:
+                    valid_dtypes[column] = (pl.Utf8,)
+                elif string_format == "date":
+                    valid_dtypes[column] = (pl.Date,)
+                elif string_format == "date-time":
+                    valid_dtypes[column] = (pl.Datetime,)
+            elif props["type"] == "null":
+                valid_dtypes[column] = (pl.Null,)
+            else:
+                raise NotImplementedError
+
+        return valid_dtypes
+
+    @property
+    def defaults(cls) -> dict[str, Any]:
+        """Return dictionary containing fields with their respective default values."""
+        return {
+            field_name: props["default"]
+            for field_name, props in cls.schema()["properties"].items()
+            if "default" in props
+        }
+
+    @property
+    def non_nullable_columns(
+        cls: Type[ModelType],  # pyright: reportGeneralTypeIssues=false
+    ) -> set[str]:
+        """Return names of those columns that are non-nullable in the schema."""
+        return set(cls.schema()["required"])
+
+    @property
+    def nullable_columns(
+        cls: Type[ModelType],  # pyright: reportGeneralTypeIssues=false
+    ) -> set[str]:
+        """Return names of those columns that are nullable in the schema."""
+        return set(cls.columns) - cls.non_nullable_columns
+
+    @property
+    def unique_columns(cls: Type[ModelType]) -> set[str]:
+        """Return columns with uniqueness constraint."""
+        props = cls.schema()["properties"]
+        return {column for column in cls.columns if props[column].get("unique", False)}
+
+    @property
+    def sql_types(cls: Type[ModelType]) -> dict[str, str]:
+        """Return SQL types as a column name -> sql type dict mapping."""
+        schema = cls.schema()
+        props = schema["properties"]
+        return {
+            column: PYDANTIC_TO_DUCKDB_TYPES[props[column]["type"]]
+            for column in cls.columns
+        }
 
 
 class Model(BaseModel, metaclass=ModelMetaclass):
@@ -107,22 +220,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 given schema.
         """
         validate(dataframe=dataframe, schema=cls)
-
-    @classmethod
-    @property
-    def columns(cls) -> tuple[str, ...]:
-        """Return tuple containing column names of row."""
-        return tuple(cls.schema()["properties"].keys())
-
-    @classmethod
-    @property
-    def defaults(cls) -> dict[str, Any]:
-        """Return dictionary containing fields with their respective default values."""
-        return {
-            field_name: props["default"]
-            for field_name, props in cls.schema()["properties"].items()
-            if "default" in props
-        }
 
     @classmethod
     def example_value(cls, field: str) -> Any:  # noqa: C901
@@ -321,36 +418,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
         return pl.DataFrame().with_columns(series).with_columns(unique_series)
 
-    @classmethod
-    @property
-    def non_nullable_columns(cls: Type[ModelType]) -> set[str]:
-        """Return names of those columns that are non-nullable in the schema."""
-        return set(cls.schema()["required"])
-
-    @classmethod
-    @property
-    def nullable_columns(cls: Type[ModelType]) -> set[str]:
-        """Return names of those columns that are nullable in the schema."""
-        return set(cls.columns) - cls.non_nullable_columns
-
-    @classmethod
-    @property
-    def unique_columns(cls: Type[ModelType]) -> set[str]:
-        """Return columns with uniqueness constraint."""
-        props = cls.schema()["properties"]
-        return {column for column in cls.columns if props[column].get("unique", False)}
-
-    @classmethod
-    @property
-    def sql_types(cls: Type[ModelType]) -> dict[str, str]:
-        """Return SQL types as a column name -> sql type dict mapping."""
-        schema = cls.schema()
-        props = schema["properties"]
-        return {
-            column: PYDANTIC_TO_DUCKDB_TYPES[props[column]["type"]]
-            for column in cls.columns
-        }
-
     @contextmanager
     def as_unfrozen(self):
         """Yield the model as a temporarily mutable pydantic model."""
@@ -359,75 +426,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             yield self
         finally:
             self.__config__.frozen = True
-
-    @classmethod
-    @property
-    def valid_dtypes(  # noqa: C901
-        cls: Type[ModelType],
-    ) -> dict[str, tuple[Type[pl.DataType], ...]]:
-        """
-        Return valid polars dtypes as a column name -> dtypes mapping.
-
-        The first item of each tuple is the default dtype chosen by Patito.
-        """
-        schema = cls.schema()
-        properties = schema["properties"]
-
-        valid_dtypes = {}
-        for column, props in properties.items():
-            if "dtype" in props:
-                valid_dtypes[column] = (props["dtype"],)
-            elif "enum" in props:
-                if props["type"] != "string":
-                    raise NotImplementedError
-                valid_dtypes[column] = (pl.Categorical, pl.Utf8)
-            elif props["type"] == "integer":
-                valid_dtypes[column] = (
-                    pl.Int64,
-                    pl.Int32,
-                    pl.Int16,
-                    pl.Int8,
-                    pl.UInt64,
-                    pl.UInt32,
-                    pl.UInt16,
-                    pl.UInt8,
-                )
-            elif props["type"] == "number":
-                if props.get("format") == "time-delta":
-                    valid_dtypes[column] = (
-                        pl.Duration,
-                    )  # pyright: reportPrivateImportUsage=false
-                else:
-                    valid_dtypes[column] = (pl.Float64, pl.Float32)
-            elif props["type"] == "boolean":
-                valid_dtypes[column] = (pl.Boolean,)
-            elif props["type"] == "string":
-                string_format = props.get("format")
-                if string_format is None:
-                    valid_dtypes[column] = (pl.Utf8,)
-                elif string_format == "date":
-                    valid_dtypes[column] = (pl.Date,)
-                elif string_format == "date-time":
-                    valid_dtypes[column] = (pl.Datetime,)
-            elif props["type"] == "null":
-                valid_dtypes[column] = (pl.Null,)
-            else:
-                raise NotImplementedError
-
-        return valid_dtypes
-
-    @classmethod
-    @property
-    def dtypes(cls: Type[ModelType]) -> dict[str, Type[pl.DataType]]:
-        """
-        Return polars dtypes as a column name -> polars type dict mapping.
-
-        Unless Field(dtype=...) is specified, the highest signed column dtype
-        is chosen for integer and float columns.
-        """
-        return {
-            column: valid_dtypes[0] for column, valid_dtypes in cls.valid_dtypes.items()
-        }
 
     class Config(BaseConfig):
         """Configuration for Pydantic BaseModel behaviour."""

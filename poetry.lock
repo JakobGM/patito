@@ -593,8 +593,8 @@ duckdb = ["duckdb", "pyarrow"]
 
 [metadata]
 lock-version = "1.1"
-python-versions = "^3.9"
-content-hash = "a1eca57ab700571eebb859e82135d0a08be7c1eaa0b97b077d53b587f04aa667"
+python-versions = "^3.8"
+content-hash = "2b955f41b7d9ebd2ad885ed81a1ba17eb2b1a8e794c8cc307556635da9e3d97c"
 
 [metadata.files]
 atomicwrites = [

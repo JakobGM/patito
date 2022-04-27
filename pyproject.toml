@@ -10,7 +10,7 @@ repository = "https://github.com/kolonialno/patito"
 keywords = ["validation", "dataframe"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
 pydantic = "^1.9.0"
 polars = "^0.13.25"
 pandas = "^1.4.2"
