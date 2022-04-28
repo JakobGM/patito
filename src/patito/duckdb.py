@@ -21,11 +21,17 @@ from typing import (
 )
 
 import numpy as np
-import pandas as pd
 import polars as pl
 from pydantic import create_model
 
 from patito.pydantic import PYDANTIC_TO_DUCKDB_TYPES, Model, ModelType
+
+try:
+    import pandas as pd
+
+    _PANDAS_AVAILABLE = True
+except ImportError:
+    _PANDAS_AVAILABLE = False
 
 if TYPE_CHECKING:
     import duckdb
@@ -33,7 +39,7 @@ if TYPE_CHECKING:
 
 # Types which can be used to instantiate a DuckDB Relation object
 RelationSource = Union[
-    pd.DataFrame, pl.DataFrame, Path, str, "duckdb.DuckDBPyRelation", "Relation"
+    "pd.DataFrame", pl.DataFrame, Path, str, "duckdb.DuckDBPyRelation", "Relation"
 ]
 
 # Used to refer to type(self) in Relation methods which preserve the type.
@@ -462,9 +468,9 @@ class Relation(Generic[ModelType]):
         """Return column name -> DuckDB SQL type dictionary mapping."""
         return dict(zip(self._relation.columns, self._relation.types))
 
-    def to_pandas(self) -> pd.DataFrame:
+    def to_pandas(self) -> "pd.DataFrame":
         """Return a pandas DataFrame representation of relation object."""
-        return cast(pd.DataFrame, self._relation.to_df())
+        return cast("pd.DataFrame", self._relation.to_df())
 
     def to_df(self) -> pl.DataFrame:
         """Return a polars DataFrame representation of relation object."""
@@ -713,7 +719,7 @@ class Database:
             relation = derived_from
         elif isinstance(derived_from, str):
             relation = self.connection.from_query(derived_from)
-        elif isinstance(derived_from, pd.DataFrame):
+        elif _PANDAS_AVAILABLE and isinstance(derived_from, pd.DataFrame):
             # We must replace pd.NA with np.nan in order for it to be considered
             # as null by DuckDB. Otherwise it will casted to the string <NA>
             # or even segfault.

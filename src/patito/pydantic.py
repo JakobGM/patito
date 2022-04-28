@@ -5,13 +5,19 @@ from collections.abc import Iterable
 from contextlib import contextmanager
 from typing import Any, Optional, Tuple, Type, TypeVar, Union
 
-import pandas as pd
 import polars as pl
 from pydantic import BaseConfig, BaseModel, Field  # noqa: F401
 from pydantic.main import ModelMetaclass as PydanticModelMetaclass
 
 from patito.polars import DataFrame
 from patito.validators import validate
+
+try:
+    import pandas as pd
+
+    _PANDAS_AVAILABLE = True
+except ImportError:
+    _PANDAS_AVAILABLE = False
 
 # The generic type of a single row in given Relation.
 # Should be a typed subclass of Model.
@@ -169,15 +175,15 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     @classmethod
     def from_row(
         cls: Type[ModelType],
-        row: Union[pd.DataFrame, pl.DataFrame],
+        row: Union["pd.DataFrame", pl.DataFrame],
         validate: bool = True,
     ) -> ModelType:
-        if isinstance(row, pd.DataFrame):
-            dataframe = pl.DataFrame._from_pandas(row)
-        elif isinstance(row, pd.Series):
-            return cls(**dict(row.iteritems()))
-        elif isinstance(row, pl.DataFrame):
+        if isinstance(row, pl.DataFrame):
             dataframe = row
+        elif _PANDAS_AVAILABLE and isinstance(row, pd.DataFrame):
+            dataframe = pl.DataFrame._from_pandas(row)
+        elif _PANDAS_AVAILABLE and isinstance(row, pd.Series):
+            return cls(**dict(row.iteritems()))
         else:
             raise TypeError(f"{cls.__name__}.from_row not implemented for {type(row)}.")
         return cls.from_polars(dataframe=dataframe, validate=validate)
@@ -208,7 +214,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             return cls.construct(**dataframe.to_dicts()[0])
 
     @classmethod
-    def validate(cls, dataframe: Union[pd.DataFrame, pl.DataFrame]) -> None:
+    def validate(cls, dataframe: Union["pd.DataFrame", pl.DataFrame]) -> None:
         """
         Validate the given dataframe.
 
@@ -325,7 +331,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         cls: Type[ModelType],
         data: Union[dict, Iterable],
         columns: Optional[Iterable[str]] = None,
-    ) -> pd.DataFrame:
+    ) -> "pd.DataFrame":
         """
         Generate dataframe with dummy data for all unspecified columns.
 
@@ -342,6 +348,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             polars (bool, optional): If True, returns a polars DataFrame, else returns a
             pandas DataFrame. Equivalent to running .dummy_df(). Defaults to False.
         """
+        if not _PANDAS_AVAILABLE:
+            # Re-trigger the import error, but this time don't catch it
+            raise ImportError("No module named 'pandas'")
+
         if not isinstance(data, dict):
             if columns is None:
                 raise TypeError(

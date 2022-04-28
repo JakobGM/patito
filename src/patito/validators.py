@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Type, Union, cast
 
-import pandas as pd
 import polars as pl
 
 from patito.exceptions import (
@@ -15,6 +14,13 @@ from patito.exceptions import (
     SuperflousColumnsError,
     ValidationError,
 )
+
+try:
+    import pandas as pd
+
+    _PANDAS_AVAILABLE = True
+except ImportError:
+    _PANDAS_AVAILABLE = False
 
 if TYPE_CHECKING:
     from patito import Model
@@ -190,7 +196,9 @@ def _find_errors(  # noqa: C901
     return errors
 
 
-def validate(dataframe: Union[pd.DataFrame, pl.DataFrame], schema: Type[Model]) -> None:
+def validate(
+    dataframe: Union["pd.DataFrame", pl.DataFrame], schema: Type[Model]
+) -> None:
     """
     Validate the given dataframe.
 
@@ -202,7 +210,7 @@ def validate(dataframe: Union[pd.DataFrame, pl.DataFrame], schema: Type[Model]) 
         patito.exceptions.ValidationError: If the given dataframe does not match the
             given schema.
     """
-    if isinstance(dataframe, pd.DataFrame):
+    if _PANDAS_AVAILABLE and isinstance(dataframe, pd.DataFrame):
         dataframe = cast(pl.DataFrame, pl.from_pandas(dataframe))
     errors = _find_errors(dataframe=dataframe, schema=schema)
     if errors:

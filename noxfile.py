@@ -25,7 +25,14 @@ def install_with_constraints(session, *args, **kwargs):
 def test(session):
     """Run test suite using pytest + coverage + xdoctest."""
     args = session.posargs or ["--cov", "--xdoctest"]
-    session.run("poetry", "install", "--no-dev", "-E", "duckdb", external=True)
+    session.run(
+        "poetry",
+        "install",
+        "--no-dev",
+        "--extras",
+        "duckdb pandas",
+        external=True,
+    )
     install_with_constraints(
         session,
         "coverage[toml]",
@@ -39,7 +46,14 @@ def test(session):
 @nox.session(python=["3.9"])
 def type_check(session):
     args = session.posargs or locations
-    session.run("poetry", "install", "--no-dev", "-E", "duckdb", external=True)
+    session.run(
+        "poetry",
+        "install",
+        "--no-dev",
+        "--extras",
+        "duckdb pandas",
+        external=True,
+    )
     install_with_constraints(session, "pyright", "pytest")
     session.run("pyright", *args)
 

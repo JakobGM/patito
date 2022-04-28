@@ -13,13 +13,14 @@ keywords = ["validation", "dataframe"]
 python = "^3.8"
 pydantic = "^1.9.0"
 polars = "^0.13.25"
-pandas = "^1.4.2"
+pandas = {version = "^1.4.2", optional = true}
 duckdb = {version = "0.3.4", optional = true}
 pyarrow = {version = "^7.0.0", optional = true}
 coverage = {version = "^6.3.2", extras = ["toml"]}
 
 [tool.poetry.extras]
 duckdb = ["duckdb", "pyarrow"]
+pandas = ["pandas", "pyarrow"]
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
