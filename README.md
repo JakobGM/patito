@@ -226,3 +226,5 @@ product = (
 print(repr(product))
 # Product(product_id=1, popularity_rank=2, status='for-sale', eurocent_cost=230)
 ```
+
+Every Patito model automatically gets a `.DataFrame` attribute, a custom data frame subclass where `.set_model()` is invoked at instantiation. With other words, `pt.DataFrame(...).set_model(Product)` is equivalent to `Product.DataFrame(...)`.

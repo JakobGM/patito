@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 from collections.abc import Iterable
 from contextlib import contextmanager
+from datetime import date, datetime
 from typing import Any, Optional, Tuple, Type, TypeVar, Union
 
 import polars as pl
@@ -228,7 +229,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         validate(dataframe=dataframe, schema=cls)
 
     @classmethod
-    def example_value(cls, field: str) -> Any:  # noqa: C901
+    def example_value(  # noqa: C901
+        cls, field: str
+    ) -> Union[date, datetime, float, int, str]:
         """Return an example value for the given field name defined on the model."""
         schema = cls.schema()
         field_data = schema["properties"]
@@ -304,7 +307,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             raise NotImplementedError
 
     @classmethod
-    def example(cls: Type[ModelType], **kwargs) -> ModelType:
+    def example(
+        cls: Type[ModelType],
+        **kwargs: Any,  # noqa: ANN401
+    ) -> ModelType:
         """
         Produce model with dummy data for all unspecified fields.
 
@@ -432,7 +438,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         return pl.DataFrame().with_columns(series).with_columns(unique_series)
 
     @contextmanager
-    def as_unfrozen(self):
+    def as_unfrozen(self: ModelType) -> ModelType:
         """Yield the model as a temporarily mutable pydantic model."""
         self.__config__.frozen = False
         try:

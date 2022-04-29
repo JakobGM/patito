@@ -70,13 +70,13 @@ def lint(session):
     install_with_constraints(
         session,
         "flake8",
+        "flake8-annotations",
         "flake8-bandit",
         "flake8-black",
         "flake8-bugbear",
         "flake8-isort",
         # TODO: And and fix all errors
         # "darglint",
-        # "flake8-annotations",
         # "flake8-docstrings",
     )
     session.run("flake8", *args)

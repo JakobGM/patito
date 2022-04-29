@@ -20,7 +20,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
     _model: ModelType
 
     @classmethod
-    def _construct_dataframe_model_class(cls, model: Model):
+    def _construct_dataframe_model_class(
+        cls: Type[DF], model: Model
+    ) -> DataFrame[Model]:
         """
         Return custom DataFrame sub-class where DataFrame.model is set.
 
@@ -37,9 +39,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             (new_class._lazyframe_class,),  # type: ignore
             {"_dataframe_class": new_class},
         )
-        return new_class
+        return cast("DataFrame[Model]", new_class)
 
-    def set_model(self, model):
+    def set_model(self, model):  # noqa: ANN001, ANN201
         """
         Set the model which represents the data frame schema.
 
@@ -234,7 +236,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         )
 
     @classmethod
-    def read_csv(cls: Type[DF], *args, **kwargs) -> DF:
+    def read_csv(cls: Type[DF], *args, **kwargs) -> DF:  # noqa: ANN
         """
         Read CSV and apply correct column name and types from model.
 

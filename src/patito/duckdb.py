@@ -165,7 +165,7 @@ class Relation(Generic[ModelType]):
             ", ".join(f"{column} as {prefix}{column}" for column in self.columns)
         )
 
-    def all(self, *filters: str, **equalities: Any) -> bool:
+    def all(self, *filters: str, **equalities: Union[int, float, str]) -> bool:
         """
         Return True if the given conditions are true for all rows in the relation.
 
@@ -179,7 +179,7 @@ class Relation(Generic[ModelType]):
         from_column: str,
         to_column: str,
         mapping: Mapping[Any, Any],
-        default: Any,
+        default: Union[str, int, float],
     ) -> Relation:
         """
         Map values of one column over to a new column.
@@ -200,7 +200,10 @@ class Relation(Generic[ModelType]):
         new_relation = self._relation.project("*, " + case_column_definition)
         return self._wrap(relation=new_relation, schema_change=True)
 
-    def coalesce(self: RelationType, **column_expressions: Any) -> RelationType:
+    def coalesce(
+        self: RelationType,
+        **column_expressions: Union[str, int, float],
+    ) -> RelationType:
         """
         Replace null-values in given columns with respective values.
 
@@ -251,7 +254,7 @@ class Relation(Generic[ModelType]):
             new_columns.remove(column)
         return self[new_columns]
 
-    def get(self, *filters: str, **equalities: Any) -> ModelType:
+    def get(self, *filters: str, **equalities: Union[str, int, float]) -> ModelType:
         """
         Fetch the single row that matches the given filter(s).
 
@@ -303,7 +306,11 @@ class Relation(Generic[ModelType]):
                 RowModel(**kwargs),
             )
 
-    def filter(self: RelationType, *filters: str, **equalities: Any) -> RelationType:
+    def filter(
+        self: RelationType,
+        *filters: str,
+        **equalities: Union[str, int, float],
+    ) -> RelationType:
         """
         Filter rows of relation.
 
@@ -445,7 +452,7 @@ class Relation(Generic[ModelType]):
         )
         return self._wrap(relation=relation, schema_change=True)
 
-    def set_model(self, model):
+    def set_model(self, model):  # noqa: ANN
         """
         Specify column schema and the constructor method for rows in the relation.
 
@@ -571,7 +578,7 @@ class Relation(Generic[ModelType]):
             row == other_row for row, other_row in zip(self, other_relation)
         )
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> Any:  # noqa: ANN
         """
         Resolve object attribute access.
 
@@ -702,7 +709,7 @@ class Database:
     def to_relation(
         self,
         derived_from: RelationSource,
-    ):
+    ) -> Relation:
         """
         Create a new relation object based on data source.
 
