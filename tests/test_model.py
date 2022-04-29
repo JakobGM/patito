@@ -1,11 +1,11 @@
 """Tests for patito.Model."""
 # pyright: reportPrivateImportUsage=false
 from datetime import date, datetime, timedelta
-from typing import Literal, Optional
+from typing import Optional
 
-import pandas as pd
 import polars as pl
 import pytest
+from typing_extensions import Literal
 
 import patito as pt
 
@@ -50,6 +50,7 @@ def test_model_dummy():
 
 def test_model_dummy_pandas():
     """Test for Row.dummy_pandas()."""
+    pd = pytest.importorskip("pandas")
 
     # When inheriting from Model you get a .dummy_df() method for generating dataframes
     # default values according to the type annotation.
@@ -88,6 +89,17 @@ def test_model_dummy_pandas():
 
 def test_instantiating_model_from_row():
     """You should be able to instantiate models from rows."""
+
+    class Model(pt.Model):
+        a: int
+
+    polars_dataframe = pl.DataFrame({"a": [1]})
+    assert Model.from_row(polars_dataframe).a == 1
+
+
+def test_insstantiation_from_pandas_row():
+    """You should be able to instantiate models from pandas rows."""
+    pytest.importorskip("pandas")
 
     class Model(pt.Model):
         a: int

@@ -72,7 +72,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         }
 
     @property
-    def valid_dtypes(cls) -> dict[str, Tuple[Type[pl.DataType], ...]]:  # # noqa: C901
+    def valid_dtypes(cls) -> dict[str, Tuple[Type[pl.DataType], ...]]:  # noqa: C901
         """
         Return valid polars dtypes as a column name -> dtypes mapping.
 
@@ -255,7 +255,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             upper = properties.get("maximum") or properties.get("exclusiveMaximum")
 
             # If the dtype is an unsigned integer type, we must return a positive value
-            if dtype := properties.get("dtype", False):
+            if "dtype" in properties:
+                dtype = properties["dtype"]
                 if dtype in (pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64):
                     lower = 0 if lower is None else max(lower, 0)
 
@@ -312,7 +313,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         The first item of Literal annotatations are used for dummy values.
         """
         # Non-iterable values besides strings must be repeated
-        if wrong_columns := set(kwargs.keys()) - set(cls.columns):
+        wrong_columns = set(kwargs.keys()) - set(cls.columns)
+        if wrong_columns:
             raise TypeError(f"{cls.__name__} does not contain fields {wrong_columns}!")
 
         schema = cls.schema()
@@ -401,7 +403,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         else:
             kwargs = data
 
-        if wrong_columns := set(kwargs.keys()) - set(cls.columns):
+        wrong_columns = set(kwargs.keys()) - set(cls.columns)
+        if wrong_columns:
             raise TypeError(f"{cls.__name__} does not contain fields {wrong_columns}!")
 
         series = []

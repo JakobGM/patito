@@ -86,7 +86,8 @@ def _find_errors(  # noqa: C901
 
     # Check if any non-optional columns have null values
     for column in schema.non_nullable_columns.intersection(dataframe.columns):
-        if num_missing_values := dataframe.get_column(name=column).null_count():
+        num_missing_values = dataframe.get_column(name=column).null_count()
+        if num_missing_values:
             errors.append(
                 ErrorWrapper(
                     MissingValuesError(
@@ -132,7 +133,8 @@ def _find_errors(  # noqa: C901
                 )
 
         if column_properties.get("unique", False):
-            if num_duplicated := dataframe[column_name].is_duplicated().sum():
+            num_duplicated = dataframe[column_name].is_duplicated().sum()
+            if num_duplicated > 0:
                 errors.append(
                     ErrorWrapper(
                         RowValueError(f"{num_duplicated} rows with duplicated values."),
@@ -163,7 +165,8 @@ def _find_errors(  # noqa: C901
             for check in checks:
                 lazy_df = lazy_df.filter(check)
             valid_rows = lazy_df.collect()
-            if invalid_rows := dataframe.height - valid_rows.height:
+            invalid_rows = dataframe.height - valid_rows.height
+            if invalid_rows > 0:
                 errors.append(
                     ErrorWrapper(
                         RowValueError(
@@ -181,12 +184,12 @@ def _find_errors(  # noqa: C901
             illegal_rows = dataframe.filter(
                 pl.all([constraint.is_not() for constraint in custom_constraints])
             )
-            if num_illegal_rows := illegal_rows.height:
+            if illegal_rows.height > 0:
                 errors.append(
                     ErrorWrapper(
                         RowValueError(
-                            f"{num_illegal_rows} "
-                            f"row{'' if num_illegal_rows == 1 else 's'} "
+                            f"{illegal_rows.height} "
+                            f"row{'' if illegal_rows.height == 1 else 's'} "
                             "does not match custom constraints."
                         ),
                         loc=column_name,

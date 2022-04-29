@@ -58,6 +58,7 @@ def test_examples():
     assert df.columns == ["a", "b", "c"]
 
 
+@pytest.mark.skipif("Database" not in dir(pt), reason="Requires DuckDB")
 def test_creation_of_empty_relation():
     """You should be able to create a zero-row relation with correct types."""
 

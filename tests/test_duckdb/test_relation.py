@@ -3,11 +3,13 @@ from typing import Optional
 from unittest.mock import MagicMock
 
 import numpy as np
-import pandas as pd
 import polars as pl
 import pytest
 
 import patito as pt
+
+# SKip test module if DuckDB is not installed
+pytest.importorskip("duckdb")
 
 
 @pytest.mark.skip(reason="Segmentation fault")
@@ -35,7 +37,7 @@ def test_relation():
     assert table_relation[["column_1, column_2"]] == table_relation
     assert table_relation.project("column_1") != table_relation.project("column_2")
 
-    # We can also usekewyrod arguments to rename columns
+    # We can also use kewyrod arguments to rename columns
     assert tuple(table_relation.project(column_3="column_1::varchar || column_2")) == (
         {"column_3": "1a"},
         {"column_3": "2b"},
@@ -79,7 +81,7 @@ def test_relation():
         table_df
     )
     assert db.to_relation(table_df) + db.to_relation(table_df) == db.to_relation(
-        pd.concat([table_df, table_df])
+        pl.concat([table_df, table_df])
     )
 
     # You should be able to subscript columns
@@ -128,14 +130,14 @@ def test_relation():
     ):
         table_relation.attribute_that_does_not_exist
 
-    # Both None, pd.NA, and nupmy.nan should be considered as null-values
-    none_df = pd.DataFrame({"column_1": [1, None, pd.NA, np.nan]})
+    # Both None,pl.NA, and nupmy.nan should be considered as null-values
+    none_df = pl.DataFrame({"column_1": [1, None, np.nan]})
     none_relation = db.to_relation(none_df)
     assert none_relation.filter("column_1 is null") == none_df.iloc[1:]
 
     # The .inner_join() method should work as INNER JOIN, not LEFT or OUTER JOIN
     left_relation = db.to_relation(
-        pd.DataFrame(
+        pl.DataFrame(
             {
                 "left_primary_key": [1, 2],
                 "left_foreign_key": [10, 20],
@@ -143,13 +145,13 @@ def test_relation():
         )
     )
     right_relation = db.to_relation(
-        pd.DataFrame(
+        pl.DataFrame(
             {
                 "right_primary_key": [10],
             }
         )
     )
-    joined_table = pd.DataFrame(
+    joined_table = pl.DataFrame(
         {
             "left_primary_key": [1],
             "left_foreign_key": [10],
@@ -165,7 +167,7 @@ def test_relation():
     )
 
     # But the .left_join() method performs a LEFT JOIN
-    left_joined_table = pd.DataFrame(
+    left_joined_table = pl.DataFrame(
         {
             "left_primary_key": [1, 2],
             "left_foreign_key": [10, 20],
@@ -194,7 +196,7 @@ def test_relation_aggregate_method():
     """Test for Relation.aggregate()."""
     db = pt.Database()
     relation = db.to_relation(
-        pd.DataFrame(
+        pl.DataFrame(
             {
                 "a": [1, 1, 2],
                 "b": [10, 100, 1000],
@@ -229,7 +231,7 @@ def test_relation_all_method():
     """Test for Relation.all()."""
     db = pt.Database()
     relation = db.to_relation(
-        pd.DataFrame(
+        pl.DataFrame(
             {
                 "a": [1, 2, 3],
                 "b": [100, 100, 100],
@@ -267,19 +269,19 @@ def test_relation_case_method():
 def test_relation_coalesce_method():
     """Test for Relation.coalesce()."""
     db = pt.Database()
-    df = pd.DataFrame(
+    df = pl.DataFrame(
         {"column_1": [1.0, None], "column_2": [None, "2"], "column_3": [3.0, None]}
     )
     relation = db.to_relation(df)
-    coalesce_result = relation.coalesce(column_1=10, column_2="20").to_pandas()
-    correct_coalesce_result = pd.DataFrame(
+    coalesce_result = relation.coalesce(column_1=10, column_2="20").to_df()
+    correct_coalesce_result = pl.DataFrame(
         {
             "column_1": [1.0, 10.0],
             "column_2": ["20", "2"],
             "column_3": [3.0, None],
         }
     )
-    pd.testing.assert_frame_equal(coalesce_result, correct_coalesce_result)
+    assert coalesce_result.frame_equal(correct_coalesce_result)
 
 
 def test_relation_union_method():
@@ -287,7 +289,7 @@ def test_relation_union_method():
     db = pt.Database()
     left = db.to_relation("select 1 as a, 2 as b")
     right = db.to_relation("select 200 as b, 100 as a")
-    correct_union = pd.DataFrame(
+    correct_union = pl.DataFrame(
         {
             "a": [1, 100],
             "b": [2, 200],
@@ -420,7 +422,7 @@ def test_fill_missing_columns():
     assert MyRow.defaults == {"b": "default_value"}
 
     db = pt.Database()
-    df = pd.DataFrame({"a": ["mandatory"], "d": [10.5]})
+    df = pl.DataFrame({"a": ["mandatory"], "d": [10.5]})
     relation = db.to_relation(df).set_model(MyRow)
 
     # Missing nullable columns b, c, and e are filled in with nulls

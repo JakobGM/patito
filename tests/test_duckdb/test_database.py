@@ -1,10 +1,13 @@
 """Tests for patito.Database."""
-from typing import Literal, Optional
+from typing import Optional
 
-import pandas as pd
+import polars as pl
 import pytest
+from typing_extensions import Literal
 
 import patito as pt
+
+pytest.importorskip("duckdb")
 
 
 def test_database(tmp_path):
@@ -13,7 +16,7 @@ def test_database(tmp_path):
     db = pt.Database()
 
     # Insert a simple dataframe as a new table
-    table_df = pd.DataFrame(
+    table_df = pl.DataFrame(
         {
             "column_1": [1, 2, 3],
             "column_2": ["a", "b", "c"],
@@ -22,9 +25,10 @@ def test_database(tmp_path):
     db.to_relation(table_df).create_table(name="table_name_1")
 
     # Check that a round-trip to and from the database preserves the data
-    db_table = db.table("table_name_1").to_pandas()
+    db_table = db.table("table_name_1").to_df()
     assert db_table is not table_df
-    pd.testing.assert_frame_equal(table_df, db_table)
+    assert table_df.frame_equal(db_table)
+    pl.testing.assert_frame_equal(table_df, db_table)
 
     # Check that new database objects are isolated from previous ones
     another_db = pt.Database()

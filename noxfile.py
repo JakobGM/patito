@@ -4,7 +4,7 @@ import nox
 
 nox.options.sessions = "lint", "test", "type_check"
 locations = "src", "tests", "noxfile.py"
-supported_python_versions = "3.8", "3.9", "3.10"
+supported_python_versions = "3.7", "3.8", "3.9", "3.10"
 
 
 def install_with_constraints(session, *args, **kwargs):
@@ -24,13 +24,19 @@ def install_with_constraints(session, *args, **kwargs):
 @nox.session(python=supported_python_versions)
 def test(session):
     """Run test suite using pytest + coverage + xdoctest."""
-    args = session.posargs or ["--cov", "--xdoctest"]
+    if session.python == "3.10":
+        # Only run test coverage and docstring tests on python 3.10
+        args = session.posargs or ["--cov", "--xdoctest"]
+    else:
+        args = session.posargs
+
     session.run(
         "poetry",
         "install",
         "--no-dev",
         "--extras",
-        "duckdb pandas",
+        # Pandas requires python version >= 3.8
+        "duckdb" if session.python == "3.7" else "duckdb pandas",
         external=True,
     )
     install_with_constraints(

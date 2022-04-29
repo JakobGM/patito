@@ -1,9 +1,10 @@
 """Tests for the patito.validators module."""
 from datetime import date, datetime
-from typing import Literal, Optional
+from typing import Optional
 
 import polars as pl
 import pytest
+from typing_extensions import Literal
 
 import patito as pt
 from patito.exceptions import ValidationError

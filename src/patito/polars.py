@@ -1,19 +1,10 @@
 from __future__ import annotations
 
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Generic,
-    Literal,
-    Optional,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Generic, Optional, Type, TypeVar, Union, cast
 
 import polars as pl
 from pydantic import create_model
+from typing_extensions import Literal
 
 from patito.exceptions import MultipleRowsReturned, RowDoesNotExist
 
@@ -48,7 +39,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         )
         return new_class
 
-    def set_model(self, /, model):
+    def set_model(self, model):
         """
         Set the model which represents the data frame schema.
 
@@ -85,8 +76,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         for column, current_dtype in zip(self.columns, self.dtypes):
             if column not in properties:
                 columns.append(pl.col(column))
-            elif explicit_dtype := properties[column].get("dtype"):
-                columns.append(pl.col(column).cast(explicit_dtype))
+            elif "dtype" in properties[column]:
+                columns.append(pl.col(column).cast(properties[column]["dtype"]))
             elif not strict and current_dtype in valid_dtypes[column]:
                 columns.append(pl.col(column))
             else:

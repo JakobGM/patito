@@ -11,7 +11,6 @@ from typing import (
     Callable,
     Generic,
     List,
-    Literal,
     Optional,
     Tuple,
     Type,
@@ -23,6 +22,7 @@ from typing import (
 import numpy as np
 import polars as pl
 from pydantic import create_model
+from typing_extensions import Literal
 
 from patito.pydantic import PYDANTIC_TO_DUCKDB_TYPES, Model, ModelType
 
@@ -323,9 +323,7 @@ class Relation(Generic[ModelType]):
         filter_string = " and ".join(clauses)
         return self._wrap(self._relation.filter(filter_string), schema_change=False)
 
-    def inner_join(
-        self: RelationType, other: RelationSource, /, on: str
-    ) -> RelationType:
+    def inner_join(self: RelationType, other: RelationSource, on: str) -> RelationType:
         """
         Inner join relation with other relation source based on condition.
 
@@ -346,9 +344,7 @@ class Relation(Generic[ModelType]):
             schema_change=True,
         )
 
-    def left_join(
-        self: RelationType, other: RelationSource, /, on: str
-    ) -> RelationType:
+    def left_join(self: RelationType, other: RelationSource, on: str) -> RelationType:
         """
         Left join relation with other relation source based on condition.
 
@@ -387,7 +383,8 @@ class Relation(Generic[ModelType]):
             relation: The original relation (self).
         """
         table = self.database.table(table_name)
-        if missing_columns := set(table.columns) - set(self.columns):
+        missing_columns = set(table.columns) - set(self.columns)
+        if missing_columns:
             raise TypeError(
                 f"Relation is missing column(s) {missing_columns} "
                 f"in order to be inserted into table '{table_name}'!",
@@ -431,7 +428,8 @@ class Relation(Generic[ModelType]):
         For instance, relation.rename(a="b") will rename column "a" to "b".
         """
         existing_columns = self._relation.columns
-        if missing := set(columns.keys()) - set(existing_columns):
+        missing = set(columns.keys()) - set(existing_columns)
+        if missing:
             raise ValueError(
                 f"Column '{missing.pop()}' can not be renamed as it does not exist. "
                 f"The columns of the relation are: {', '.join(existing_columns)}."
@@ -447,7 +445,7 @@ class Relation(Generic[ModelType]):
         )
         return self._wrap(relation=relation, schema_change=True)
 
-    def set_model(self, /, model):
+    def set_model(self, model):
         """
         Specify column schema and the constructor method for rows in the relation.
 
@@ -496,9 +494,11 @@ class Relation(Generic[ModelType]):
         other_relation = self.database.to_relation(other)
         if set(self.columns) != set(other_relation.columns):
             msg = "Union between relations with different column names is not allowed."
-            if additional_left := set(self.columns) - set(other_relation.columns):
+            additional_left = set(self.columns) - set(other_relation.columns)
+            additional_right = set(other_relation.columns) - set(self.columns)
+            if additional_left:
                 msg += f" Additional columns in left relation: {additional_left}."
-            if additional_right := set(other_relation.columns) - set(self.columns):
+            if additional_right:
                 msg += f" Additional columns in right relation: {additional_right}."
             raise TypeError(msg)
         reordered_relation = other_relation[self._relation.columns]
@@ -634,8 +634,12 @@ class Relation(Generic[ModelType]):
     def __iter__(self) -> Iterator[ModelType]:
         """Iterate over rows in relation as column-named tuples."""
         result = self._relation.execute()
-        while row_tuple := result.fetchone():
-            yield self._to_model(row_tuple)
+        while True:
+            row_tuple = result.fetchone()
+            if not row_tuple:
+                return
+            else:
+                yield self._to_model(row_tuple)
 
     def __len__(self) -> int:
         """Return number of rows in relation."""
