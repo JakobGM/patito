@@ -28,6 +28,13 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         Can be used to construct a DataFrame class where
         DataFrame.set_model(model) is implicitly invoked at instantiation.
+
+        Args:
+            model: A patito model which should be used to validate the dataframe.
+
+        Returns:
+            A custom DataFrame model class where DataFrame._model has been correctly
+                "hard-coded" to the given model.
         """
         new_class = type(
             f"{model.schema()['title']}DataFrame",
@@ -45,10 +52,14 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         """
         Set the model which represents the data frame schema.
 
-        The model schema is used by methods such as .validate() and .get().
+        The model schema is used by methods such as `DataFrame.validate()` and
+        `DataFrame.get()`.
 
         Args:
             model: Sub-class of patito.Model declaring the schema of the dataframe.
+
+        Returns:
+            Returns the same dataframe, but with attached model validation metadata.
         """
         cls = self._construct_dataframe_model_class(model=model)
         return cast(
@@ -93,12 +104,15 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         You must invoke .set_model() before invoking .validate() in order
         to specify the model schema of the data frame.
 
-        Raises:
-            patito.exceptions.ValidationError: If the dataframe does not match the
-                specified schema.
-
         Returns:
             The original dataframe, if correctly validated.
+
+        Raises:
+            TypeError: If `DataFrame.set_model()` has not been invoked prior to
+                validation. Note that `patito.Model.DataFrame` automatically invokes
+                `DataFrame.set_model()` for you.
+            patito.exceptions.ValidationError:  # noqa: DAR402
+                If the dataframe does not match the specified schema.
         """
         if not hasattr(self, "_model"):
             raise TypeError(
@@ -118,26 +132,32 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         Alternatively, an arbitrary polars expression can be given, the result of which
         will be used to populate the column values.
 
-        For example:
+        Returns:
+            A new dataframe where all derivable columns are provided.
 
-        >>> import patito as pt
-        >>> import polars as pl
-        ...
-        >>> class Foo(pt.Model):
-        ...     bar: int = pt.Field(derived_from="foo")
-        ...     double_bar: int = pt.Field(derived_from=2 * pl.col("bar"))
-        ...
-        >>> Foo.DataFrame({"foo": [1, 2]}).derive()
-        shape: (2, 3)
-        ┌─────┬─────┬────────────┐
-        │ foo ┆ bar ┆ double_bar │
-        │ --- ┆ --- ┆ ---        │
-        │ i64 ┆ i64 ┆ i64        │
-        ╞═════╪═════╪════════════╡
-        │ 1   ┆ 1   ┆ 2          │
-        ├╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
-        │ 2   ┆ 2   ┆ 4          │
-        └─────┴─────┴────────────┘
+        Raises:
+            TypeError: If the `derived_from` parameter of `patito.Field` is given as
+                something elso than a string or polars expression.
+
+        Examples:
+            >>> import patito as pt
+            >>> import polars as pl
+            ...
+            >>> class Foo(pt.Model):
+            ...     bar: int = pt.Field(derived_from="foo")
+            ...     double_bar: int = pt.Field(derived_from=2 * pl.col("bar"))
+            ...
+            >>> Foo.DataFrame({"foo": [1, 2]}).derive()
+            shape: (2, 3)
+            ┌─────┬─────┬────────────┐
+            │ foo ┆ bar ┆ double_bar │
+            │ --- ┆ --- ┆ ---        │
+            │ i64 ┆ i64 ┆ i64        │
+            ╞═════╪═════╪════════════╡
+            │ 1   ┆ 1   ┆ 2          │
+            ├╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ 2   ┆ 2   ┆ 4          │
+            └─────┴─────┴────────────┘
         """
         df = self.lazy()
         for column_name, props in self.model.schema()["properties"].items():
@@ -178,6 +198,15 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         If "default" is provided as the strategy, the model fields with default values
         are used to fill missing values.
+
+        Args:
+            strategy: Accepts the same arguments as `polars.DataFrame.fill_null` in
+                addition to `"defaults"` which will use the field's default value if
+                provided.
+
+        Returns:
+            A new dataframe with nulls filled in according to the provided `strategy`
+                parameter.
         """
         if strategy != "defaults":
             return super().fill_null(strategy=strategy)
@@ -196,16 +225,18 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         you can use get() without any arguments to return that row.
 
         Raises:
-            RuntimeError: RuntimeError is thrown if not exactly one single row matches
-                the given filter. Depending on the number of rows yielded, one of
-                patito.exceptions.MultipleRowsReturned or patiot.exceptions.RowDoesNotExist
-                is raised. Both are subclasses for RuntimeError.
+            RowDoesNotExist: If zero rows evaluate to true for the given predicate.
+            MultipleRowsReturned: If more than one row evaluates to true for the given
+                predicate.
+            RuntimeError:  # noqa: DAR402
+                The superclass of both `RowDoesNotExist` and `MultipleRowsReturned`
+                if you want to catch both exeptions with the same class.
 
         Args:
             predicate: A polars expression defining the criteria of the filter.
 
         Returns:
-            row: A pydantic-derived base model representing the given row.
+            A pydantic-derived base model representing the given row.
         """
         row = self if predicate is None else self.filter(predicate)
         if row.height == 0:
@@ -218,14 +249,27 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
     @property
     def model(self) -> ModelType:
-        """Return the patito Model schema associated with the given data frame."""
+        """
+        Return the patito Model schema associated with the given data frame.
+
+        If no model has been set, then a permissive patito model is dynamically created.
+
+        Returns:
+            A patito model which can be used to represent rows of the dataframe.
+        """
         if hasattr(self, "_model"):
             return self._model
         else:
-            return self.pydantic_model()  # type: ignore
+            return self._pydantic_model()  # type: ignore
 
-    def pydantic_model(self) -> Type[Model]:
-        """Dynamically construct patito model compliant with dataframe."""
+    def _pydantic_model(self) -> Type[Model]:
+        """
+        Dynamically construct patito model compliant with dataframe.
+
+        Returns:
+            A pydantic model class where all the rows have been specified as
+                `typing.Any` fields.
+        """
         from patito.pydantic import Model
 
         pydantic_annotations = {column: (Any, ...) for column in self.columns}
@@ -242,6 +286,13 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         If any fields have `derived_from` specified, the given expression will be used
         to populate the given column.
+
+        Args:
+            *args: All positional arguments are forwarded to `polars.read_csv`.
+            **kwargs: All keyword arguments are forwarded to `polars.read_csv`.
+
+        Returns:
+            A dataframe representing the given CSV file data.
         """
         kwargs.setdefault("dtypes", cls._model.dtypes)
         if not kwargs.get("has_header", True) and "columns" not in kwargs:

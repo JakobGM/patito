@@ -75,8 +75,8 @@ def lint(session):
         "flake8-black",
         "flake8-bugbear",
         "flake8-isort",
+        "darglint",
         # TODO: And and fix all errors
-        # "darglint",
         # "flake8-docstrings",
     )
     session.run("flake8", *args)

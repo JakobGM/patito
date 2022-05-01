@@ -42,8 +42,9 @@ PYDANTIC_TO_POLARS_TYPES = {
 
 
 class ModelMetaclass(PydanticModelMetaclass):
+    """ModelMetaclass."""
+
     def __init__(cls, name: str, bases: tuple, clsdict: dict) -> None:
-        """Construct new patito.Model class."""
         super().__init__(name, bases, clsdict)  # type: ignore
         # Add a custom subclass of patito.DataFrame to the model class,
         # where .set_model() has been implicitly set.
@@ -57,16 +58,24 @@ class ModelMetaclass(PydanticModelMetaclass):
     # unlike a combination of @classmethod and @property.
     @property
     def columns(cls) -> Tuple[str, ...]:
-        """Return tuple containing column names of row."""
+        """
+        Return the name of the specified column fields the DataFrame.
+
+        Returns:
+            Tuple of column names.
+        """
         return tuple(cls.schema()["properties"].keys())
 
     @property
     def dtypes(cls) -> dict[str, Type[pl.DataType]]:
         """
-        Return polars dtypes as a column name -> polars type dict mapping.
+        Return the dtypes of the dataframe.
 
         Unless Field(dtype=...) is specified, the highest signed column dtype
         is chosen for integer and float columns.
+
+        Returns:
+            A dictionary mapping string column names to polars dtype classes.
         """
         return {
             column: valid_dtypes[0] for column, valid_dtypes in cls.valid_dtypes.items()
@@ -78,6 +87,14 @@ class ModelMetaclass(PydanticModelMetaclass):
         Return valid polars dtypes as a column name -> dtypes mapping.
 
         The first item of each tuple is the default dtype chosen by Patito.
+
+        Returns:
+            A dictionary mapping each column string name to a tuple of valid
+            dtypes.
+
+        Raises:
+            NotImplementedError: If one or more model fields are annotated with types
+                not compatible with polars.
         """
         schema = cls.schema()
         properties = schema["properties"]
@@ -127,7 +144,12 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @property
     def defaults(cls) -> dict[str, Any]:
-        """Return dictionary containing fields with their respective default values."""
+        """
+        Return default field values specified on the model.
+
+        Returns:
+            Dictionary containing fields with their respective default values.
+        """
         return {
             field_name: props["default"]
             for field_name, props in cls.schema()["properties"].items()
@@ -138,25 +160,45 @@ class ModelMetaclass(PydanticModelMetaclass):
     def non_nullable_columns(
         cls: Type[ModelType],  # pyright: reportGeneralTypeIssues=false
     ) -> set[str]:
-        """Return names of those columns that are non-nullable in the schema."""
+        """
+        Return names of those columns that are non-nullable in the schema.
+
+        Returns:
+            Set of column name strings.
+        """
         return set(cls.schema()["required"])
 
     @property
     def nullable_columns(
         cls: Type[ModelType],  # pyright: reportGeneralTypeIssues=false
     ) -> set[str]:
-        """Return names of those columns that are nullable in the schema."""
+        """
+        Return names of those columns that are nullable in the schema.
+
+        Returns:
+            Set of column name strings.
+        """
         return set(cls.columns) - cls.non_nullable_columns
 
     @property
     def unique_columns(cls: Type[ModelType]) -> set[str]:
-        """Return columns with uniqueness constraint."""
+        """
+        Return columns with uniqueness constraint.
+
+        Returns:
+            Set of column name strings.
+        """
         props = cls.schema()["properties"]
         return {column for column in cls.columns if props[column].get("unique", False)}
 
     @property
     def sql_types(cls: Type[ModelType]) -> dict[str, str]:
-        """Return SQL types as a column name -> sql type dict mapping."""
+        """
+        Return SQL types as a column name -> sql type dict mapping.
+
+        Returns:
+            Dictionary with column name keys and SQL type identifier strings.
+        """
         schema = cls.schema()
         props = schema["properties"]
         return {
@@ -195,7 +237,23 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         dataframe: pl.DataFrame,
         validate: bool = True,
     ) -> ModelType:
-        """Construct model from a single polars row."""
+        """
+        Construct model from a single polars row.
+
+        Args:
+            dataframe: A polars dataframe consisting of one single row.
+            validate: If True, run the pydantic validators. If False, pydantic will
+                not cast any types in the resulting object.
+
+        Returns:
+            A pydantic model object representing the given polars row.
+
+        Raises:
+            TypeError: If the provided `dataframe` argument is not of type
+                polars.DataFrame.
+            ValueError: If the given `dataframe` argument does not consist of exactly
+                one row.
+        """
         if not isinstance(dataframe, pl.DataFrame):
             raise TypeError(
                 f"{cls.__name__}.from_polars() must be invoked with polars.DataFrame, "
@@ -223,8 +281,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             dataframe: Polars DataFrame to be validated.
 
         Raises:
-            patito.exceptions.ValidationError: If the given dataframe does not match the
-                given schema.
+            patito.exceptions.ValidationError:  # noqa: DAR402
+                If the given dataframe does not match the given schema.
         """
         validate(dataframe=dataframe, schema=cls)
 
@@ -232,7 +290,18 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     def example_value(  # noqa: C901
         cls, field: str
     ) -> Union[date, datetime, float, int, str]:
-        """Return an example value for the given field name defined on the model."""
+        """
+        Return an example value for the given field name defined on the model.
+
+        Args:
+            field: Field name identifier.
+
+        Returns:
+            A single value which is consistent with the given field definition.
+
+        Raises:
+            NotImplementedError: If the given field has no example generator.
+        """
         schema = cls.schema()
         field_data = schema["properties"]
         non_nullable = schema["required"]
@@ -317,6 +386,18 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         The type annotation of unspecified field is used to fill in type-correct
         dummy data, e.g. -1 for int, "dummy_string" for str, and so on...
         The first item of Literal annotatations are used for dummy values.
+
+        Args:
+            **kwargs: Provide explicit values for any fields which should not be filled
+                with dummy data.
+
+        Returns:
+            A pydantic model object filled with dummy data for all unspecified model
+                fields.
+
+        Raises:
+            TypeError: If one or more of the provided keyword arguments do not match any
+                fields on the model.
         """
         # Non-iterable values besides strings must be repeated
         wrong_columns = set(kwargs.keys()) - set(cls.columns)
@@ -348,13 +429,19 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         the iterable arguments.
 
         Args:
-            data (Union[dict, Iterable]): Data to populate the dummy dataframe with. If
-            not a dict, column names must also be provided.
-            columns (Optional[Iterable[str]], optional): Ignored if data is a dict. If
-            data is an iterable, it will be used as the column names in the resulting
-            dataframe. Defaults to None.
-            polars (bool, optional): If True, returns a polars DataFrame, else returns a
-            pandas DataFrame. Equivalent to running .dummy_df(). Defaults to False.
+            data: Data to populate the dummy dataframe with. If
+                not a dict, column names must also be provided.
+            columns: Ignored if data is a dict. If
+                data is an iterable, it will be used as the column names in the
+                resulting dataframe. Defaults to None.
+
+        Returns:
+            A pandas DataFrame filled with dummy example data.
+
+        Raises:
+            ImportError: If pandas has not been installed. You should install
+                patito[pandas] in order to integrate patito with pandas.
+            TypeError: If column names have not been specified in the input data.
         """
         if not _PANDAS_AVAILABLE:
             # Re-trigger the import error, but this time don't catch it
@@ -391,11 +478,23 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """
         Generate polars dataframe with dummy data for all unspecified columns.
 
-        data: Data to populate the dummy dataframe with. If given as an iterable of
-            values then column names must also be provided. If not provided at all,
-            an empty dataframe with the correct column dtypes will be generated instead.
-        columns: Ignored if data is a dict. If data is an iterable, it will be used as
-            the column names in the resulting dataframe. Defaults to None.
+        This constructor accepts the same data format as polars.DataFrame.
+
+        Args:
+            data: Data to populate the dummy dataframe with. If given as an iterable of
+                values then column names must also be provided. If not provided at all,
+                an empty dataframe with the correct column dtypes will be generated
+                instead.
+            columns: Ignored if data is a dict. If data is an iterable, it will be used
+                as the column names in the resulting dataframe. Defaults to None.
+
+        Returns:
+            A polars dataframe where all unspecified columns have been filled with dummy
+                data which should pass model validation.
+
+        Raises:
+            TypeError: If one or more of the model fields are not mappable to polars
+                column dtype equivalents.
         """
         if data is None:
             # We should create an empty dataframe, but with the correct dtypes
@@ -439,7 +538,12 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @contextmanager
     def as_unfrozen(self: ModelType) -> ModelType:
-        """Yield the model as a temporarily mutable pydantic model."""
+        """
+        Yield the model as a temporarily mutable pydantic model.
+
+        Yields:
+            A mutable equivalent of the given pydantic model.
+        """
         self.__config__.frozen = False
         try:
             yield self

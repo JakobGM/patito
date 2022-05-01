@@ -55,15 +55,16 @@ def _find_errors(  # noqa: C901
         dataframe: Polars DataFrame to be validated.
         schema: Patito model which specifies how the dataframe should be structured.
 
-    Return:
+    Returns:
         A list of patito.exception.ErrorWrapper instances. The specific validation
         error can be retrieved from the "exc" attribute on each error wrapper instance.
-            MissingColumnsError: If there are any missing columns.
-            SuperflousColumnsError: If there are additional, non-specified columns.
-            MissingValuesError: If there are nulls in a non-optional column.
-            ColumnDTypeError: If any column has the wrong dtype.
-            NotImplementedError: If validation has not been implement for the given
-                type.
+
+        MissingColumnsError: If there are any missing columns.
+        SuperflousColumnsError: If there are additional, non-specified columns.
+        MissingValuesError: If there are nulls in a non-optional column.
+        ColumnDTypeError: If any column has the wrong dtype.
+        NotImplementedError: If validation has not been implement for the given
+            type.
     """
     errors: list[ErrorWrapper] = []
     # Check if any columns are missing
@@ -210,8 +211,7 @@ def validate(
         schema: Patito model which specifies how the dataframe should be structured.
 
     Raises:
-        patito.exceptions.ValidationError: If the given dataframe does not match the
-            given schema.
+        ValidationError: If the given dataframe does not match the given schema.
     """
     if _PANDAS_AVAILABLE and isinstance(dataframe, pd.DataFrame):
         dataframe = cast(pl.DataFrame, pl.from_pandas(dataframe))

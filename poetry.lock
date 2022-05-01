@@ -373,7 +373,7 @@ testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "polars"
-version = "0.13.25"
+version = "0.13.26"
 description = "Blazingly fast DataFrame library"
 category = "main"
 optional = false
@@ -384,9 +384,9 @@ numpy = ">=1.16.0"
 typing_extensions = {version = ">=4.0.0", markers = "python_version < \"3.10\""}
 
 [package.extras]
+fsspec = ["fsspec"]
 pyarrow = ["pyarrow (>=4.0)"]
 pandas = ["pyarrow (>=4.0)", "pandas"]
-fsspec = ["fsspec"]
 connectorx = ["connectorx"]
 
 [[package]]
@@ -452,7 +452,7 @@ diagrams = ["railroad-diagrams", "jinja2"]
 
 [[package]]
 name = "pyright"
-version = "1.1.241"
+version = "1.1.242"
 description = "Command line wrapper for pyright"
 category = "dev"
 optional = false
@@ -919,12 +919,12 @@ pluggy = [
     {file = "pluggy-1.0.0.tar.gz", hash = "sha256:4224373bacce55f955a878bf9cfa763c1e360858e330072059e10bad68531159"},
 ]
 polars = [
-    {file = "polars-0.13.25-cp37-abi3-macosx_10_7_x86_64.whl", hash = "sha256:c4d2185b066e418e37633f30cccc1be0811ec424db7b8087039efe4c0bce8158"},
-    {file = "polars-0.13.25-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:bd4b0acf27cafb17ab18669f9214d7a68a78972beb9bab6f1cce3c30b2e5bd18"},
-    {file = "polars-0.13.25-cp37-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:7f74692d25d1efa881df8987f40f0f90a5380b341a2bec2c9c33d691bda98b63"},
-    {file = "polars-0.13.25-cp37-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:cbfc2f30206288061ef16730fbb070a07842d167dd3b3c9cbb27a8703e4ba88c"},
-    {file = "polars-0.13.25-cp37-abi3-win_amd64.whl", hash = "sha256:bcc7a777a6477e9c87c913509adfd70d5fa89d214d7d41b52438f9b41c40ae96"},
-    {file = "polars-0.13.25.tar.gz", hash = "sha256:a1aebf4d32ddbb6165671ff1671163eeb7ea0d42d77d5b532d2886002c565096"},
+    {file = "polars-0.13.26-cp37-abi3-macosx_10_7_x86_64.whl", hash = "sha256:7976c1b223a12ef7692eec42a95eaab34209aeb1255624051742540be5318948"},
+    {file = "polars-0.13.26-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:8679e1f2d3d01fd99d99825b9071520b04fc93e108180743a0e9569e1ab207cc"},
+    {file = "polars-0.13.26-cp37-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:ea95d0de3c1133852c0af088d971fc2171bd06ed199d63eb804167e439d6e309"},
+    {file = "polars-0.13.26-cp37-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:2b8728ca9bbae08edc72acd7782223671d67f061326ea1fb57efa462e3018dbd"},
+    {file = "polars-0.13.26-cp37-abi3-win_amd64.whl", hash = "sha256:bf5b5d61001c2bf794375a09a9cd16e4b4cefa5b777083759aa6f6b5908cb4dc"},
+    {file = "polars-0.13.26.tar.gz", hash = "sha256:5533c2376d450d0b0ff13632b7e08f189c472402355aedf84f1e62640af5c204"},
 ]
 py = [
     {file = "py-1.11.0-py2.py3-none-any.whl", hash = "sha256:607c53218732647dff4acdfcd50cb62615cedf612e72d1724fb1a0cc6405b378"},
@@ -1012,8 +1012,8 @@ pyparsing = [
     {file = "pyparsing-3.0.8.tar.gz", hash = "sha256:7bf433498c016c4314268d95df76c81b842a4cb2b276fa3312cfb1e1d85f6954"},
 ]
 pyright = [
-    {file = "pyright-1.1.241-py3-none-any.whl", hash = "sha256:2c3778220f6285b330df7e4875af6ac453118c63b79d75828be57bf7ff17f886"},
-    {file = "pyright-1.1.241.tar.gz", hash = "sha256:8a61266da68aa8f5b1248266472003b09866898377a06def32bce22409af39e1"},
+    {file = "pyright-1.1.242-py3-none-any.whl", hash = "sha256:5a13e69c6763fd9c61107114cdd4b4bc81605b1fc8c0f250d6a0eefbdc39e6f0"},
+    {file = "pyright-1.1.242.tar.gz", hash = "sha256:db95c4f95e31ccdb0433b65435ab27dd2395eed00de686c58ebf5e20843bdbb0"},
 ]
 pytest = [
     {file = "pytest-7.1.2-py3-none-any.whl", hash = "sha256:13d0e3ccfc2b6e26be000cb6568c832ba67ba32e719443bfe725814d3c42433c"},
