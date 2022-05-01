@@ -1,3 +1,4 @@
+"""Logic related to wrapping logic around the pydantic library."""
 from __future__ import annotations
 
 import itertools
@@ -42,9 +43,21 @@ PYDANTIC_TO_POLARS_TYPES = {
 
 
 class ModelMetaclass(PydanticModelMetaclass):
-    """ModelMetaclass."""
+    """
+    Metclass used by patito.Model.
+
+    Responsible for setting any relevant model-dependent class properties.
+    """
 
     def __init__(cls, name: str, bases: tuple, clsdict: dict) -> None:
+        """
+        Construct new patito model.
+
+        Args:
+            name: Name of model class.
+            bases: Tuple of superclasses.
+            clsdict: Dictionary containing class properties.
+        """
         super().__init__(name, bases, clsdict)  # type: ignore
         # Add a custom subclass of patito.DataFrame to the model class,
         # where .set_model() has been implicitly set.
@@ -221,6 +234,19 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         row: Union["pd.DataFrame", pl.DataFrame],
         validate: bool = True,
     ) -> ModelType:
+        """
+        Represent a single data frame row as a patito model.
+
+        Args:
+            row: A dataframe, either polars and pandas, consisting of a single row.
+            validate: If False, skip pydantic validation of the given row data.
+
+        Returns:
+            A patito model representing the given row data.
+
+        Raises:
+            TypeError: If the given type is neither a pandas or polars DataFrame.
+        """
         if isinstance(row, pl.DataFrame):
             dataframe = row
         elif _PANDAS_AVAILABLE and isinstance(row, pd.DataFrame):

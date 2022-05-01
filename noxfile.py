@@ -1,3 +1,4 @@
+"""Nox sessions."""
 import tempfile
 
 import nox
@@ -8,6 +9,21 @@ supported_python_versions = "3.7", "3.8", "3.9", "3.10"
 
 
 def install_with_constraints(session, *args, **kwargs):
+    """
+    Install packages constrained by Poetry's lock file.
+
+    This function is a wrapper for nox.sessions.Session.install. It
+    invokes pip to install packages inside of the session's virtualenv.
+    Additionally, pip is passed a constraints file generated from
+    Poetry's lock file, to ensure that the packages are pinned to the
+    versions specified in poetry.lock. This allows you to manage the
+    packages as Poetry development dependencies.
+
+    Args:
+        session: The Session object.
+        *args: Command-line arguments for pip.
+        **kwargs: Additional keyword arguments for Session.install.
+    """
     with tempfile.NamedTemporaryFile() as requirements:
         session.run(
             "poetry",
@@ -51,6 +67,7 @@ def test(session):
 
 @nox.session(python=["3.9"])
 def type_check(session):
+    """Run type-checking on project using pyright."""
     args = session.posargs or locations
     session.run(
         "poetry",
@@ -66,6 +83,7 @@ def type_check(session):
 
 @nox.session(python=["3.9"])
 def lint(session):
+    """Run linters an project using flake8++."""
     args = session.posargs or locations
     install_with_constraints(
         session,
@@ -74,16 +92,16 @@ def lint(session):
         "flake8-bandit",
         "flake8-black",
         "flake8-bugbear",
+        "flake8-docstrings",
         "flake8-isort",
         "darglint",
-        # TODO: And and fix all errors
-        # "flake8-docstrings",
     )
     session.run("flake8", *args)
 
 
 @nox.session(python="3.9")
 def format(session):
+    """Run the black formatter on the entire code base."""
     args = session.posargs or locations
     install_with_constraints(session, "black", "isort")
     session.run("black", *args)

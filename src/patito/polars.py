@@ -1,3 +1,4 @@
+"""Logic related to the wrapping of the polars data frame library."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Generic, Optional, Type, TypeVar, Union, cast
@@ -17,6 +18,13 @@ ModelType = TypeVar("ModelType", bound="Model")
 
 
 class DataFrame(pl.DataFrame, Generic[ModelType]):
+    """
+    A custom model-aware sub-class of polars.DataFrame.
+
+    Adds additional model-related methods such as `DataFrame.set_model()`,
+    `DataFrame.validate()`, `DataFrame.derive()`, and so on.
+    """
+
     _model: ModelType
 
     @classmethod
