@@ -57,6 +57,13 @@ def test_examples():
     assert df.dtypes == [pl.Int64, pl.Utf8, pl.Int64]
     assert df.columns == ["a", "b", "c"]
 
+    # A TypeError should be raised when you provide no column names
+    with pytest.raises(
+        TypeError,
+        match=r"MyModel\.examples\(\) must be provided with column names\!",
+    ):
+        MyModel.examples([[1, 2]])
+
 
 @pytest.mark.skipif("Database" not in dir(pt), reason="Requires DuckDB")
 def test_creation_of_empty_relation():

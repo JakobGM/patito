@@ -125,8 +125,8 @@ def test_validate_dtype_checks():
         int_column: int
         string_column: str
         float_column: float
-        datetime_column: datetime
         date_column: date
+        datetime_column: datetime
         bool_column: bool
 
     # And validate it againt a valid dataframe
@@ -163,6 +163,26 @@ def test_validate_dtype_checks():
             "msg": f"Polars dtype {dtype} does not match model field type.",
             "type": "type_error.columndtype",
         }
+
+    # Anything non-compatible with polars should raise NotImplementedError
+    class NonCompatibleModel(pt.Model):
+        my_field: object
+
+    with pytest.raises(
+        NotImplementedError,
+        match="No valid dtype mapping found for column 'my_field'.",
+    ):
+        NonCompatibleModel.valid_dtypes
+
+    # It should also work with pandas data frames
+    class PandasCompatibleModel(CompleteModel):
+        date_column: str
+
+    pytest.importorskip("pandas")
+    validate(
+        dataframe=valid_df.with_column(pl.col("date_column").cast(str)).to_pandas(),
+        schema=PandasCompatibleModel,
+    )
 
 
 def test_datetime_validation():

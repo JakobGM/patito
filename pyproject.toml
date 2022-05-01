@@ -50,9 +50,17 @@ source = ["src", "*/site-packages"]
 [tool.coverage.run]
 branch = true
 source = ["patito"]
+# TODO: Remove once DuckDB-API becomes public
+omit = ["src/patito/duckdb.py"]
 
 [tool.coverage.report]
-fail_under = 88.9
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "if not _PANDAS_AVAILABLE:",
+  "except ImportError:",
+]
+fail_under = 100
 show_missing = true
 
 [tool.isort]

@@ -10,8 +10,8 @@ from typing_extensions import Literal
 import patito as pt
 
 
-def test_model_dummy():
-    """Test for Model.dummy()."""
+def test_model_example():
+    """Test for Model.example()."""
 
     # When inheriting from Model you get a .dummy() method for generating rows with
     # default values according to the type annotation.
@@ -23,6 +23,9 @@ def test_model_dummy():
         literal_value: Literal["a", "b"]
         default_value: str = "my_default"
         optional_value: Optional[int]
+        bounded_value: int = pt.Field(ge=10, le=20)
+        date_value: date
+        datetime_value: datetime
 
     assert MyModel.example().dict() == {
         "int_value": -1,
@@ -32,6 +35,9 @@ def test_model_dummy():
         "literal_value": "a",
         "default_value": "my_default",
         "optional_value": None,
+        "bounded_value": 15,
+        "date_value": date(year=1970, month=1, day=1),
+        "datetime_value": datetime(year=1970, month=1, day=1),
     }
     assert MyModel.example(
         bool_value=True,
@@ -45,10 +51,23 @@ def test_model_dummy():
         "literal_value": "a",
         "default_value": "override",
         "optional_value": 1,
+        "bounded_value": 15,
+        "date_value": date(year=1970, month=1, day=1),
+        "datetime_value": datetime(year=1970, month=1, day=1),
     }
 
+    # For now, valid regex data is not implemented
+    class RegexModel(pt.Model):
+        regex_column: str = pt.Field(regex=r"[0-9a-f]")
 
-def test_model_dummy_pandas():
+    with pytest.raises(
+        NotImplementedError,
+        match="Example data generation has not been implemented for regex.*",
+    ):
+        RegexModel.example()
+
+
+def test_model_pandas_examples():
     """Test for Row.dummy_pandas()."""
     pd = pytest.importorskip("pandas")
 
@@ -86,6 +105,13 @@ def test_model_dummy_pandas():
     ):
         MyRow.pandas_examples({"a": [0], "f": [1], "g": [2]})
 
+    # A TypeError should be raised when you provide no column names
+    with pytest.raises(
+        TypeError,
+        match=r"MyRow\.pandas_examples\(\) must be provided with column names\!",
+    ):
+        MyRow.pandas_examples([[1, 2, 3, 4]])
+
 
 def test_instantiating_model_from_row():
     """You should be able to instantiate models from rows."""
@@ -95,6 +121,12 @@ def test_instantiating_model_from_row():
 
     polars_dataframe = pl.DataFrame({"a": [1]})
     assert Model.from_row(polars_dataframe).a == 1
+
+    # Anything besides a dataframe / row should raise TypeError
+    with pytest.raises(
+        TypeError, match=r"Model.from_row not implemented for \<class 'NoneType'\>."
+    ):
+        Model.from_row(None)  # type: ignore
 
 
 def test_insstantiation_from_pandas_row():

@@ -45,6 +45,17 @@ def test_dataframe_get_method():
     df.filter(pl.col("product_id") == 1).get()
 
 
+def test_dataframe_set_model_method():
+    """You should be able to set the assocatiated model of a dataframe."""
+
+    class MyModel(pt.Model):
+        pass
+
+    modelled_df = pt.DataFrame().set_model(MyModel)
+    assert modelled_df.model is MyModel
+    assert MyModel.DataFrame.model is MyModel
+
+
 def test_fill_nan_with_defaults():
     """You should be able to fill missing values with declared defaults."""
 
@@ -115,6 +126,8 @@ def test_dataframe_model_dtype_casting():
             pl.lit(0).cast(pl.Int64).alias("implicit_date"),
             # The integer will be casted to date 1970-01-01
             pl.lit(0).cast(pl.Int64).alias("implicit_datetime"),
+            # Columns not specified in the model should be left as-is
+            pl.lit(True),
         ]
     )
     casted_df = original_df.cast()
@@ -124,6 +137,7 @@ def test_dataframe_model_dtype_casting():
         pl.UInt64,
         pl.Date,
         pl.Datetime,
+        pl.Boolean,
     ]
 
     strictly_casted_df = original_df.cast(strict=True)
@@ -133,6 +147,7 @@ def test_dataframe_model_dtype_casting():
         pl.UInt64,
         pl.Date,
         pl.Datetime,
+        pl.Boolean,
     ]
 
 
@@ -203,3 +218,13 @@ def test_derive_functionality():
         }
     )
     assert derived_df.frame_equal(correct_derived_df)
+
+    # Non-compatible derive_from arguments should raise TypeError
+    class InvalidModel(pt.Model):
+        incompatible: int = pt.Field(derived_from=object)
+
+    with pytest.raises(
+        TypeError,
+        match=r"Can not derive dataframe column from type \<class 'type'\>\.",
+    ):
+        InvalidModel.DataFrame().derive()

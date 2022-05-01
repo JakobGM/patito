@@ -25,7 +25,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
     `DataFrame.validate()`, `DataFrame.derive()`, and so on.
     """
 
-    _model: ModelType
+    model: ModelType
 
     @classmethod
     def _construct_dataframe_model_class(
@@ -47,7 +47,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         new_class = type(
             f"{model.schema()['title']}DataFrame",
             (cls,),  # type: ignore
-            {"_model": model, "model": model},
+            {"model": model},
         )
         new_class._lazyframe_class = type(  # type: ignore
             f"{model.__class__.__name__}LazyFrame",
@@ -122,12 +122,12 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             patito.exceptions.ValidationError:  # noqa: DAR402
                 If the dataframe does not match the specified schema.
         """
-        if not hasattr(self, "_model"):
+        if not hasattr(self, "model"):
             raise TypeError(
                 f"You must invoke {self.__class__.__name__}.set_model() "
                 f"before invoking {self.__class__.__name__}.validate()."
             )
-        self._model.validate(dataframe=self)
+        self.model.validate(dataframe=self)
         return self
 
     def derive(self: DF) -> DF:
@@ -180,7 +180,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                     df = df.with_column(derived_from.cast(dtype).alias(column_name))
                 else:
                     raise TypeError(
-                        "Cant derive dataframe column from type {type(derived_from)}."
+                        "Can not derive dataframe column from type "
+                        f"{type(derived_from)}."
                     )
         return df.collect()
 
@@ -216,7 +217,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             A new dataframe with nulls filled in according to the provided `strategy`
                 parameter.
         """
-        if strategy != "defaults":
+        if strategy != "defaults":  # pragma: no cover
             return super().fill_null(strategy=strategy)
         return self.with_columns(
             [
@@ -253,22 +254,11 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             raise MultipleRowsReturned(
                 f"{self.__class__.__name__}.get() yielded {row.height} rows."
             )
-        return self.model.from_row(row)
 
-    @property
-    def model(self) -> ModelType:
-        """
-        Return the patito Model schema associated with the given data frame.
-
-        If no model has been set, then a permissive patito model is dynamically created.
-
-        Returns:
-            A patito model which can be used to represent rows of the dataframe.
-        """
-        if hasattr(self, "_model"):
-            return self._model
+        if hasattr(self, "model"):
+            return self.model.from_row(row)
         else:
-            return self._pydantic_model()  # type: ignore
+            return self._pydantic_model().from_row(row)  # type: ignore
 
     def _pydantic_model(self) -> Type[Model]:
         """
@@ -302,8 +292,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         Returns:
             A dataframe representing the given CSV file data.
         """
-        kwargs.setdefault("dtypes", cls._model.dtypes)
+        kwargs.setdefault("dtypes", cls.model.dtypes)
         if not kwargs.get("has_header", True) and "columns" not in kwargs:
-            kwargs.setdefault("new_columns", cls._model.columns)
-        df = cls._model.DataFrame._from_pydf(pl.read_csv(*args, **kwargs)._df)
+            kwargs.setdefault("new_columns", cls.model.columns)
+        df = cls.model.DataFrame._from_pydf(pl.read_csv(*args, **kwargs)._df)
         return df.derive()

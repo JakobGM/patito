@@ -28,5 +28,5 @@ try:
         "Relation",
         "RelationSource",
     ]
-except DistributionNotFound:
+except DistributionNotFound:  # pragma: no cover
     pass

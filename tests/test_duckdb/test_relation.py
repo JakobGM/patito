@@ -524,6 +524,23 @@ def test_polars_support():
     assert my_model.a == 1
     assert my_model.b == "x"
 
+    # Anything besides a polars dataframe should raise TypeError
+    with pytest.raises(TypeError):
+        MyModel.from_polars(None)  # type: ignore
+
+    # But we can also skip validation if we want
+    unvalidated_model = MyModel.from_row(
+        pl.DataFrame().with_columns(
+            [
+                pl.lit("string").alias("a"),
+                pl.lit(2).alias("b"),
+            ]
+        ),
+        validate=False,
+    )
+    assert unvalidated_model.a == "string"
+    assert unvalidated_model.b == 2
+
 
 def test_series_vs_dataframe_behavior():
     """Test Relation.to_series()."""

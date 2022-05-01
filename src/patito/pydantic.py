@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import itertools
 from collections.abc import Iterable
-from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Any, Optional, Tuple, Type, TypeVar, Union
 
@@ -117,9 +116,13 @@ class ModelMetaclass(PydanticModelMetaclass):
             if "dtype" in props:
                 valid_dtypes[column] = (props["dtype"],)
             elif "enum" in props:
-                if props["type"] != "string":
+                if props["type"] != "string":  # pragma: no cover
                     raise NotImplementedError
                 valid_dtypes[column] = (pl.Categorical, pl.Utf8)
+            elif "type" not in props:
+                raise NotImplementedError(
+                    f"No valid dtype mapping found for column '{column}'."
+                )
             elif props["type"] == "integer":
                 valid_dtypes[column] = (
                     pl.Int64,
@@ -146,12 +149,15 @@ class ModelMetaclass(PydanticModelMetaclass):
                     valid_dtypes[column] = (pl.Utf8,)
                 elif string_format == "date":
                     valid_dtypes[column] = (pl.Date,)
-                elif string_format == "date-time":
+                # TODO: Find out why this branch is not being hit
+                elif string_format == "date-time":  # pragma: no cover
                     valid_dtypes[column] = (pl.Datetime,)
             elif props["type"] == "null":
                 valid_dtypes[column] = (pl.Null,)
-            else:
-                raise NotImplementedError
+            else:  # pragma: no cover
+                raise NotImplementedError(
+                    f"No valid dtype mapping found for column '{column}'"
+                )
 
         return valid_dtypes
 
@@ -387,7 +393,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                     "patterns. You must valid data for such columns explicitly!"
                 )
             elif "format" in properties and properties["format"] == "date":
-                return "1970-01-01"
+                return date(year=1970, month=1, day=1)
+            elif "format" in properties and properties["format"] == "date-time":
+                return datetime(year=1970, month=1, day=1)
             elif "minLength" in properties:
                 return "a" * properties["minLength"]
             elif "maxLength" in properties:
@@ -398,7 +406,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         elif field_type == "boolean":
             return False
 
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError
 
     @classmethod
@@ -476,7 +484,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         if not isinstance(data, dict):
             if columns is None:
                 raise TypeError(
-                    f"{cls.__name__}.dummy_df() must be provided with column names!"
+                    f"{cls.__name__}.pandas_examples() must "
+                    "be provided with column names!"
                 )
             kwargs = dict(zip(columns, zip(*data)))
         else:
@@ -528,7 +537,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         elif not isinstance(data, dict):
             if columns is None:
                 raise TypeError(
-                    f"{cls.__name__}.dummy_df() must be provided with column names!"
+                    f"{cls.__name__}.examples() must be provided with column names!"
                 )
             kwargs = dict(zip(columns, zip(*data)))
         else:
@@ -561,20 +570,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 series.append(pl.lit(value, dtype=dtype).alias(column_name))
 
         return pl.DataFrame().with_columns(series).with_columns(unique_series)
-
-    @contextmanager
-    def as_unfrozen(self: ModelType) -> ModelType:
-        """
-        Yield the model as a temporarily mutable pydantic model.
-
-        Yields:
-            A mutable equivalent of the given pydantic model.
-        """
-        self.__config__.frozen = False
-        try:
-            yield self
-        finally:
-            self.__config__.frozen = True
 
     class Config(BaseConfig):
         """Configuration for Pydantic BaseModel behaviour."""
