@@ -1,7 +1,17 @@
 """Logic related to the wrapping of the polars data frame library."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Generic, Optional, Type, TypeVar, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import polars as pl
 from pydantic import create_model
@@ -104,6 +114,45 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             else:
                 columns.append(pl.col(column).cast(default_dtypes[column]))
         return self.with_columns(columns)
+
+    def drop(self: DF, name: Optional[Union[str, List[str]]] = None) -> DF:
+        """
+        Drop one or more columns from the dataframe.
+
+        If `name` is not provided, all columns not specified in the DataFrame
+        model, set with DataFrame.set_model(), are dropped.
+
+        Args:
+            name: A single column string name, or list of strings, indicating
+                which columns to drop. If not specified, all columns *not*
+                specified by the associated dataframe model will be dropped.
+
+        Returns:
+            New dataframe without the specified columns.
+
+        Examples:
+            >>> import patito as pt
+
+            >>> class Model(pt.Model):
+            ...     column_1: int
+
+            >>> Model.DataFrame({"column_1": [1, 2], "column_2": [3, 4]}).drop()
+            shape: (2, 1)
+            ┌──────────┐
+            │ column_1 │
+            │ ---      │
+            │ i64      │
+            ╞══════════╡
+            │ 1        │
+            ├╌╌╌╌╌╌╌╌╌╌┤
+            │ 2        │
+            └──────────┘
+
+        """
+        if name is not None:
+            return super().drop(name)
+        else:
+            return self.drop(list(set(self.columns) - set(self.model.columns)))
 
     def validate(self: DF) -> DF:
         """

@@ -228,3 +228,25 @@ def test_derive_functionality():
         match=r"Can not derive dataframe column from type \<class 'type'\>\.",
     ):
         InvalidModel.DataFrame().derive()
+
+
+def test_drop_method():
+    """We should be able to drop columns not specified by the data frame model."""
+
+    class Model(pt.Model):
+        column_1: int
+
+    df = Model.DataFrame({"column_1": [1, 2], "column_2": [3, 4]})
+
+    # Originally we have all the columns
+    assert df.columns == ["column_1", "column_2"]
+
+    # If no argument is provided to drop, all columns not mentioned in the model are
+    # dropped.
+    assert df.drop().columns == ["column_1"]
+
+    # We can still specify a different subset
+    assert df.drop("column_1").columns == ["column_2"]
+
+    # Or a list of columns
+    assert df.drop(["column_1", "column_2"]).columns == []

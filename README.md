@@ -174,6 +174,7 @@ Patito offers `patito.DataFrame`, a class that extends `polars.DataFrame`in orde
 The schema of a data frame can be specified at runtime by invoking `patito.DataFrame.set_model(model)`, after which a set of contextualized methods become available:
 
 * `DataFrame.validate()` - Validate the given data frame and return itself.
+* `DataFrame.drop()` - Drop all superfluous columns _not_ specified as fields in the model.
 * `DataFrame.cast()` - Cast any columns which are not compatible with the given type annotations. When `Field(dtype=...)` is specified, the given dtype will always be forced, even in compatible cases.
 * `DataFrame.get(predicate)` - Retrieve a single row from the data frame as an instance of the model. An exception is raised if not exactly one row is yielded from the filter predicate.
 * `DataFrame.fill_null(strategy="defaults")` - Fill inn missing values according to the default values set on the model schema.
@@ -212,8 +213,10 @@ product = (
     products
     # Specify the schema of the given data frame
     .set_model(Product)
-    # Derive the eurocent_cost int column from the cost string column using regex
-    .derive().drop("cost")
+    # Derive the `eurocent_cost` int column from the `cost` string column using regex
+    .derive()
+    # Drop the `cost` column as it is not part of the model
+    .drop()
     # Cast the popularity rank column to an unsigned 16-bit integer and cents to an integer
     .cast()
     # Fill missing values with the default values specified in the schema
