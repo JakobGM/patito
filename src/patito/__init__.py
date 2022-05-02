@@ -8,6 +8,7 @@ from patito.exceptions import ValidationError
 from patito.polars import DataFrame
 from patito.pydantic import Field, Model
 
+_DUCKDB_AVAILABLE = False
 __all__ = [
     "DataFrame",
     "Expr",
@@ -17,12 +18,14 @@ __all__ = [
     "ValidationError",
     "col",
     "exceptions",
+    "_DUCKDB_AVAILABLE",
 ]
 
 try:
     pkg_resources.require(["duckdb>=0.3.2"])
     from patito.duckdb import Database, Relation, RelationSource
 
+    _DUCKDB_AVAILABLE = True
     __all__ += [
         "Database",
         "Relation",

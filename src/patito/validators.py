@@ -144,17 +144,17 @@ def _find_errors(  # noqa: C901
                 )
 
         # Check for bounded value fields
-        column = pl.col(column_name)
+        col = pl.col(column_name)
         filters = {
-            "maximum": lambda v: column <= v,
-            "exclusiveMaximum": lambda v: column < v,
-            "minimum": lambda v: column >= v,
-            "exclusiveMinimum": lambda v: column > v,
-            "multipleOf": lambda v: (column == 0) | ((column % v) == 0),
-            "const": lambda v: column == v,
-            "pattern": lambda v: column.str.contains(v),
-            "minLength": lambda v: column.str.lengths() >= v,
-            "maxLength": lambda v: column.str.lengths() <= v,
+            "maximum": lambda v: col <= v,
+            "exclusiveMaximum": lambda v: col < v,
+            "minimum": lambda v: col >= v,
+            "exclusiveMinimum": lambda v: col > v,
+            "multipleOf": lambda v: (col == 0) | ((col % v) == 0),
+            "const": lambda v: col == v,
+            "pattern": lambda v: col.str.contains(v),
+            "minLength": lambda v: col.str.lengths() >= v,
+            "maxLength": lambda v: col.str.lengths() <= v,
         }
         checks = [
             check(column_properties[key])
@@ -214,7 +214,10 @@ def validate(
         ValidationError: If the given dataframe does not match the given schema.
     """
     if _PANDAS_AVAILABLE and isinstance(dataframe, pd.DataFrame):
-        dataframe = cast(pl.DataFrame, pl.from_pandas(dataframe))
-    errors = _find_errors(dataframe=dataframe, schema=schema)
+        polars_dataframe = pl.from_pandas(dataframe)
+    else:
+        polars_dataframe = cast(pl.DataFrame, dataframe)
+
+    errors = _find_errors(dataframe=polars_dataframe, schema=schema)
     if errors:
         raise ValidationError(errors=errors, model=schema)

@@ -8,8 +8,9 @@ import pytest
 
 import patito as pt
 
-# SKip test module if DuckDB is not installed
-pytest.importorskip("duckdb")
+# Skip test module if DuckDB is not installed
+if not pt._DUCKDB_AVAILABLE:
+    pytest.skip("DuckDB not installed", allow_module_level=True)
 
 
 @pytest.mark.skip(reason="Segmentation fault")

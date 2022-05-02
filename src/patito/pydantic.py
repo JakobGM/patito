@@ -4,7 +4,7 @@ from __future__ import annotations
 import itertools
 from collections.abc import Iterable
 from datetime import date, datetime
-from typing import Any, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, ClassVar, Dict, List, Optional, Set, Type, TypeVar, Union
 
 import polars as pl
 from pydantic import BaseConfig, BaseModel, Field  # noqa: F401
@@ -69,17 +69,19 @@ class ModelMetaclass(PydanticModelMetaclass):
     # objects This is backwards compatible to python versions before python 3.9,
     # unlike a combination of @classmethod and @property.
     @property
-    def columns(cls) -> Tuple[str, ...]:
+    def columns(cls: Type[ModelType]) -> List[str]:  # type: ignore
         """
         Return the name of the specified column fields the DataFrame.
 
         Returns:
-            Tuple of column names.
+            List of column names.
         """
-        return tuple(cls.schema()["properties"].keys())
+        return list(cls.schema()["properties"].keys())
 
     @property
-    def dtypes(cls) -> dict[str, Type[pl.DataType]]:
+    def dtypes(  # type: ignore
+        cls: Type[ModelType],
+    ) -> dict[str, Type[pl.DataType]]:
         """
         Return the dtypes of the dataframe.
 
@@ -94,14 +96,16 @@ class ModelMetaclass(PydanticModelMetaclass):
         }
 
     @property
-    def valid_dtypes(cls) -> dict[str, Tuple[Type[pl.DataType], ...]]:  # noqa: C901
+    def valid_dtypes(  # type: ignore  # noqa: C901
+        cls: Type[ModelType],
+    ) -> dict[str, List[Type[pl.DataType]]]:
         """
         Return valid polars dtypes as a column name -> dtypes mapping.
 
-        The first item of each tuple is the default dtype chosen by Patito.
+        The first item of each list is the default dtype chosen by Patito.
 
         Returns:
-            A dictionary mapping each column string name to a tuple of valid
+            A dictionary mapping each column string name to a list of valid
             dtypes.
 
         Raises:
@@ -114,17 +118,19 @@ class ModelMetaclass(PydanticModelMetaclass):
         valid_dtypes = {}
         for column, props in properties.items():
             if "dtype" in props:
-                valid_dtypes[column] = (props["dtype"],)
+                valid_dtypes[column] = [
+                    props["dtype"],
+                ]
             elif "enum" in props:
                 if props["type"] != "string":  # pragma: no cover
                     raise NotImplementedError
-                valid_dtypes[column] = (pl.Categorical, pl.Utf8)
+                valid_dtypes[column] = [pl.Categorical, pl.Utf8]
             elif "type" not in props:
                 raise NotImplementedError(
                     f"No valid dtype mapping found for column '{column}'."
                 )
             elif props["type"] == "integer":
-                valid_dtypes[column] = (
+                valid_dtypes[column] = [
                     pl.Int64,
                     pl.Int32,
                     pl.Int16,
@@ -133,27 +139,37 @@ class ModelMetaclass(PydanticModelMetaclass):
                     pl.UInt32,
                     pl.UInt16,
                     pl.UInt8,
-                )
+                ]
             elif props["type"] == "number":
                 if props.get("format") == "time-delta":
-                    valid_dtypes[column] = (
+                    valid_dtypes[column] = [
                         pl.Duration,
-                    )  # pyright: reportPrivateImportUsage=false
+                    ]  # pyright: reportPrivateImportUsage=false
                 else:
-                    valid_dtypes[column] = (pl.Float64, pl.Float32)
+                    valid_dtypes[column] = [pl.Float64, pl.Float32]
             elif props["type"] == "boolean":
-                valid_dtypes[column] = (pl.Boolean,)
+                valid_dtypes[column] = [
+                    pl.Boolean,
+                ]
             elif props["type"] == "string":
                 string_format = props.get("format")
                 if string_format is None:
-                    valid_dtypes[column] = (pl.Utf8,)
+                    valid_dtypes[column] = [
+                        pl.Utf8,
+                    ]
                 elif string_format == "date":
-                    valid_dtypes[column] = (pl.Date,)
+                    valid_dtypes[column] = [
+                        pl.Date,
+                    ]
                 # TODO: Find out why this branch is not being hit
                 elif string_format == "date-time":  # pragma: no cover
-                    valid_dtypes[column] = (pl.Datetime,)
+                    valid_dtypes[column] = [
+                        pl.Datetime,
+                    ]
             elif props["type"] == "null":
-                valid_dtypes[column] = (pl.Null,)
+                valid_dtypes[column] = [
+                    pl.Null,
+                ]
             else:  # pragma: no cover
                 raise NotImplementedError(
                     f"No valid dtype mapping found for column '{column}'"
@@ -162,7 +178,9 @@ class ModelMetaclass(PydanticModelMetaclass):
         return valid_dtypes
 
     @property
-    def defaults(cls) -> dict[str, Any]:
+    def defaults(  # type: ignore
+        cls: Type[ModelType],
+    ) -> dict[str, Any]:
         """
         Return default field values specified on the model.
 
@@ -176,7 +194,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         }
 
     @property
-    def non_nullable_columns(
+    def non_nullable_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: reportGeneralTypeIssues=false
     ) -> set[str]:
         """
@@ -188,7 +206,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return set(cls.schema()["required"])
 
     @property
-    def nullable_columns(
+    def nullable_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: reportGeneralTypeIssues=false
     ) -> set[str]:
         """
@@ -200,7 +218,9 @@ class ModelMetaclass(PydanticModelMetaclass):
         return set(cls.columns) - cls.non_nullable_columns
 
     @property
-    def unique_columns(cls: Type[ModelType]) -> set[str]:
+    def unique_columns(  # type: ignore
+        cls: Type[ModelType],
+    ) -> set[str]:
         """
         Return columns with uniqueness constraint.
 
@@ -211,7 +231,9 @@ class ModelMetaclass(PydanticModelMetaclass):
         return {column for column in cls.columns if props[column].get("unique", False)}
 
     @property
-    def sql_types(cls: Type[ModelType]) -> dict[str, str]:
+    def sql_types(  # type: ignore
+        cls: Type[ModelType],
+    ) -> dict[str, str]:
         """
         Return SQL types as a column name -> sql type dict mapping.
 
@@ -228,6 +250,19 @@ class ModelMetaclass(PydanticModelMetaclass):
 
 class Model(BaseModel, metaclass=ModelMetaclass):
     """Custom pydantic class for representing table schema and constructing rows."""
+
+    # -- Class properties set by model metaclass --
+    columns: ClassVar[List[str]]
+
+    unique_columns: ClassVar[Set[str]]
+    non_nullable_columns: ClassVar[Set[str]]
+    nullable_columns: ClassVar[Set[str]]
+
+    dtypes: ClassVar[Dict[str, Type[pl.DataType]]]
+    sql_types: ClassVar[Dict[str, str]]
+    valid_dtypes: ClassVar[Dict[str, List[Type[pl.DataType]]]]
+
+    defaults: ClassVar[Dict[str, Any]]
 
     @classmethod
     @property
@@ -305,7 +340,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             return cls.construct(**dataframe.to_dicts()[0])
 
     @classmethod
-    def validate(cls, dataframe: Union["pd.DataFrame", pl.DataFrame]) -> None:
+    def validate(  # type: ignore
+        cls,
+        dataframe: Union["pd.DataFrame", pl.DataFrame],
+    ) -> None:
         """
         Validate the given dataframe.
 
@@ -321,7 +359,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     @classmethod
     def example_value(  # noqa: C901
         cls, field: str
-    ) -> Union[date, datetime, float, int, str]:
+    ) -> Union[date, datetime, float, int, str, None]:
         """
         Return an example value for the given field name defined on the model.
 
@@ -547,7 +585,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         if wrong_columns:
             raise TypeError(f"{cls.__name__} does not contain fields {wrong_columns}!")
 
-        series = []
+        series: List[Union[pl.Series, pl.Expr]] = []
         unique_series = []
         for column_name, dtype in cls.dtypes.items():
             if column_name not in kwargs:
@@ -569,7 +607,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             else:
                 series.append(pl.lit(value, dtype=dtype).alias(column_name))
 
-        return pl.DataFrame().with_columns(series).with_columns(unique_series)
+        return (
+            pl.DataFrame()
+            .with_columns(series)  # type: ignore
+            .with_columns(unique_series)
+        )
 
     class Config(BaseConfig):
         """Configuration for Pydantic BaseModel behaviour."""

@@ -7,7 +7,9 @@ from typing_extensions import Literal
 
 import patito as pt
 
-pytest.importorskip("duckdb")
+# Skip test module if DuckDB is not installed
+if not pt._DUCKDB_AVAILABLE:
+    pytest.skip("DuckDB not installed", allow_module_level=True)
 
 
 def test_database(tmp_path):

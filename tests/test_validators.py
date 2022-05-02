@@ -176,7 +176,7 @@ def test_validate_dtype_checks():
 
     # It should also work with pandas data frames
     class PandasCompatibleModel(CompleteModel):
-        date_column: str
+        date_column: str  # type: ignore
 
     pytest.importorskip("pandas")
     validate(

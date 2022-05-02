@@ -40,6 +40,10 @@ pytest-cov = "^3.0.0"
 pytest-watcher = "^0.2.3"
 xdoctest = "^1.0.0"
 
+mypy = ">=0.950"
+types-setuptools = ">=57.4.14"
+pandas-stubs = ">=1.2.0"
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
@@ -68,3 +72,9 @@ profile = "black"
 
 [tool.pyright]
 exclude = ["noxfile.py"]
+
+[tool.mypy]
+# TODO: Remove once DuckDB wrapper becomes public API
+exclude = [
+  "src/patito/duckdb.py",
+]

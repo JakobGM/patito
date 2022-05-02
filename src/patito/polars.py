@@ -320,10 +320,13 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         from patito.pydantic import Model
 
         pydantic_annotations = {column: (Any, ...) for column in self.columns}
-        return create_model(
-            "UntypedRow",
-            __base__=Model,
-            **pydantic_annotations,
+        return cast(
+            Type[Model],
+            create_model(  # type: ignore
+                "UntypedRow",
+                __base__=Model,
+                **pydantic_annotations,
+            ),
         )
 
     @classmethod

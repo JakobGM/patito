@@ -1,7 +1,7 @@
 """Nox sessions."""
 import tempfile
 
-import nox
+import nox  # type: ignore
 
 nox.options.sessions = "lint", "test", "type_check"
 locations = "src", "tests", "noxfile.py"
@@ -77,8 +77,11 @@ def type_check(session):
         "duckdb pandas",
         external=True,
     )
-    install_with_constraints(session, "pyright", "pytest")
+    install_with_constraints(
+        session, "mypy", "pyright", "pytest", "types-setuptools", "pandas-stubs"
+    )
     session.run("pyright", *args)
+    session.run("mypy", *args)
 
 
 @nox.session(python=["3.9"])

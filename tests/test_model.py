@@ -186,8 +186,8 @@ def test_mapping_to_polars_dtypes():
     }
 
     assert CompleteModel.valid_dtypes == {
-        "str_column": (pl.Utf8,),
-        "int_column": (
+        "str_column": [pl.Utf8],
+        "int_column": [
             pl.Int64,
             pl.Int32,
             pl.Int16,
@@ -196,12 +196,12 @@ def test_mapping_to_polars_dtypes():
             pl.UInt32,
             pl.UInt16,
             pl.UInt8,
-        ),
-        "float_column": (pl.Float64, pl.Float32),
-        "bool_column": (pl.Boolean,),
-        "date_column": (pl.Date,),
-        "datetime_column": (pl.Datetime,),
-        "duration_column": (pl.Duration,),
-        "categorical_column": (pl.Categorical, pl.Utf8),
-        "null_column": (pl.Null,),
+        ],
+        "float_column": [pl.Float64, pl.Float32],
+        "bool_column": [pl.Boolean],
+        "date_column": [pl.Date],
+        "datetime_column": [pl.Datetime],
+        "duration_column": [pl.Duration],
+        "categorical_column": [pl.Categorical, pl.Utf8],
+        "null_column": [pl.Null],
     }
