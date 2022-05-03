@@ -252,6 +252,14 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     """Custom pydantic class for representing table schema and constructing rows."""
 
     # -- Class properties set by model metaclass --
+    # This weird combination of a MetaClass + type annotation
+    # in order to make the following work simultaneously:
+    #     1. Make these dynamically constructed properties of the class.
+    #     2. Have the correct type information for type checkers.
+    #     3. Allow sphinx-autodoc to construct correct documentation.
+    #     4. Be compatible with python 3.7.
+    # Once we drop support for python 3.7, we can replace all of this with just a simple
+    # combination of @property and @classmethod.
     columns: ClassVar[List[str]]
 
     unique_columns: ClassVar[Set[str]]
@@ -358,7 +366,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def example_value(  # noqa: C901
-        cls, field: str
+        cls,
+        field: str,
     ) -> Union[date, datetime, float, int, str, None]:
         """
         Return an example value for the given field name defined on the model.

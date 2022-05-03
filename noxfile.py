@@ -4,7 +4,7 @@ import tempfile
 import nox  # type: ignore
 
 nox.options.sessions = "lint", "test", "type_check"
-locations = "src", "tests", "noxfile.py"
+locations = "src", "tests", "noxfile.py", "docs/conf.py"
 supported_python_versions = "3.7", "3.8", "3.9", "3.10"
 
 
@@ -109,3 +109,27 @@ def format(session):
     install_with_constraints(session, "black", "isort")
     session.run("black", *args)
     session.run("isort", *args)
+
+
+@nox.session(python="3.9")
+def docs(session) -> None:
+    """Build the documentation."""
+    session.run(
+        "poetry",
+        "install",
+        "--no-dev",
+        "--extras",
+        "duckdb pandas",
+        external=True,
+    )
+    install_with_constraints(
+        session,
+        "sphinx",
+        "sphinx-autodoc-typehints",
+        "sphinx-rtd-theme",
+        "sphinx-autobuild",
+    )
+    if "--serve" in session.posargs:
+        session.run("sphinx-autobuild", "docs", "docs/_build/html")
+    else:
+        session.run("sphinx-build", "docs", "docs/_build/html")
