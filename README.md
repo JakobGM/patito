@@ -11,7 +11,7 @@
     <a href="https://codecov.io/gh/kolonialno/patito">
         <img src="https://codecov.io/gh/kolonialno/patito/branch/main/graph/badge.svg?token=720LBDYH25"/>
     </a>
-    <a href="https://pypi.python.org/pypi/pydantic">
+    <a href="https://pypi.python.org/pypi/patito">
         <img src="https://img.shields.io/pypi/v/patito.svg">
     </a>
     <img src="https://img.shields.io/pypi/pyversions/patito">
@@ -150,47 +150,8 @@ def test_num_products_for_sale():
     assert num_products_for_sale(products) == 2
 ```
 
-## 🐍 Representing rows as classes
-
-Data frames are tailor-made for performing vectorized operations over a _set_ of objects.
-But when the time comes to retrieving a _single_ row and operate upon it, the data frame construct naturally falls short.
-Patito allows you to embed row-level logic in methods defined on the model.
-
-
-```py
-# models.py
-import patito as pt
-
-class Product(pt.Model):
-    product_id: int = pt.Field(unique=True)
-    name: str
-
-    @property
-    def url(self) -> str:
-        return (
-            "https://oda.com/no/products/"
-            f"{self.product_id}-"
-            f"{self.name.lower().replace(' ', '-')}"
-        )
-```
-
-The class can be instantiated from a single row of a data frame by using the `from_row()` method:
-
-```py
-products = pl.DataFrame(
-    {
-        "product_id": [1, 2],
-        "name": ["Skimmed milk", "Eggs"],
-    }
-)
-milk_row = products.filter(pl.col("product_id" == 1))
-milk = Product.from_row(milk_row)
-print(milk.url)
-# https://oda.com/no/products/1-skimmed-milk
-```
-
 ## 🖼️ A model-aware data frame class
-Patito offers `patito.DataFrame`, a class that extends `polars.DataFrame`in order to provide utility methods related to `patito.Model`.
+Patito offers `patito.DataFrame`, a class that extends `polars.DataFrame` in order to provide utility methods related to `patito.Model`.
 The schema of a data frame can be specified at runtime by invoking `patito.DataFrame.set_model(model)`, after which a set of contextualized methods become available:
 
 * `DataFrame.validate()` - Validate the given data frame and return itself.
@@ -251,3 +212,57 @@ print(repr(product))
 ```
 
 Every Patito model automatically gets a `.DataFrame` attribute, a custom data frame subclass where `.set_model()` is invoked at instantiation. With other words, `pt.DataFrame(...).set_model(Product)` is equivalent to `Product.DataFrame(...)`.
+
+## 🐍 Representing rows as classes
+
+Data frames are tailor-made for performing vectorized operations over a _set_ of objects.
+But when the time comes to retrieving a _single_ row and operate upon it, the data frame construct naturally falls short.
+Patito allows you to embed row-level logic in methods defined on the model.
+
+
+```py
+# models.py
+import patito as pt
+
+class Product(pt.Model):
+    product_id: int = pt.Field(unique=True)
+    name: str
+
+    @property
+    def url(self) -> str:
+        return (
+            "https://oda.com/no/products/"
+            f"{self.product_id}-"
+            f"{self.name.lower().replace(' ', '-')}"
+        )
+```
+
+The class can be instantiated from a single row of a data frame by using the `from_row()` method:
+
+```py
+products = pl.DataFrame(
+    {
+        "product_id": [1, 2],
+        "name": ["Skimmed milk", "Eggs"],
+    }
+)
+milk_row = products.filter(pl.col("product_id" == 1))
+milk = Product.from_row(milk_row)
+print(milk.url)
+# https://oda.com/no/products/1-skimmed-milk
+```
+
+If you "connect" the `Product` model with the `DataFrame` by the use of `patito.DataFrame.set_model()`, or alternatively by using `Product.DataFrame` directly, you can use the `.get()` method in order to filter the data frame down to a single row _and_ cast it to the respective model class:
+
+```py
+
+products = Product.DataFrame(
+    {
+        "product_id": [1, 2],
+        "name": ["Skimmed milk", "Eggs"],
+    }
+)
+milk = products.get(pl.col("product_id") == 1)
+print(milk.url)
+# https://oda.com/no/products/1-skimmed-milk
+```
