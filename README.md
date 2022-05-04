@@ -30,6 +30,12 @@ These schema can be used for:
 
 Patito has first-class support for [polars]("https://github.com/pola-rs/polars"), a _"blazingly fast DataFrames library written in Rust"_.
 
+## Installation
+
+```sh
+pip install patito
+```
+
 ## 👮 Data validation
 
 Patito allows you to specify the type of each column in your dataframe by creating a type-annotated subclass of `patito.Model`:
