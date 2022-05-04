@@ -10,3 +10,4 @@ extensions = [
     "sphinx_autodoc_typehints",
 ]
 autodoc_member_order = "bysource"
+autosummary_generate = False
