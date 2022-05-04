@@ -1,16 +1,23 @@
-# 🦆 Patito 🦆
+# 🐥 Patito
 
 <p align="center">
+    <em>
+        Patito combines <a href="https://github.com/samuelcolvin/pydantic">pydantic</a> and <a href="https://github.com/pola-rs/polars">polars</a> in order to write modern, type-annotated data frame logic.
+    </em>
+    <br>
     <a href="https://github.com/kolonialno/patito/actions?workflow=CI">
         <img src="https://github.com/kolonialno/patito/actions/workflows/ci.yml/badge.svg" alt="CI status">
     </a>
     <a href="https://codecov.io/gh/kolonialno/patito">
         <img src="https://codecov.io/gh/kolonialno/patito/branch/main/graph/badge.svg?token=720LBDYH25"/>
     </a>
-    <br>
-    <em>
-        Patito combines <a href="https://github.com/samuelcolvin/pydantic">pydantic</a> and <a href="https://github.com/pola-rs/polars">polars</a> in order to write modern, type-annotated data frame logic.
-    </em>
+    <a href="https://pypi.python.org/pypi/pydantic">
+        <img src="https://img.shields.io/pypi/v/patito.svg">
+    </a>
+    <img src="https://img.shields.io/pypi/pyversions/patito">
+    <a href="https://github.com/kolonialno/patito/blob/master/LICENSE">
+        <img src="https://img.shields.io/github/license/kolonialno/patito.svg">
+    </a>
 </p>
 
 Patito offers a simple way to declare pydantic data models which double as schema for your polars data frames.
