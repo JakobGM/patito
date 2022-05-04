@@ -1,0 +1,13 @@
+name: Coverage
+on: push
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      # TODO: Pin to version >2.0.0 once released
+    - uses: excitedleigh/setup-nox@main
+    - run: pip install poetry==1.1.13
+    - run: nox --sessions test-3.9 coverage
+      env:
+        CODECOV_TOKEN: ${{secrets.CODECOV_TOKEN}}

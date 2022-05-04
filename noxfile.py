@@ -40,7 +40,7 @@ def install_with_constraints(session, *args, **kwargs):
 @nox.session(python=supported_python_versions)
 def test(session):
     """Run test suite using pytest + coverage + xdoctest."""
-    if session.python == "3.10":
+    if session.python == "3.9":
         # Only run test coverage and docstring tests on python 3.10
         args = session.posargs or ["--cov", "--xdoctest"]
     else:
@@ -63,6 +63,14 @@ def test(session):
         "xdoctest",
     )
     session.run("pytest", *args)
+
+
+@nox.session(python="3.9")
+def coverage(session):
+    """Upload coverage data."""
+    install_with_constraints(session, "coverage[toml]", "codecov")
+    session.run("coverage", "xml", "--fail-under=0")
+    session.run("codecov", *session.posargs)
 
 
 @nox.session(python=["3.9"])

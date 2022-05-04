@@ -4,6 +4,9 @@
     <a href="https://github.com/kolonialno/patito/actions?workflow=CI">
         <img src="https://github.com/kolonialno/patito/actions/workflows/ci.yml/badge.svg" alt="CI status">
     </a>
+    <a href="https://codecov.io/gh/kolonialno/patito">
+        <img src="https://codecov.io/gh/kolonialno/patito/branch/main/graph/badge.svg?token=720LBDYH25"/>
+    </a>
     <br>
     <em>
         Patito combines <a href="https://github.com/samuelcolvin/pydantic">pydantic</a> and <a href="https://github.com/pola-rs/polars">polars</a> in order to write modern, type-annotated data frame logic.
