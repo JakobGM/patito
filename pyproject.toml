@@ -52,6 +52,12 @@ codecov = "^2.1.12"
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.pytest.ini_options]
+filterwarnings = [
+    # Convert warnings into test errors
+    "error",
+]
+
 [tool.coverage.paths]
 source = ["src", "*/site-packages"]
 

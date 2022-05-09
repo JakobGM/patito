@@ -39,8 +39,9 @@ def test_database(tmp_path):
 
     # Check the parquet reading functionality
     parquet_path = tmp_path / "tmp.parquet"
-    table_df.to_parquet(str(parquet_path))
-    another_db.to_relation(parquet_path).create_table(name="parquet_table")
+    table_df.write_parquet(str(parquet_path), compression="snappy")
+    new_relation = another_db.to_relation(parquet_path)
+    new_relation.create_table(name="parquet_table")
     assert another_db.table("parquet_table").count() == 3
 
 
