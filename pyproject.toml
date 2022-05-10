@@ -19,26 +19,27 @@ pandas = {version = ">=1.4.0", optional = true, python = "^3.8"}
 duckdb = {version = ">=0.3.2", optional = true, python = "^3.8"}
 pyarrow = {version = ">=5.0.0", optional = true, python = "^3.8"}
 coverage = {version = ">=6.3.2", extras = ["toml"]}
+importlib-metadata = {version = "^4.11.3", python = "<3.8"}
 
 [tool.poetry.extras]
 duckdb = ["duckdb", "pyarrow"]
 pandas = ["pandas"]
 
 [tool.poetry.dev-dependencies]
-black = "^22.3.0"
-coverage = "^6.3.2"
-flake8 = "^4.0.1"
-flake8-annotations = "^2.9.0"
-flake8-bandit = "^3.0.0"
-flake8-black = "^0.3.2"
-flake8-bugbear = "^22.4.25"
-flake8-isort = "^4.1.1"
-isort = "^5.10.1"
-pyright = "^1.1.239"
-pytest = "^7.1.2"
-pytest-cov = "^3.0.0"
-pytest-watcher = "^0.2.3"
-xdoctest = "^1.0.0"
+black = ">=22.3.0"
+coverage = "*"
+flake8 = "*"
+flake8-annotations = "*"
+flake8-bandit = "*"
+flake8-black = "*"
+flake8-bugbear = "*"
+flake8-isort = "*"
+isort = "*"
+pyright = ">=1.1.239"
+pytest = ">=7.1.2"
+pytest-cov = ">=3.0.0"
+pytest-watcher = ">=0.2.3"
+xdoctest = ">=1.0.0"
 
 mypy = ">=0.950"
 types-setuptools = ">=57.4.14"
