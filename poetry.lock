@@ -136,7 +136,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 name = "coverage"
 version = "6.3.2"
 description = "Code coverage measurement for Python"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -892,7 +892,7 @@ test = ["pytest (>=3.6)", "pytest-cov", "pytest-django", "zope.component", "sybi
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.7"
 
@@ -989,7 +989,7 @@ pandas = ["pandas"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "f9510d688f6bbfd421e9b2a6a5bc7cd63ed7a829565a84585847372446f3bb9d"
+content-hash = "8775f0f2ccfb98a79b017f13b6a59b578e4df3b1153aeb485e67c4b92f88ee9b"
 
 [metadata.files]
 alabaster = [
