@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "patito"
-version = "0.1.0"
+version = "0.1.1"
 description = "A dataframe modelling library built on top of polars and pydantic."
 authors = ["Jakob Gerhard Martinussen <jakobgm@gmail.com>"]
 license = "MIT"
@@ -17,7 +17,7 @@ polars = ">=0.13.18"
 typing-extensions = "*"
 pandas = {version = ">=1.4.0", optional = true, python = "^3.8"}
 duckdb = {version = ">=0.3.2", optional = true, python = "^3.8"}
-pyarrow = {version = ">=7.0.0", optional = true, python = "^3.8"}
+pyarrow = {version = ">=5.0.0", optional = true, python = "^3.8"}
 coverage = {version = ">=6.3.2", extras = ["toml"]}
 
 [tool.poetry.extras]
