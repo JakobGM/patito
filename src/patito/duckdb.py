@@ -486,8 +486,10 @@ class Relation(Generic[ModelType]):
 
     def to_df(self) -> pl.DataFrame:
         """Return a polars DataFrame representation of relation object."""
+        # Here we do a star-select to work around certain weird issues with DuckDB
+        self._relation = self._relation.project("*")
         arrow_table = cast(pa.lib.Table, self._relation.to_arrow_table())
-        if POLARS_VERSION and POLARS_VERSION <= (0, 13, 31):
+        if POLARS_VERSION and POLARS_VERSION <= (0, 13, 38):
             # Fix for https://github.com/pola-rs/polars/issues/3500
             schema = arrow_table.schema
             for index, field in enumerate(schema):
@@ -497,7 +499,20 @@ class Relation(Generic[ModelType]):
                     )
                     schema = schema.set(index, dict_field)
             arrow_table = arrow_table.cast(schema)
-        return cast(pl.DataFrame, pl.from_arrow(arrow_table))
+        try:
+            return cast(pl.DataFrame, pl.from_arrow(arrow_table))
+        except pa.error.ArrowInvalid:  # pragma: no cover
+            # Empty relations with enum columns can sometimes produce errors.
+            # As a last-ditch effort, we convert such columns to VARCHAR.
+            casted_columns = [
+                f"{field.name}::VARCHAR"
+                if isinstance(field.type, pa.DictionaryType)
+                else field.name
+                for field in arrow_table.schema
+            ]
+            non_enum_relation = self._relation.project(", ".join(casted_columns))
+            arrow_table = non_enum_relation.to_arrow_table()
+            return cast(pl.DataFrame, pl.from_arrow(arrow_table))
 
     def to_series(self) -> pl.Series:
         if len(self._relation.columns) != 1:
