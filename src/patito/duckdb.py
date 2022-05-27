@@ -510,7 +510,7 @@ class Relation(Generic[ModelType]):
             # Empty relations with enum columns can sometimes produce errors.
             # As a last-ditch effort, we convert such columns to VARCHAR.
             casted_columns = [
-                f"{field.name}::VARCHAR"
+                f"{field.name}::VARCHAR as {field.name}"
                 if isinstance(field.type, pa.DictionaryType)
                 else field.name
                 for field in arrow_table.schema
