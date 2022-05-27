@@ -21,6 +21,7 @@ from typing import (
 
 import numpy as np
 import polars as pl
+import pyarrow as pa
 from pydantic import create_model
 from typing_extensions import Literal
 
@@ -71,6 +72,12 @@ DuckDBSQLType = Literal[
     "UUID",
     "VARCHAR",
 ]
+
+# Used for backward-compatible patches
+try:
+    POLARS_VERSION = tuple(map(int, pl.__version__.split(".")))
+except ValueError:
+    POLARS_VERSION = None
 
 
 def create_pydantic_model(relation: "duckdb.DuckDBPyRelation") -> Type[Model]:
@@ -479,7 +486,18 @@ class Relation(Generic[ModelType]):
 
     def to_df(self) -> pl.DataFrame:
         """Return a polars DataFrame representation of relation object."""
-        return cast(pl.DataFrame, pl.from_arrow(self._relation.to_arrow_table()))
+        arrow_table = cast(pa.lib.Table, self._relation.to_arrow_table())
+        if POLARS_VERSION and POLARS_VERSION <= (0, 13, 31):
+            # Fix for https://github.com/pola-rs/polars/issues/3500
+            schema = arrow_table.schema
+            for index, field in enumerate(schema):
+                if isinstance(field.type, pa.DictionaryType):
+                    dict_field = field.with_type(
+                        pa.dictionary(index_type=pa.int8(), value_type=pa.utf8())
+                    )
+                    schema = schema.set(index, dict_field)
+            arrow_table = arrow_table.cast(schema)
+        return cast(pl.DataFrame, pl.from_arrow(arrow_table))
 
     def to_series(self) -> pl.Series:
         if len(self._relation.columns) != 1:
