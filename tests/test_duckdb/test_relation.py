@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import polars as pl
 import pytest
+from typing_extensions import Literal
 
 import patito as pt
 
@@ -571,3 +572,26 @@ def test_series_vs_dataframe_behavior():
     # To series will raise a type error if invoked with anything other than 1 column
     with pytest.raises(TypeError, match=r".*2 columns, while exactly 1 is required.*"):
         relation.to_series()
+
+
+def test_converting_enum_column_to_polars():
+    """Enum types should be convertible to polars categoricals."""
+
+    class EnumModel(pt.Model):
+        enum_column: Literal["a", "b", "c"]
+
+    db = pt.Database()
+    db.create_table(name="enum_table", model=EnumModel)
+    db.execute(
+        """
+        insert into enum_table
+            (enum_column)
+        values
+            ('a'),
+            ('a'),
+            ('b');
+        """
+    )
+    enum_df = db.table("enum_table").to_df()
+    assert enum_df.frame_equal(pl.DataFrame({"enum_column": ["a", "a", "b"]}))
+    assert enum_df.dtypes == [pl.Categorical]
