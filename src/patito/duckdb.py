@@ -261,6 +261,11 @@ class Relation(Generic[ModelType]):
             new_columns.remove(column)
         return self[new_columns]
 
+    def execute(self) -> duckdb.DuckDBPyResult:
+        """Execute built relation query and return result object."""
+        # A star-select is here performed in order to work around certain DuckDB bugs
+        return self._relation.project("*").execute()
+
     def get(self, *filters: str, **equalities: Union[str, int, float]) -> ModelType:
         """
         Fetch the single row that matches the given filter(s).
@@ -285,7 +290,7 @@ class Relation(Generic[ModelType]):
         else:
             relation = self
         result = relation.execute()
-        row = result.fetchone()
+        row = cast(tuple, result.fetchone())
         if row is None or result.fetchone() is not None:
             args = ", ".join(repr(f) for f in filters)
             kwargs = ", ".join(f"{key}={value!r}" for key, value in equalities.items())
@@ -501,7 +506,7 @@ class Relation(Generic[ModelType]):
             arrow_table = arrow_table.cast(schema)
         try:
             return cast(pl.DataFrame, pl.from_arrow(arrow_table))
-        except pa.error.ArrowInvalid:  # pragma: no cover
+        except pa.ArrowInvalid:  # pragma: no cover
             # Empty relations with enum columns can sometimes produce errors.
             # As a last-ditch effort, we convert such columns to VARCHAR.
             casted_columns = [
