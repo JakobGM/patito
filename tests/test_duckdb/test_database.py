@@ -120,6 +120,62 @@ def test_database_create_table():
     ]
 
 
+def test_validate_non_nullabel_enum_columns():
+    """Enum columns should be null-validated."""
+
+    class EnumModel(pt.Model):
+        non_nullable_enum_column: Literal["a", "b", "c"]
+        nullable_enum_column: Optional[Literal["a", "b", "c"]]
+
+    db = pt.Database()
+    db.create_table(name="enum_table", model=EnumModel)
+
+    # We allow null values in nullable_enum_column
+    valid_relation = db.to_relation(
+        "select 'a' as non_nullable_enum_column, null as nullable_enum_column"
+    )
+    valid_relation.insert_into("enum_table")
+
+    # But we do not allow it in non_nullable_enum_column
+    invalid_relation = db.to_relation(
+        "select null as non_nullable_enum_column, 'a' as nullable_enum_column"
+    )
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "Failed to insert into table 'enum_table': Constraint Error:.*"
+            "NOT NULL constraint failed: enum_table.non_nullable_enum_column"
+        ),
+    ):
+        invalid_relation.insert_into(table_name="enum_table")
+
+    # The non-nullable enum column should do enum value validation
+    invalid_relation = db.to_relation(
+        "select 'd' as non_nullable_enum_column, 'a' as nullable_enum_column"
+    )
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "Failed to insert into table 'enum_table': Conversion Error:.*"
+            "Could not convert string 'd' to UINT8"
+        ),
+    ):
+        invalid_relation.insert_into(table_name="enum_table")
+
+    # And the nullable enum column should do enum value validation
+    invalid_relation = db.to_relation(
+        "select 'a' as non_nullable_enum_column, 'd' as nullable_enum_column"
+    )
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "Failed to insert into table 'enum_table': Conversion Error:.*"
+            "Could not convert string 'd' to UINT8"
+        ),
+    ):
+        invalid_relation.insert_into(table_name="enum_table")
+
+
 def test_table_existence_check():
     """You should be able to check for the existence of a table."""
 

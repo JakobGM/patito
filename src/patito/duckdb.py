@@ -808,9 +808,8 @@ class Database:
         Create table with schema matching the provided model.
 
         Args:
-            name (str): Name of new table.
-            model (Type[Model]): Pydantic-derived model indicating names and types of
-            table columns.
+            name: Name of new table.
+            model: Pydantic-derived model indicating names and types of table columns.
         Returns:
             relation (Relation[ModelType]): Relation pointing to the new table.
         """
@@ -818,17 +817,15 @@ class Database:
         non_nullable = schema["required"]
         columns = []
         for column_name, props in model.schema()["properties"].items():
-            if (
-                "enum" in props
-                and props["type"] == "string"
-                and column_name in non_nullable
-            ):
+            if "enum" in props and props["type"] == "string":
                 enum_values = ", ".join(repr(value) for value in props["enum"])
                 enum_type_name = f"{schema['title']}__{column_name}".lower()
                 self.connection.execute(
                     f"create type {enum_type_name} as enum ({enum_values})"
                 )
                 column = f"{column_name} {enum_type_name}"
+                if column_name in non_nullable:
+                    column += " not null"
             else:
                 sql_type = PYDANTIC_TO_DUCKDB_TYPES[props["type"]]
                 column = f"{column_name} {sql_type}"
