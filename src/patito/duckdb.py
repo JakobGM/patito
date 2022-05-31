@@ -413,7 +413,11 @@ class Relation(Generic[ModelType]):
         reordered_relation._relation.insert_into(table_name=table_name)
         return self
 
-    def project(self, *projections: str, **named_projections: str) -> Relation:
+    def project(
+        self,
+        *projections: Union[str, int, float],
+        **named_projections: Union[str, int, float],
+    ) -> Relation:
         """
         Return relation based on one or more select projections.
 
@@ -432,7 +436,7 @@ class Relation(Generic[ModelType]):
 
         projection = ", ".join(
             expanded_projections
-            + list(
+            + list(  # type: ignore
                 f"{expression} as {column_name}"
                 for column_name, expression in named_projections.items()
             )
