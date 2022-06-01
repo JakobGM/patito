@@ -430,7 +430,10 @@ class Relation(Generic[ModelType]):
         expanded_projections: list = list(projections)
         try:
             star_index = projections.index("*")
-            expanded_projections[star_index : star_index + 1] = self.columns
+            # Under certain specific circumstances columns are suffixed with
+            # :1, which need to be removed from the column name.
+            columns = [column.partition(":")[0] for column in self.columns]
+            expanded_projections[star_index : star_index + 1] = columns
         except ValueError:
             pass
 

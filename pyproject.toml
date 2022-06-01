@@ -56,6 +56,7 @@ build-backend = "poetry.core.masonry.api"
 filterwarnings = [
     # Convert warnings into test errors
     "error",
+    "ignore:pygments is not installed*:UserWarning",
 ]
 
 [tool.coverage.paths]
