@@ -97,8 +97,6 @@ class Relation(Generic[ModelType]):
 
     # The alias that can be used to refer to the relation in queries
     alias: str
-    # The columns of the relation
-    columns: List[str]
     # The SQL types of the relation
     types: List[DuckDBSQLType]
 
@@ -231,6 +229,13 @@ class Relation(Generic[ModelType]):
                 projections.append(column)
         return self.project(*projections)
 
+    @property
+    def columns(self) -> List[str]:
+        """Return the columns of the relation as a list of strings."""
+        # Under certain specific circumstances columns are suffixed with
+        # :1, which need to be removed from the column name.
+        return [column.partition(":")[0] for column in self._relation.columns]
+
     def count(self) -> int:
         """Return the number of rows in the given relation."""
         return cast(Tuple[int], self._relation.aggregate("count(*)").fetchone())[0]
@@ -308,7 +313,7 @@ class Relation(Generic[ModelType]):
         value. Otherwise, a pydantic model is dynamically created based on the column
         schema of the relation.
         """
-        kwargs = {column: value for column, value in zip(self._relation.columns, row)}
+        kwargs = {column: value for column, value in zip(self.columns, row)}
         if self.model:
             return self.model(**kwargs)
         else:
@@ -430,10 +435,7 @@ class Relation(Generic[ModelType]):
         expanded_projections: list = list(projections)
         try:
             star_index = projections.index("*")
-            # Under certain specific circumstances columns are suffixed with
-            # :1, which need to be removed from the column name.
-            columns = [column.partition(":")[0] for column in self.columns]
-            expanded_projections[star_index : star_index + 1] = columns
+            expanded_projections[star_index : star_index + 1] = self.columns
         except ValueError:
             pass
 
@@ -453,7 +455,7 @@ class Relation(Generic[ModelType]):
 
         For instance, relation.rename(a="b") will rename column "a" to "b".
         """
-        existing_columns = self._relation.columns
+        existing_columns = self.columns
         missing = set(columns.keys()) - set(existing_columns)
         if missing:
             raise ValueError(
@@ -490,7 +492,7 @@ class Relation(Generic[ModelType]):
     @property
     def sql_types(self) -> dict[str, str]:
         """Return column name -> DuckDB SQL type dictionary mapping."""
-        return dict(zip(self._relation.columns, self._relation.types))
+        return dict(zip(self.columns, self._relation.types))
 
     def to_pandas(self) -> "pd.DataFrame":
         """Return a pandas DataFrame representation of relation object."""
@@ -533,7 +535,7 @@ class Relation(Generic[ModelType]):
                 f"{len(self._relation.columns)} columns, while exactly 1 is required!"
             )
         dataframe = cast(pl.DataFrame, pl.from_arrow(self._relation.to_arrow_table()))
-        return dataframe.to_series(index=0).alias(name=self._relation.columns[0])
+        return dataframe.to_series(index=0).alias(name=self.columns[0])
 
     def union(self: RelationType, other: RelationSource) -> RelationType:
         """
@@ -553,7 +555,7 @@ class Relation(Generic[ModelType]):
             if additional_right:
                 msg += f" Additional columns in right relation: {additional_right}."
             raise TypeError(msg)
-        reordered_relation = other_relation[self._relation.columns]
+        reordered_relation = other_relation[self.columns]
         unioned_relation = self._relation.union(reordered_relation._relation)
         return self._wrap(relation=unioned_relation, schema_change=False)
 
@@ -572,7 +574,7 @@ class Relation(Generic[ModelType]):
                 "You should invoke {class_name}.set_model() first!"
             )
 
-        missing_columns = set(self.model.columns) - set(self._relation.columns)
+        missing_columns = set(self.model.columns) - set(self.columns)
         defaultable_columns = self.model.defaults.keys()
         missing_defaultable_columns = missing_columns & defaultable_columns
 
