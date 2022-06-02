@@ -621,9 +621,3 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             .with_columns(series)  # type: ignore
             .with_columns(unique_series)
         )
-
-    class Config(BaseConfig):
-        """Configuration for Pydantic BaseModel behaviour."""
-
-        # Make fields immutable and model hashable
-        frozen = True
