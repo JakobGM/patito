@@ -3,12 +3,13 @@ Module which wraps around the duckdb module in an opiniated manner.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Dict,
     Generic,
     List,
     Optional,
@@ -25,6 +26,7 @@ import pyarrow as pa
 from pydantic import create_model
 from typing_extensions import Literal
 
+from patito import sql
 from patito.pydantic import PYDANTIC_TO_DUCKDB_TYPES, Model, ModelType
 
 try:
@@ -183,26 +185,71 @@ class Relation(Generic[ModelType]):
         *,
         from_column: str,
         to_column: str,
-        mapping: Mapping[Any, Any],
-        default: Union[str, int, float],
+        mapping: Dict[sql.SQLLiteral, sql.SQLLiteral],
+        default: sql.SQLLiteral,
     ) -> Relation:
         """
         Map values of one column over to a new column.
 
         Args:
-            from_column: Name of column definining the domain of the mapping.
+            from_column: Name of column defining the domain of the mapping.
             to_column: Name of column to insert the mapped values into.
             mapping: Dictionary defining the mapping. The dictionary keys represent the
                 input values, while the dictionary values represent the output values.
                 Items are inserted into the SQL case statement by their repr() string
                 value.
             default: Default output value for inputs which have no provided mapping.
+
+        Examples:
+            The following case statement...
+
+            >>> import patito as pt
+            >>> db = pt.Database()
+            >>> relation = db.to_relation("select 1 as a union select 2 as a")
+            >>> relation.case(
+            ...     from_column="a",
+            ...     to_column="b",
+            ...     mapping={1: "one", 2: "two"},
+            ...     default="three",
+            ... ).to_df()
+            shape: (2, 2)
+            ┌─────┬─────┐
+            │ a   ┆ b   │
+            │ --- ┆ --- │
+            │ i32 ┆ str │
+            ╞═════╪═════╡
+            │ 1   ┆ one │
+            ├╌╌╌╌╌┼╌╌╌╌╌┤
+            │ 2   ┆ two │
+            └─────┴─────┘
+
+            ... is equivalent with:
+            >>> case_statement = pt.sql.Case(
+            ...     on_column="a",
+            ...     mapping={1: "one", 2: "two"},
+            ...     default="three",
+            ...     as_column="b",
+            ... )
+            >>> relation.project(f"*, {case_statement}").to_df()
+            shape: (2, 2)
+            ┌─────┬─────┐
+            │ a   ┆ b   │
+            │ --- ┆ --- │
+            │ i32 ┆ str │
+            ╞═════╪═════╡
+            │ 1   ┆ one │
+            ├╌╌╌╌╌┼╌╌╌╌╌┤
+            │ 2   ┆ two │
+            └─────┴─────┘
         """
-        case_column_definition = f"case {from_column} " + (
-            " ".join(f"when {key!r} then {value!r}" for key, value in mapping.items())
-            + f" else {default} end as {to_column}"
+
+        case_statement = sql.Case(
+            on_column=from_column,
+            mapping=mapping,
+            default=default,
+            as_column=to_column,
         )
-        new_relation = self._relation.project("*, " + case_column_definition)
+        new_relation = self._relation.project(f"*, {case_statement}")
         return self._wrap(relation=new_relation, schema_change=True)
 
     def coalesce(

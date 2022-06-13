@@ -3,7 +3,7 @@ import pkg_resources
 from pkg_resources import DistributionNotFound
 from polars import Expr, Series, col
 
-from patito import exceptions
+from patito import exceptions, sql
 from patito.exceptions import ValidationError
 from patito.polars import DataFrame
 from patito.pydantic import Field, Model
@@ -16,9 +16,10 @@ __all__ = [
     "Model",
     "Series",
     "ValidationError",
+    "_DUCKDB_AVAILABLE",
     "col",
     "exceptions",
-    "_DUCKDB_AVAILABLE",
+    "sql",
 ]
 
 try:

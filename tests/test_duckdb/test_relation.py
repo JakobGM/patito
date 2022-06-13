@@ -246,26 +246,39 @@ def test_relation_all_method():
     assert relation.all("a < 4", b=100)
 
 
-@pytest.mark.skip(reason="Segmentation fault.")
 def test_relation_case_method():
     db = pt.Database()
 
     df = pl.DataFrame(
-        {"shelf_classification": ["A", "B", "A", "C"], "weight": [1, 2, 3, 4]}
+        {
+            "shelf_classification": ["A", "B", "A", "C", "D"],
+            "weight": [1, 2, 3, 4, 5],
+        }
     )
 
     correct_df = df.with_column(
-        pl.Series([10, 20, 10, 0], dtype=pl.Int32).alias("max_weight")
+        pl.Series([10, 20, 10, 0, None], dtype=pl.Int32).alias("max_weight")
     )
     correct_mapped_actions = db.to_relation(correct_df)
 
     mapped_actions = db.to_relation(df).case(
         from_column="shelf_classification",
         to_column="max_weight",
-        mapping={"A": 10, "B": 20},
+        mapping={"A": 10, "B": 20, "D": None},
         default=0,
     )
     assert mapped_actions == correct_mapped_actions
+
+    # We can also use the Case class
+    case_statement = pt.sql.Case(
+        on_column="shelf_classification",
+        mapping={"A": 10, "B": 20, "D": None},
+        default=0,
+    )
+    alt_mapped_actions = db.to_relation(df).project(
+        f"*, {case_statement} as max_weight"
+    )
+    assert alt_mapped_actions == correct_mapped_actions
 
 
 def test_relation_coalesce_method():
