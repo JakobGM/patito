@@ -194,6 +194,24 @@ def test_rename_to_existing_column():
     assert renamed_relation.get().a == 2
 
 
+def test_add_suffix():
+    """It should be able to add suffixes to all column names."""
+    db = pt.Database()
+    relation = db.to_relation("select 1 as a, 2 as b")
+    assert relation.add_suffix("x").columns == ["ax", "bx"]
+    assert relation.add_suffix("x", exclude=["a"]).columns == ["a", "bx"]
+    assert relation.add_suffix("x", include=["a"]).columns == ["ax", "b"]
+
+
+def test_add_prefix():
+    """It should be able to add prefixes to all column names."""
+    db = pt.Database()
+    relation = db.to_relation("select 1 as a, 2 as b")
+    assert relation.add_prefix("x").columns == ["xa", "xb"]
+    assert relation.add_prefix("x", exclude=["a"]).columns == ["a", "xb"]
+    assert relation.add_prefix("x", include=["a"]).columns == ["xa", "b"]
+
+
 def test_relation_aggregate_method():
     """Test for Relation.aggregate()."""
     db = pt.Database()
@@ -470,6 +488,48 @@ def test_fill_missing_columns():
         "b": "VARCHAR",
         "d": "DOUBLE",
     }
+
+    # We now exclude the b column from being filled with default values
+    excluded_default = relation.with_missing_defaultable_columns(exclude=["b"])
+    assert excluded_default.set_model(None).get().dict() == {
+        "a": "mandatory",
+        "d": 10.5,
+    }
+
+    # We can also specify that we only want to fill a subset
+    included_defualts = relation.with_missing_defaultable_columns(include=["b"])
+    assert included_defualts.set_model(None).get().dict() == {
+        "a": "mandatory",
+        "b": "default_value",
+        "d": 10.5,
+    }
+
+    # We now exclude column b and c from being filled with null values
+    excluded_nulls = relation.with_missing_nullable_columns(exclude=["b", "c"])
+    assert excluded_nulls.set_model(None).get().dict() == {
+        "a": "mandatory",
+        "d": 10.5,
+        "e": None,
+    }
+
+    # Only specify that we want to fill column e with nulls
+    included_nulls = relation.with_missing_nullable_columns(include=["e"])
+    assert included_nulls.set_model(None).get().dict() == {
+        "a": "mandatory",
+        "d": 10.5,
+        "e": None,
+    }
+
+    # We should raise if both include and exclude is specified
+    with pytest.raises(
+        TypeError, match="Both include and exclude provided at the same time!"
+    ):
+        relation.with_missing_nullable_columns(include={"x"}, exclude={"y"})
+
+    with pytest.raises(
+        TypeError, match="Both include and exclude provided at the same time!"
+    ):
+        relation.with_missing_defaultable_columns(include={"x"}, exclude={"y"})
 
 
 def test_relation_insert_into():

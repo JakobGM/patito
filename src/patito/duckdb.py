@@ -160,16 +160,50 @@ class Relation(Generic[ModelType]):
         )
         return self._wrap(relation=relation, schema_change=True)
 
-    def add_suffix(self, suffix: str) -> Relation:
+    def add_suffix(
+        self,
+        suffix: str,
+        include: Optional[Iterable[str]] = None,
+        exclude: Optional[Iterable[str]] = None,
+    ) -> Relation:
         """Add suffix to all columns of relation."""
+        if include is not None and exclude is not None:
+            raise TypeError("Both include and exclude provided at the same time!")
+        elif include is not None:
+            included = lambda column: column in include  # noqa: E731
+        elif exclude is not None:
+            included = lambda column: column not in exclude  # noqa: E731
+        else:
+            included = lambda _: True  # noqa: E731
+
         return self.project(
-            ", ".join(f"{column} as {column}{suffix}" for column in self.columns)
+            ", ".join(
+                f"{column} as {column}{suffix}" if included(column) else column
+                for column in self.columns
+            )
         )
 
-    def add_prefix(self, prefix: str) -> Relation:
+    def add_prefix(
+        self,
+        prefix: str,
+        include: Optional[Iterable[str]] = None,
+        exclude: Optional[Iterable[str]] = None,
+    ) -> Relation:
         """Add prefix to all columns of relation."""
+        if include is not None and exclude is not None:
+            raise TypeError("Both include and exclude provided at the same time!")
+        elif include is not None:
+            included = lambda column: column in include  # noqa: E731
+        elif exclude is not None:
+            included = lambda column: column not in exclude  # noqa: E731
+        else:
+            included = lambda _: True  # noqa: E731
+
         return self.project(
-            ", ".join(f"{column} as {prefix}{column}" for column in self.columns)
+            ", ".join(
+                f"{column} as {prefix}{column}" if included(column) else column
+                for column in self.columns
+            )
         )
 
     def all(self, *filters: str, **equalities: Union[int, float, str]) -> bool:
@@ -606,7 +640,11 @@ class Relation(Generic[ModelType]):
         unioned_relation = self._relation.union(reordered_relation._relation)
         return self._wrap(relation=unioned_relation, schema_change=False)
 
-    def with_missing_defaultable_columns(self: RelationType) -> RelationType:
+    def with_missing_defaultable_columns(
+        self: RelationType,
+        include: Optional[Iterable[str]] = None,
+        exclude: Optional[Iterable[str]] = None,
+    ) -> RelationType:
         """
         Add missing defaultable columns filled with the default values of correct type.
 
@@ -620,10 +658,17 @@ class Relation(Generic[ModelType]):
                 f"{class_name}.model having been set! "
                 "You should invoke {class_name}.set_model() first!"
             )
+        elif include is not None and exclude is not None:
+            raise TypeError("Both include and exclude provided at the same time!")
 
         missing_columns = set(self.model.columns) - set(self.columns)
         defaultable_columns = self.model.defaults.keys()
         missing_defaultable_columns = missing_columns & defaultable_columns
+
+        if exclude is not None:
+            missing_defaultable_columns -= set(exclude)
+        elif include is not None:
+            missing_defaultable_columns = missing_defaultable_columns & set(include)
 
         projection = "*"
         for column_name in missing_defaultable_columns:
@@ -634,7 +679,11 @@ class Relation(Generic[ModelType]):
         relation = self._relation.project(projection)
         return self._wrap(relation=relation, schema_change=False)
 
-    def with_missing_nullable_columns(self: RelationType) -> RelationType:
+    def with_missing_nullable_columns(
+        self: RelationType,
+        include: Optional[Iterable[str]] = None,
+        exclude: Optional[Iterable[str]] = None,
+    ) -> RelationType:
         """
         Add missing nullable columns filled with correctly typed nulls.
 
@@ -648,8 +697,16 @@ class Relation(Generic[ModelType]):
                 f"{class_name}.model having been set! "
                 "You should invoke {class_name}.set_model() first!"
             )
+        elif include is not None and exclude is not None:
+            raise TypeError("Both include and exclude provided at the same time!")
+
         missing_columns = set(self.model.columns) - set(self.columns)
         missing_nullable_columns = self.model.nullable_columns & missing_columns
+
+        if exclude is not None:
+            missing_nullable_columns -= set(exclude)
+        elif include is not None:
+            missing_nullable_columns = missing_nullable_columns & set(include)
 
         projection = "*"
         for missing_nullable_column in missing_nullable_columns:
