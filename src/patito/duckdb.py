@@ -516,7 +516,13 @@ class Relation(Generic[ModelType]):
         expanded_projections: list = list(projections)
         try:
             star_index = projections.index("*")
-            expanded_projections[star_index : star_index + 1] = self.columns
+            if named_projections:
+                # Allow explicitly named projections to overwrite star-selected columns
+                expanded_projections[star_index : star_index + 1] = [
+                    column for column in self.columns if column not in named_projections
+                ]
+            else:
+                expanded_projections[star_index : star_index + 1] = self.columns
         except ValueError:
             pass
 
@@ -636,9 +642,46 @@ class Relation(Generic[ModelType]):
             if additional_right:
                 msg += f" Additional columns in right relation: {additional_right}."
             raise TypeError(msg)
-        reordered_relation = other_relation[self.columns]
+        if other_relation.columns != self.columns:
+            reordered_relation = other_relation[self.columns]
+        else:
+            reordered_relation = other_relation
         unioned_relation = self._relation.union(reordered_relation._relation)
         return self._wrap(relation=unioned_relation, schema_change=False)
+
+    def with_columns(
+        self,
+        **named_projections: Union[str, int, float],
+    ) -> Relation:
+        """
+        Return relations with additional columns.
+
+        If the provided columns expressions already exists as a column on the relation,
+        the given column is overwritten.
+
+        Args:
+            named_projections: A set of column expressions, where the keyword is used
+                as the column name, while the right-hand argument is a valid SQL
+                expression.
+
+        Returns:
+            Relation with the given columns appended, or possibly overwritten.
+
+        Examples:
+            >>> import patito as pt
+            >>> db = pt.Database()
+            >>> relation = db.to_relation("select 1 as a, 2 as b")
+            >>> relation.with_columns(c="a + b").to_df()
+            shape: (1, 3)
+            ┌─────┬─────┬─────┐
+            │ a   ┆ b   ┆ c   │
+            │ --- ┆ --- ┆ --- │
+            │ i32 ┆ i32 ┆ i32 │
+            ╞═════╪═════╪═════╡
+            │ 1   ┆ 2   ┆ 3   │
+            └─────┴─────┴─────┘
+        """
+        return self.project("*", **named_projections)
 
     def with_missing_defaultable_columns(
         self: RelationType,

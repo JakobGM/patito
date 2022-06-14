@@ -2,7 +2,6 @@ import re
 from typing import Optional
 from unittest.mock import MagicMock
 
-import numpy as np
 import polars as pl
 import pytest
 from typing_extensions import Literal
@@ -14,7 +13,6 @@ if not pt._DUCKDB_AVAILABLE:
     pytest.skip("DuckDB not installed", allow_module_level=True)
 
 
-@pytest.mark.skip(reason="Segmentation fault")
 def test_relation():
     """Test functionality of Relation class."""
     # Create a new in-memory database with dummy data
@@ -132,10 +130,12 @@ def test_relation():
     ):
         table_relation.attribute_that_does_not_exist
 
-    # Both None,pl.NA, and nupmy.nan should be considered as null-values
-    none_df = pl.DataFrame({"column_1": [1, None, np.nan]})
+    # Null values should be correctly handled
+    none_df = pl.DataFrame({"column_1": [1, None]})
     none_relation = db.to_relation(none_df)
-    assert none_relation.filter("column_1 is null") == none_df.iloc[1:]
+    assert none_relation.filter("column_1 is null") == none_df.filter(
+        pl.col("column_1").is_null()
+    )
 
     # The .inner_join() method should work as INNER JOIN, not LEFT or OUTER JOIN
     left_relation = db.to_relation(
@@ -183,6 +183,22 @@ def test_relation():
         )
         == left_joined_table
     )
+
+
+def test_with_columns():
+    """It should be able to crate new additional columns."""
+    db = pt.Database()
+    relation = db.to_relation("select 1 as a, 2 as b")
+
+    # We can define a new column
+    extended_relation = relation.with_columns(c="a + b")
+    correct_extended = pl.DataFrame({"a": [1], "b": [2], "c": [3]})
+    assert extended_relation.to_df().frame_equal(correct_extended)
+
+    # Or even overwrite an existing column
+    overwritten_relation = relation.with_columns(a="a + b")
+    correct_overwritten = db.to_relation("select 2 as b, 3 as a").to_df()
+    assert overwritten_relation.to_df().frame_equal(correct_overwritten)
 
 
 def test_rename_to_existing_column():
