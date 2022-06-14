@@ -185,6 +185,32 @@ def test_relation():
     )
 
 
+def test_relation_with_defualt_database():
+    """It should be constructable with the default DuckDB cursor."""
+    import duckdb
+
+    relation_a = pt.Relation("select 1 as a")
+    assert relation_a.database.connection is duckdb.default_connection
+
+    relation_a.create_view("table_a")
+    del relation_a
+
+    relation_b = pt.Relation("select 1 as b")
+    relation_b.create_view("table_b")
+    del relation_b
+
+    default_database = pt.Database.default()
+    joined_relation = default_database.query(
+        """
+        select *
+        from table_a
+        inner join table_b
+        on a = b
+        """
+    )
+    assert joined_relation.to_df().frame_equal(pl.DataFrame({"a": [1], "b": [1]}))
+
+
 def test_with_columns():
     """It should be able to crate new additional columns."""
     db = pt.Database()

@@ -102,28 +102,73 @@ class Relation(Generic[ModelType]):
     # The SQL types of the relation
     types: List[DuckDBSQLType]
 
-    def __init__(
+    def __init__(  # noqa: C901
         self,
-        relation: "duckdb.DuckDBPyRelation",
-        database: Database,
+        derived_from: RelationSource,
+        database: Optional[Database] = None,
         model: Optional[Type[ModelType]] = None,
     ) -> None:
         """
         Wrap around the given DuckDB Relation object associated with the given database.
 
         Args:
-            relation (duckdb.DuckDBPyRelation): Relation to be wrapped.
-            database (Database): Associated database which will be queried/mutated if
-            relation is executed.
-            model (Optional[Type[ModelType]]): Sub-class of patito.Model which
-            specifies how to deserialize rows when fetched with methods such as .get()
-            and __iter__() and how table schema should be constructed.
+            derived_from: Data to be represented as a DuckDB relation object.
+                Can be one of the following types:
+                - A pandas or polars DataFrame.
+                - A Path object pointing to a CSV or a parquet file.
+                - A SQL query represented as a string.
+                - A native DuckDB relation object.
+                - A patito.Relation object.
+            database: Associated database which will be queried/mutated if relation is
+                executed.
+            model: Sub-class of patito.Model which specifies how to deserialize rows
+                when fetched with methods such as .get() and __iter__() and how table
+                schema should be constructed.
         """
         import duckdb
 
-        if not isinstance(relation, duckdb.DuckDBPyRelation):
-            raise TypeError(f"Invalid relation type {type(relation)}!")
-        self.database = database
+        if isinstance(derived_from, Relation):
+            if (
+                database is not None
+                and derived_from.database.connection is not database.connection
+            ):
+                raise ValueError(
+                    "Relations can't be casted between database connections."
+                )
+            self.database = derived_from.database
+            self._relation = derived_from._relation
+            self.model = derived_from.model
+            return
+
+        if database is None:
+            self.database = Database.default()
+        else:
+            self.database = database
+
+        if isinstance(derived_from, duckdb.DuckDBPyRelation):
+            relation = derived_from
+        elif isinstance(derived_from, str):
+            relation = self.database.connection.from_query(derived_from)
+        elif _PANDAS_AVAILABLE and isinstance(derived_from, pd.DataFrame):
+            # We must replace pd.NA with np.nan in order for it to be considered
+            # as null by DuckDB. Otherwise it will casted to the string <NA>
+            # or even segfault.
+            derived_from = cast(pd.DataFrame, derived_from).fillna(np.nan)
+            relation = self.database.connection.from_df(derived_from)
+        elif isinstance(derived_from, pl.DataFrame):
+            relation = self.database.connection.from_arrow(derived_from.to_arrow())
+        elif isinstance(derived_from, Path):
+            if derived_from.suffix == ".parquet":
+                relation = self.database.connection.from_parquet(str(derived_from))
+            elif derived_from.suffix == ".csv":
+                relation = self.database.connection.from_csv_auto(str(derived_from))
+            else:
+                raise ValueError(
+                    f"Unsupported file suffix {derived_from.suffix} for data import!"
+                )
+        else:
+            raise TypeError
+
         self._relation = relation
         if model is not None:
             self.model = model
@@ -573,7 +618,11 @@ class Relation(Generic[ModelType]):
         # This cast() will be wrong for sub-classes of Relation...
         return cast(
             Relation[model],
-            type(self)(relation=self._relation, database=self.database, model=model),
+            type(self)(
+                derived_from=self._relation,
+                database=self.database,
+                model=model,
+            ),
         )
 
     @property
@@ -868,7 +917,7 @@ class Relation(Generic[ModelType]):
         in order to create a Relation base object instead.
         """
         return type(self)(
-            relation=relation,
+            derived_from=relation,
             database=self.database,
             model=self.model if not schema_change else None,
         )
@@ -900,6 +949,33 @@ class Database:
         else:
             self.connection = duckdb.connect(database=":memory:")
 
+    @classmethod
+    def default(cls) -> Database:
+        """
+        Return the default DuckDB database.
+
+        Returns:
+            A Database object wrapping around the given connection.
+        """
+        import duckdb
+
+        return cls.from_connection(duckdb.default_connection)
+
+    @classmethod
+    def from_connection(cls, connection: "duckdb.DuckDBPyConnection") -> Database:
+        """
+        Create database from native DuckDB connection object.
+
+        Args:
+            connection: A native DuckDB connection object created with duckdb.connect().
+
+        Returns:
+            A Database object wrapping around the given connection.
+        """
+        obj = cls.__new__(cls)
+        obj.connection = connection
+        return obj
+
     def to_relation(
         self,
         derived_from: RelationSource,
@@ -912,38 +988,10 @@ class Database:
             a pathlib.Path to a parquet or CSV file, a SQL query string,
             or an existing relation.
         """
-        import duckdb
-
-        if isinstance(derived_from, Relation):
-            if derived_from.database is not self:
-                raise ValueError(
-                    "Relations can't be casted between database connections."
-                )
-            return derived_from
-        elif isinstance(derived_from, duckdb.DuckDBPyRelation):
-            relation = derived_from
-        elif isinstance(derived_from, str):
-            relation = self.connection.from_query(derived_from)
-        elif _PANDAS_AVAILABLE and isinstance(derived_from, pd.DataFrame):
-            # We must replace pd.NA with np.nan in order for it to be considered
-            # as null by DuckDB. Otherwise it will casted to the string <NA>
-            # or even segfault.
-            derived_from = cast(pd.DataFrame, derived_from).fillna(np.nan)
-            relation = self.connection.from_df(derived_from)
-        elif isinstance(derived_from, pl.DataFrame):
-            relation = self.connection.from_arrow(derived_from.to_arrow())
-        elif isinstance(derived_from, Path):
-            if derived_from.suffix == ".parquet":
-                relation = self.connection.from_parquet(str(derived_from))
-            elif derived_from.suffix == ".csv":
-                relation = self.connection.from_csv_auto(str(derived_from))
-            else:
-                raise ValueError(
-                    f"Unsupported file suffix {derived_from.suffix} for data import!"
-                )
-        else:
-            raise TypeError
-        return Relation(relation, database=self)
+        return Relation(
+            derived_from=derived_from,
+            database=self,
+        )
 
     def empty_relation(self, schema: Type[ModelType]) -> Relation[ModelType]:
         """
