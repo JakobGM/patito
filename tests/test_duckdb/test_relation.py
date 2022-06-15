@@ -589,7 +589,7 @@ def test_with_missing_nullable_enum_columns():
         table_name="enum_table"
     )
     table_relation = db.table("enum_table")
-    assert table_relation.sql_types["enum_column"] == "enummodel__enum_column"
+    assert table_relation.sql_types["enum_column"].startswith("enum__")
 
     # We generate another dynamic relation where we expect the correct enum type
     null_relation = (
@@ -597,11 +597,17 @@ def test_with_missing_nullable_enum_columns():
         .set_model(EnumModel)
         .with_missing_nullable_columns()
     )
-    assert null_relation.sql_types["enum_column"] == "enummodel__enum_column"
+    assert (
+        null_relation.sql_types["enum_column"]
+        == table_relation.sql_types["enum_column"]
+    )
 
     # These two relations should now be unionable
     union_relation = null_relation + table_relation
-    assert union_relation.sql_types["enum_column"] == "enummodel__enum_column"
+    assert (
+        union_relation.sql_types["enum_column"]
+        == table_relation.sql_types["enum_column"]
+    )
     assert (
         union_relation.order("other_column asc")
         .to_df()
@@ -631,14 +637,18 @@ def test_with_missing_nullable_enum_columns_without_table():
         .set_model(EnumModel)
         .with_missing_nullable_columns()
     )
-    assert relation.sql_types["enum_column_1"] == "enummodel__enum_column_1"
-    assert relation.sql_types["enum_column_2"] == "enummodel__enum_column_2"
+    assert relation.sql_types["enum_column_1"].startswith("enum__")
+    assert relation.sql_types["enum_column_2"] == relation.sql_types["enum_column_1"]
 
     # And now we should be able to insert it into a new table
     relation.create_table(name="enum_table")
     table_relation = db.table("enum_table")
-    assert table_relation.sql_types["enum_column_1"] == "enummodel__enum_column_1"
-    assert table_relation.sql_types["enum_column_2"] == "enummodel__enum_column_2"
+    assert (
+        table_relation.sql_types["enum_column_1"] == relation.sql_types["enum_column_1"]
+    )
+    assert (
+        table_relation.sql_types["enum_column_2"] == relation.sql_types["enum_column_1"]
+    )
 
 
 def test_with_missing_defualtable_enum_columns():
@@ -654,7 +664,7 @@ def test_with_missing_defualtable_enum_columns():
         .set_model(EnumModel)
         .with_missing_defaultable_columns()
     )
-    assert relation.sql_types["enum_column"] == "enummodel__enum_column"
+    assert relation.sql_types["enum_column"].startswith("enum__")
 
 
 def test_relation_insert_into():

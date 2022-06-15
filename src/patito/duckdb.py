@@ -3,6 +3,7 @@ Module which wraps around the duckdb module in an opiniated manner.
 """
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import (
@@ -91,6 +92,17 @@ def create_pydantic_model(relation: "duckdb.DuckDBPyRelation") -> Type[Model]:
         __base__=Model,
         **pydantic_annotations,
     )
+
+
+def _enum_type_name(field_properties: dict) -> str:
+    """
+    Return enum DuckDB SQL type name based on enum values.
+
+    The same enum values, regardless of ordering, will always be given the same name.
+    """
+    enum_values = ", ".join(repr(value) for value in sorted(field_properties["enum"]))
+    value_hash = hashlib.md5(enum_values.encode("utf-8")).hexdigest()  # noqa: S324
+    return f"enum__{value_hash}"
 
 
 class Relation(Generic[ModelType]):
@@ -1058,7 +1070,7 @@ class Database:
         """
         self.create_enum_types(model=model)
         schema = model.schema()
-        non_nullable = schema["required"]
+        non_nullable = schema.get("required", [])
         columns = []
         for column_name, sql_type in model.sql_types.items():
             column = f"{column_name} {sql_type}"
@@ -1077,16 +1089,17 @@ class Database:
             model: Model for which all Literal-annotated string fields
                 will get respective DuckDB enum types.
         """
-        schema = model.schema()
-        for column_name, props in model.schema()["properties"].items():
+        for props in model.schema()["properties"].values():
             if "enum" not in props or props["type"] != "string":
                 # DuckDB enums only support string values
                 continue
-            enum_type_name = f"{schema['title']}__{column_name}".lower()
+
+            enum_type_name = _enum_type_name(field_properties=props)
             if enum_type_name in self.enum_types:
                 # This enum type has already been created
                 continue
-            enum_values = ", ".join(repr(value) for value in props["enum"])
+
+            enum_values = ", ".join(repr(value) for value in sorted(props["enum"]))
             self.connection.execute(
                 f"create type {enum_type_name} as enum ({enum_values})"
             )

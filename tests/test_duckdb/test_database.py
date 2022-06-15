@@ -116,7 +116,9 @@ def test_database_create_table():
         "VARCHAR",
         "BOOLEAN",
         "BOOLEAN",
-        "model__enum_column",
+        pt.duckdb._enum_type_name(  # type: ignore
+            field_properties=Model.schema()["properties"]["enum_column"]
+        ),
     ]
 
 
@@ -192,3 +194,22 @@ def test_table_existence_check():
 
     # And now the table should exist
     assert "test_table" in db
+
+
+def test_use_of_same_enum_types():
+    """Identical literals should get the same DuckDB SQL enum type."""
+
+    class Table1(pt.Model):
+        column_1: Literal["a", "b"]
+
+    class Table2(pt.Model):
+        column_2: Optional[Literal["b", "a"]]
+
+    db = pt.Database()
+    db.create_table(name="table_1", model=Table1)
+    db.create_table(name="table_2", model=Table2)
+
+    assert (
+        db.table("table_1").sql_types["column_1"]
+        == db.table("table_2").sql_types["column_2"]
+    )

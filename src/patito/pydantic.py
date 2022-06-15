@@ -240,14 +240,17 @@ class ModelMetaclass(PydanticModelMetaclass):
         Returns:
             Dictionary with column name keys and SQL type identifier strings.
         """
+        from patito.duckdb import _enum_type_name
+
         schema = cls.schema()
         props = schema["properties"]
-        return {
-            column: f"{schema['title'].lower()}__{column.lower()}"
-            if "enum" in props
-            else PYDANTIC_TO_DUCKDB_TYPES[props["type"]]
-            for column, props in props.items()
-        }
+        types = {}
+        for column, props in schema["properties"].items():
+            if "enum" in props:
+                types[column] = _enum_type_name(field_properties=props)
+            else:
+                types[column] = PYDANTIC_TO_DUCKDB_TYPES[props["type"]]
+        return types
 
 
 class Model(BaseModel, metaclass=ModelMetaclass):
