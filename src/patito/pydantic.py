@@ -203,7 +203,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         Returns:
             Set of column name strings.
         """
-        return set(cls.schema()["required"])
+        return set(cls.schema().get("required", {}))
 
     @property
     def nullable_columns(  # type: ignore
@@ -243,8 +243,10 @@ class ModelMetaclass(PydanticModelMetaclass):
         schema = cls.schema()
         props = schema["properties"]
         return {
-            column: PYDANTIC_TO_DUCKDB_TYPES[props[column]["type"]]
-            for column in cls.columns
+            column: f"{schema['title'].lower()}__{column.lower()}"
+            if "enum" in props
+            else PYDANTIC_TO_DUCKDB_TYPES[props["type"]]
+            for column, props in props.items()
         }
 
 

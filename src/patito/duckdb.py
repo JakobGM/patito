@@ -13,6 +13,7 @@ from typing import (
     Generic,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     TypeVar,
@@ -27,7 +28,7 @@ from pydantic import create_model
 from typing_extensions import Literal
 
 from patito import sql
-from patito.pydantic import PYDANTIC_TO_DUCKDB_TYPES, Model, ModelType
+from patito.pydantic import Model, ModelType
 
 try:
     import pandas as pd
@@ -578,7 +579,19 @@ class Relation(Generic[ModelType]):
                 for column_name, expression in named_projections.items()
             )
         )
-        relation = self._relation.project(projection)
+        try:
+            relation = self._relation.project(projection)
+        except RuntimeError as exc:
+            # We might get a RunTime error if the enum type has not
+            # been created yet. If so, we create all enum types for
+            # this model.
+            if self.model is not None and str(exc).startswith(
+                "Not implemented Error: DataType"
+            ):
+                self.database.create_enum_types(model=self.model)
+                relation = self._relation.project(projection)
+            else:
+                raise exc
         return self._wrap(relation=relation, schema_change=True)
 
     def rename(self, **columns: str) -> Relation:
@@ -768,7 +781,17 @@ class Relation(Generic[ModelType]):
             default_value = self.model.defaults[column_name]
             projection += f", {default_value!r}::{sql_type} as {column_name}"
 
-        relation = self._relation.project(projection)
+        try:
+            relation = self._relation.project(projection)
+        except RuntimeError as exc:
+            # We might get a RunTime error if the enum type has not
+            # been created yet. If so, we create all enum types for
+            # this model.
+            if str(exc).startswith("Not implemented Error: DataType"):
+                self.database.create_enum_types(model=self.model)
+                relation = self._relation.project(projection)
+            else:
+                raise exc
         return self._wrap(relation=relation, schema_change=False)
 
     def with_missing_nullable_columns(
@@ -805,7 +828,17 @@ class Relation(Generic[ModelType]):
             sql_type = self.model.sql_types[missing_nullable_column]
             projection += f", null::{sql_type} as {missing_nullable_column}"
 
-        relation = self._relation.project(projection)
+        try:
+            relation = self._relation.project(projection)
+        except RuntimeError as exc:
+            # We might get a RunTime error if the enum type has not
+            # been created yet. If so, we create all enum types for
+            # this model.
+            if str(exc).startswith("Not implemented Error: DataType"):
+                self.database.create_enum_types(model=self.model)
+                relation = self._relation.project(projection)
+            else:
+                raise exc
         return self._wrap(relation=relation, schema_change=False)
 
     def __add__(self: RelationType, other: RelationSource) -> RelationType:
@@ -933,6 +966,9 @@ class Database:
     # Method for extracting a relation referring to a table
     table: Callable[[str], Relation]
 
+    # Types created in order to represent enum strings
+    enum_types: Set[str]
+
     def __init__(self, path: Optional[Path] = None) -> None:
         """
         Instantiate a new in-memory DuckDB database.
@@ -948,6 +984,8 @@ class Database:
             self.path = path
         else:
             self.connection = duckdb.connect(database=":memory:")
+
+        self.enum_types: Set[str] = set()
 
     @classmethod
     def default(cls) -> Database:
@@ -974,6 +1012,7 @@ class Database:
         """
         obj = cls.__new__(cls)
         obj.connection = connection
+        obj.enum_types = set()
         return obj
 
     def to_relation(
@@ -1017,28 +1056,41 @@ class Database:
         Returns:
             relation (Relation[ModelType]): Relation pointing to the new table.
         """
+        self.create_enum_types(model=model)
         schema = model.schema()
         non_nullable = schema["required"]
         columns = []
-        for column_name, props in model.schema()["properties"].items():
-            if "enum" in props and props["type"] == "string":
-                enum_values = ", ".join(repr(value) for value in props["enum"])
-                enum_type_name = f"{schema['title']}__{column_name}".lower()
-                self.connection.execute(
-                    f"create type {enum_type_name} as enum ({enum_values})"
-                )
-                column = f"{column_name} {enum_type_name}"
-                if column_name in non_nullable:
-                    column += " not null"
-            else:
-                sql_type = PYDANTIC_TO_DUCKDB_TYPES[props["type"]]
-                column = f"{column_name} {sql_type}"
-                if column_name in non_nullable:
-                    column += " not null"
+        for column_name, sql_type in model.sql_types.items():
+            column = f"{column_name} {sql_type}"
+            if column_name in non_nullable:
+                column += " not null"
             columns.append(column)
         self.connection.execute(f"create table {name} ({','.join(columns)})")
         # TODO: Fix typing
         return self.table(name).set_model(model)  # type: ignore
+
+    def create_enum_types(self, model: Type[ModelType]) -> None:
+        """
+        Declare SQL enum types in DuckDB database.
+
+        Args:
+            model: Model for which all Literal-annotated string fields
+                will get respective DuckDB enum types.
+        """
+        schema = model.schema()
+        for column_name, props in model.schema()["properties"].items():
+            if "enum" not in props or props["type"] != "string":
+                # DuckDB enums only support string values
+                continue
+            enum_type_name = f"{schema['title']}__{column_name}".lower()
+            if enum_type_name in self.enum_types:
+                # This enum type has already been created
+                continue
+            enum_values = ", ".join(repr(value) for value in props["enum"])
+            self.connection.execute(
+                f"create type {enum_type_name} as enum ({enum_values})"
+            )
+            self.enum_types.add(enum_type_name)
 
     def create_view(
         self,

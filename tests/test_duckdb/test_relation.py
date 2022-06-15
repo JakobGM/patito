@@ -574,6 +574,89 @@ def test_fill_missing_columns():
         relation.with_missing_defaultable_columns(include={"x"}, exclude={"y"})
 
 
+def test_with_missing_nullable_enum_columns():
+    """It should produce enums with null values correctly."""
+
+    class EnumModel(pt.Model):
+        enum_column: Optional[Literal["a", "b", "c"]]
+        other_column: int
+
+    db = pt.Database()
+
+    # We insert data into a properly typed table in order to get the correct enum type
+    db.create_table(name="enum_table", model=EnumModel)
+    db.to_relation("select 'a' as enum_column, 1 as other_column").insert_into(
+        table_name="enum_table"
+    )
+    table_relation = db.table("enum_table")
+    assert table_relation.sql_types["enum_column"] == "enummodel__enum_column"
+
+    # We generate another dynamic relation where we expect the correct enum type
+    null_relation = (
+        db.to_relation("select 2 as other_column")
+        .set_model(EnumModel)
+        .with_missing_nullable_columns()
+    )
+    assert null_relation.sql_types["enum_column"] == "enummodel__enum_column"
+
+    # These two relations should now be unionable
+    union_relation = null_relation + table_relation
+    assert union_relation.sql_types["enum_column"] == "enummodel__enum_column"
+    assert (
+        union_relation.order("other_column asc")
+        .to_df()
+        .frame_equal(
+            pl.DataFrame(
+                {
+                    "other_column": [1, 2],
+                    "enum_column": pl.Series(["a", None]).cast(pl.Categorical),
+                }
+            )
+        )
+    )
+
+
+def test_with_missing_nullable_enum_columns_without_table():
+    """It should produce enums with null values correctly without a table."""
+
+    class EnumModel(pt.Model):
+        enum_column_1: Optional[Literal["a", "b", "c"]]
+        enum_column_2: Optional[Literal["a", "b", "c"]]
+        other_column: int
+
+    # We should be able to create the correct type without a table
+    db = pt.Database()
+    relation = (
+        db.to_relation("select 1 as other_column")
+        .set_model(EnumModel)
+        .with_missing_nullable_columns()
+    )
+    assert relation.sql_types["enum_column_1"] == "enummodel__enum_column_1"
+    assert relation.sql_types["enum_column_2"] == "enummodel__enum_column_2"
+
+    # And now we should be able to insert it into a new table
+    relation.create_table(name="enum_table")
+    table_relation = db.table("enum_table")
+    assert table_relation.sql_types["enum_column_1"] == "enummodel__enum_column_1"
+    assert table_relation.sql_types["enum_column_2"] == "enummodel__enum_column_2"
+
+
+def test_with_missing_defualtable_enum_columns():
+    """It should produce enums with default values correctly typed."""
+
+    class EnumModel(pt.Model):
+        enum_column: Optional[Literal["a", "b", "c"]] = "a"
+        other_column: int
+
+    db = pt.Database()
+    relation = (
+        db.to_relation("select 1 as other_column")
+        .set_model(EnumModel)
+        .with_missing_defaultable_columns()
+    )
+    assert relation.sql_types["enum_column"] == "enummodel__enum_column"
+
+
 def test_relation_insert_into():
     """Relation.insert_into() should automatically order columnns correctly."""
     db = pt.Database()
