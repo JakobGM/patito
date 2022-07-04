@@ -105,6 +105,24 @@ def _enum_type_name(field_properties: dict) -> str:
     return f"enum__{value_hash}"
 
 
+def _is_missing_enum_type_exception(exception: BaseException) -> bool:
+    """
+    Return True if the given exception might be caused by missing enum type definitions.
+
+    Args:
+        exception: Exception raised by DuckDB.
+
+    Returns:
+        True if the exception might be caused by a missing SQL enum type definition.
+    """
+    description = str(exception)
+    # DuckDB version <= 0.3.4
+    old_exception = description.startswith("Not implemented Error: DataType")
+    # DuckDB version >= 0.4.0
+    new_exception = description.startswith("Catalog Error: Type with name enum_")
+    return old_exception or new_exception
+
+
 class Relation(Generic[ModelType]):
     # Can be set by subclasses in order to specify the serialization class for rows.
     # Must accept column names as keyword arguments.
@@ -597,9 +615,7 @@ class Relation(Generic[ModelType]):
             # We might get a RunTime error if the enum type has not
             # been created yet. If so, we create all enum types for
             # this model.
-            if self.model is not None and str(exc).startswith(
-                "Not implemented Error: DataType"
-            ):
+            if self.model is not None and _is_missing_enum_type_exception(exc):
                 self.database.create_enum_types(model=self.model)
                 relation = self._relation.project(projection)
             else:
@@ -799,7 +815,7 @@ class Relation(Generic[ModelType]):
             # We might get a RunTime error if the enum type has not
             # been created yet. If so, we create all enum types for
             # this model.
-            if str(exc).startswith("Not implemented Error: DataType"):
+            if _is_missing_enum_type_exception(exc):
                 self.database.create_enum_types(model=self.model)
                 relation = self._relation.project(projection)
             else:
@@ -846,7 +862,7 @@ class Relation(Generic[ModelType]):
             # We might get a RunTime error if the enum type has not
             # been created yet. If so, we create all enum types for
             # this model.
-            if str(exc).startswith("Not implemented Error: DataType"):
+            if _is_missing_enum_type_exception(exc):
                 self.database.create_enum_types(model=self.model)
                 relation = self._relation.project(projection)
             else:
