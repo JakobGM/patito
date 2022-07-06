@@ -997,22 +997,29 @@ class Database:
     # Types created in order to represent enum strings
     enum_types: Set[str]
 
-    def __init__(self, path: Optional[Path] = None) -> None:
+    def __init__(
+        self,
+        path: Optional[Path] = None,
+        read_only: bool = False,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> None:
         """
         Instantiate a new in-memory DuckDB database.
 
         Args:
             path: Optional path to store all the data to. If None, the data is persisted
                 in-memory only.
+            read_only: If the database connection should be a read-only connection.
+            **kwargs: Additional keywords forwarded to duckdb.connect(...).
         """
         import duckdb
 
-        if path:
-            self.connection = duckdb.connect(database=str(path))
-            self.path = path
-        else:
-            self.connection = duckdb.connect(database=":memory:")
-
+        self.path = path
+        self.connection = duckdb.connect(
+            database=str(path) if path else ":memory:",
+            read_only=read_only,
+            **kwargs,
+        )
         self.enum_types: Set[str] = set()
 
     @classmethod
