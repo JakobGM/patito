@@ -396,14 +396,14 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             return properties["const"]
 
         elif "default" in properties:
-            # A default value has been specified in the model field definiton
+            # A default value has been specified in the model field definition
             return properties["default"]
-
-        elif "enum" in properties:
-            return properties["enum"][0]
 
         elif field not in non_nullable:
             return None
+
+        elif "enum" in properties:
+            return properties["enum"][0]
 
         elif field_type in {"integer", "number"}:
             # For integer and float types we must check if there are imposed bounds
