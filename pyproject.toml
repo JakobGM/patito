@@ -57,6 +57,7 @@ filterwarnings = [
     # Convert warnings into test errors
     "error",
     "ignore:pygments is not installed*:UserWarning",
+    "ignore:unclosed running multiprocessing pool*:ResourceWarning",
 ]
 
 [tool.coverage.paths]

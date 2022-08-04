@@ -238,18 +238,12 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         self: DF,
         strategy: Union[
             Literal[
-                "backward",
-                "forward",
-                "mean",
-                "min",
-                "max",
-                "zero",
-                "one",
-                "defaults",
+                "backward", "forward", "min", "max", "mean", "one", "zero", "defaults"
             ],
             pl.Expr,
             Any,
         ],
+        limit: Optional[int] = None,
     ) -> DF:
         """
         Fill null values using a filling strategy, literal, or Expr.
@@ -261,12 +255,17 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             strategy: Accepts the same arguments as `polars.DataFrame.fill_null` in
                 addition to `"defaults"` which will use the field's default value if
                 provided.
+            limit: The number of consecutive null values to forward/backward fill.
+                Only valid if `strategy` is 'forward' or 'backward'.
 
         Returns:
             A new dataframe with nulls filled in according to the provided `strategy`
                 parameter.
         """
         if strategy != "defaults":  # pragma: no cover
+            # Support older versions of polars without the limit argument
+            if limit is not None:
+                return super().fill_null(strategy=strategy, limit=limit)
             return super().fill_null(strategy=strategy)
         return self.with_columns(
             [

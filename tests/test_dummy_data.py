@@ -110,7 +110,11 @@ def test_enum_field_example_values():
         # Here null will be used as the example value
         none_default_optional_enum_field: Optional[Literal["a", "b", "c"]] = None
 
-    example_df = DefaultEnumModel.examples({"row_number": [1]})
+    # Workaround for pola-rs/polars#4253
+    example_df = DefaultEnumModel.examples({"row_number": [1]}).with_column(
+        pl.col("none_default_optional_enum_field").cast(pl.Categorical)
+    )
+
     correct_example_df = pl.DataFrame(
         [
             pl.Series("row_number", [1], dtype=pl.Int64),
@@ -121,10 +125,11 @@ def test_enum_field_example_values():
         ]
     )
 
-    # Workaround for pola-rs/polars#4253
-    assert example_df.with_column(
-        pl.col("none_default_optional_enum_field").cast(pl.Categorical)
-    ).frame_equal(correct_example_df)
+    # Workaround for pl.StringCache() not working here for some reason
+    assert correct_example_df.dtypes == example_df.dtypes
+    assert example_df.select(pl.all().cast(pl.Utf8)).frame_equal(
+        correct_example_df.select(pl.all().cast(pl.Utf8))
+    )
 
     example_model = DefaultEnumModel.example()
     assert example_model.enum_field == "a"

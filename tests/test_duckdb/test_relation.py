@@ -603,23 +603,20 @@ def test_with_missing_nullable_enum_columns():
     )
 
     # These two relations should now be unionable
-    union_relation = null_relation + table_relation
+    union_relation = (null_relation + table_relation).order("other_column asc")
     assert (
         union_relation.sql_types["enum_column"]
         == table_relation.sql_types["enum_column"]
     )
-    assert (
-        union_relation.order("other_column asc")
-        .to_df()
-        .frame_equal(
-            pl.DataFrame(
-                {
-                    "other_column": [1, 2],
-                    "enum_column": pl.Series(["a", None]).cast(pl.Categorical),
-                }
-            )
+
+    with pl.StringCache():
+        correct_union_df = pl.DataFrame(
+            {
+                "other_column": [1, 2],
+                "enum_column": pl.Series(["a", None]).cast(pl.Categorical),
+            }
         )
-    )
+        assert union_relation.to_df().frame_equal(correct_union_df)
 
 
 def test_with_missing_nullable_enum_columns_without_table():
