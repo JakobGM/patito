@@ -811,7 +811,7 @@ class Relation(Generic[ModelType]):
 
         try:
             relation = self._relation.project(projection)
-        except RuntimeError as exc:
+        except Exception as exc:
             # We might get a RunTime error if the enum type has not
             # been created yet. If so, we create all enum types for
             # this model.
@@ -858,7 +858,7 @@ class Relation(Generic[ModelType]):
 
         try:
             relation = self._relation.project(projection)
-        except RuntimeError as exc:
+        except Exception as exc:
             # We might get a RunTime error if the enum type has not
             # been created yet. If so, we create all enum types for
             # this model.
@@ -1170,5 +1170,5 @@ class Database:
         try:
             self.connection.table(table_name=table)
             return True
-        except RuntimeError:
+        except Exception:
             return False

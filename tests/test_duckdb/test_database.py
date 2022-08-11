@@ -34,7 +34,7 @@ def test_database(tmp_path):
 
     # Check that new database objects are isolated from previous ones
     another_db = pt.Database()
-    with pytest.raises(RuntimeError, match="Table does not exist!"):
+    with pytest.raises(Exception, match="Table does not exist!"):
         db_table = another_db.table("table_name_1")
 
     # Check the parquet reading functionality
@@ -91,7 +91,7 @@ def test_database_create_table():
     # But we should not be able to insert null data in non-optional columns
     null_relation = dummy_relation.drop("int_column").project("null as int_column, *")
     with pytest.raises(
-        RuntimeError,
+        Exception,
         match=(
             "Failed to insert into table 'test_table': Constraint Error:.*"
             "NOT NULL constraint failed: test_table.int_column"
@@ -122,7 +122,7 @@ def test_database_create_table():
     ]
 
 
-def test_validate_non_nullabel_enum_columns():
+def test_validate_non_nullable_enum_columns():
     """Enum columns should be null-validated."""
 
     class EnumModel(pt.Model):
@@ -143,7 +143,7 @@ def test_validate_non_nullabel_enum_columns():
         "select null as non_nullable_enum_column, 'a' as nullable_enum_column"
     )
     with pytest.raises(
-        RuntimeError,
+        Exception,
         match=(
             "Failed to insert into table 'enum_table': Constraint Error:.*"
             "NOT NULL constraint failed: enum_table.non_nullable_enum_column"
@@ -156,7 +156,7 @@ def test_validate_non_nullabel_enum_columns():
         "select 'd' as non_nullable_enum_column, 'a' as nullable_enum_column"
     )
     with pytest.raises(
-        RuntimeError,
+        Exception,
         match=(
             "Failed to insert into table 'enum_table': Conversion Error:.*"
             "Could not convert string 'd' to UINT8"
@@ -169,7 +169,7 @@ def test_validate_non_nullabel_enum_columns():
         "select 'a' as non_nullable_enum_column, 'd' as nullable_enum_column"
     )
     with pytest.raises(
-        RuntimeError,
+        Exception,
         match=(
             "Failed to insert into table 'enum_table': Conversion Error:.*"
             "Could not convert string 'd' to UINT8"
