@@ -7,8 +7,9 @@ from datetime import date, datetime
 from typing import Any, ClassVar, Dict, List, Optional, Set, Type, TypeVar, Union
 
 import polars as pl
-from pydantic import BaseConfig, BaseModel, Field  # noqa: F401
+from pydantic import BaseConfig, BaseModel, Field, create_model  # noqa: F401
 from pydantic.main import ModelMetaclass as PydanticModelMetaclass
+from typing_extensions import Literal, get_args
 
 from patito.polars import DataFrame
 from patito.validators import validate
@@ -625,4 +626,326 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             pl.DataFrame()
             .with_columns(series)  # type: ignore
             .with_columns(unique_series)
+        )
+
+    @classmethod
+    def join(
+        cls: Type["Model"],
+        other: Type["Model"],
+        how: Literal["inner", "left", "outer", "asof", "cross", "semi", "anti"],
+    ) -> Type["Model"]:
+        """
+        Dynamically create a new model compatible with a SQL Join operation.
+
+        For instance, `ModelA.join(ModelB, how="left")` will create a model containing
+        all the fields of `ModelA` and `ModelB`, but where all fields of `ModelB` has
+        been made `Optional`, i.e. nullable. This is consistent with the LEFT JOIN
+        SQL operation making all the columns of the right table nullable.
+
+        Args:
+            other: Another patito Model class.
+            how: The type of SQL Join operation.
+
+        Returns:
+            A new model type compatible with the resulting schema produced by the given
+              join operation.
+
+        Examples:
+            >>> class A(Model):
+            ...     a: int
+
+            >>> class B(Model):
+            ...     b: int
+
+            >>> InnerJoinedModel = A.join(B, how="inner")
+            >>> InnerJoinedModel.columns
+            ['a', 'b']
+            >>> InnerJoinedModel.nullable_columns
+            set()
+
+            >>> LeftJoinedModel = A.join(B, how="left")
+            >>> LeftJoinedModel.nullable_columns
+            {'b'}
+
+            >>> OuterJoinedModel = A.join(B, how="outer")
+            >>> sorted(OuterJoinedModel.nullable_columns)
+            ['a', 'b']
+
+            >>> A.join(B, how="anti") is A
+            True
+        """
+        if how in {"semi", "anti"}:
+            return cls
+
+        kwargs: Dict[str, Any] = {}
+        for model, nullable_methods in (
+            (cls, {"outer"}),
+            (other, {"left", "outer", "asof"}),
+        ):
+            for field_name, field in model.__fields__.items():
+                field_type = field.type_
+                field_default = field.default
+                if how in nullable_methods and type(None) not in get_args(field.type_):
+                    # This originally non-nullable field has become nullable
+                    field_type = Optional[field_type]
+                elif field.required and field_default is None:
+                    # We need to replace Pydantic's None default value with ... in order
+                    # to make it clear that the field is still non-nullable and
+                    # required.
+                    field_default = ...
+                kwargs[field_name] = (field_type, field_default)
+
+        return create_model(
+            f"{cls.__name__}{how.capitalize()}Join{other.__name__}",
+            **kwargs,
+            __base__=Model,
+        )
+
+    @classmethod
+    def select(
+        cls: Type[ModelType], fields: Union[str, Iterable[str]]
+    ) -> Type["Model"]:
+        """
+        Create a new model consisting of only a subset of the model fields.
+
+        Args:
+            fields: A single field name as a string, or a set of fields as a collection
+                of strings.
+
+        Returns:
+            A new model containing only the fields specified by `fields`.
+
+        Raises:
+            ValueError: If one or more non-existent fields are selected.
+
+        Example:
+            >>> class MyModel(Model):
+            ...     a: int
+            ...     b: int
+            ...     c: int
+
+            >>> MyModel.select("a").columns
+            ['a']
+
+            >>> sorted(MyModel.select(["b", "c"]).columns)
+            ['b', 'c']
+        """
+        if isinstance(fields, str):
+            fields = [fields]
+
+        fields = set(fields)
+        non_existent_fields = fields - set(cls.columns)
+        if non_existent_fields:
+            raise ValueError(
+                f"The following selected fields do not exist: {non_existent_fields}"
+            )
+
+        mapping = {field_name: field_name for field_name in fields}
+        return cls._derive_model(
+            model_name=f"Selected{cls.__name__}", field_mapping=mapping
+        )
+
+    @classmethod
+    def drop(cls: Type[ModelType], name: Union[str, Iterable[str]]) -> Type["Model"]:
+        """
+        Return a new model where one or more fields are excluded.
+
+        Args:
+            name: A single string field name, or a list of such field names,
+                which will be dropped.
+
+        Returns:
+            New model class where the given fields have been removed.
+
+        Examples:
+            >>> class MyModel(Model):
+            ...     a: int
+            ...     b: int
+            ...     c: int
+
+            >>> MyModel.drop("c").columns
+            ['a', 'b']
+
+            >>> MyModel.drop(["b", "c"]).columns
+            ['a']
+        """
+        dropped_columns = {name} if isinstance(name, str) else set(name)
+        mapping = {
+            field_name: field_name
+            for field_name in cls.columns
+            if field_name not in dropped_columns
+        }
+        return cls._derive_model(
+            model_name=f"Dropped{cls.__name__}",
+            field_mapping=mapping,
+        )
+
+    @classmethod
+    def prefix(cls: Type[ModelType], prefix: str) -> Type["Model"]:
+        """
+        Return a new model where all field names have been prefixed.
+
+        Args:
+            prefix: String prefix to add to all field names.
+
+        Returns:
+            New model class with all the same fields only prefixed with the given prefix.
+
+        Example:
+            >>> class MyModel(Model):
+            ...     a: int
+            ...     b: int
+
+            >>> MyModel.prefix("x_").columns
+            ['x_a', 'x_b']
+        """
+        mapping = {f"{prefix}{field_name}": field_name for field_name in cls.columns}
+        return cls._derive_model(
+            model_name="Prefixed{cls.__name__}",
+            field_mapping=mapping,
+        )
+
+    @classmethod
+    def suffix(cls: Type[ModelType], suffix: str) -> Type["Model"]:
+        """
+        Return a new model where all field names have been suffixed.
+
+        Args:
+            suffix: String suffix to add to all field names.
+
+        Returns:
+            New model class with all the same fields only suffixed with the given
+                suffix.
+
+        Example:
+            >>> class MyModel(Model):
+            ...     a: int
+            ...     b: int
+
+            >>> MyModel.suffix("_x").columns
+            ['a_x', 'b_x']
+        """
+        mapping = {f"{field_name}{suffix}": field_name for field_name in cls.columns}
+        return cls._derive_model(
+            model_name="Suffixed{cls.__name__}",
+            field_mapping=mapping,
+        )
+
+    @classmethod
+    def rename(cls: Type[ModelType], mapping: Dict[str, str]) -> Type["Model"]:
+        """
+        Return a new model class where the specified fields have been renamed.
+
+        Args:
+            mapping: A dictionary where the keys are the old field names
+                and the values are the new names.
+
+        Returns:
+            A new model class where the given fields have been renamed.
+
+        Raises:
+            ValueError: If non-existent fields are renamed.
+
+        Example:
+            >>> class MyModel(Model):
+            ...     a: int
+            ...     b: int
+
+            >>> MyModel.rename({"a": "A"}).columns
+            ['b', 'A']
+        """
+        non_existent_fields = set(mapping.keys()) - set(cls.columns)
+        if non_existent_fields:
+            raise ValueError(
+                f"The following fields do not exist for renaming: {non_existent_fields}"
+            )
+        field_mapping = {
+            field_name: field_name
+            for field_name in cls.columns
+            if field_name not in mapping
+        }
+        field_mapping.update({value: key for key, value in mapping.items()})
+        return cls._derive_model(
+            model_name=f"Renamed{cls.__name__}",
+            field_mapping=field_mapping,
+        )
+
+    @classmethod
+    def with_fields(
+        cls: Type[ModelType],
+        **field_definitions: Any,  # noqa: ANN401
+    ) -> Type["Model"]:
+        """
+        Return a new model class where the given fields have been added.
+
+        Args:
+            **field_definitions: the keywords are of the form:
+                field_name=(field_type, field_default)
+                Specify `...` if no default value is provided.
+                For instance, column_name=(int, ...) will create a new non-optional
+                integer field named "column_name".
+
+        Returns:
+            A new model with all the original fields and the additional field
+            definitions.
+
+        Examples:
+            >>> class MyModel(Model):
+            ...     a: int
+
+            >>> class ExpandedModel(MyModel):
+            ...     b: int
+
+            >>> MyModel.with_fields(b=(int, ...)).columns == ExpandedModel.columns
+            True
+        """
+        fields = {field_name: field_name for field_name in cls.columns}
+        fields.update(field_definitions)
+        return cls._derive_model(
+            model_name=f"Expanded{cls.__name__}",
+            field_mapping=fields,
+        )
+
+    @classmethod
+    def _derive_model(
+        cls: Type[ModelType],
+        model_name: str,
+        field_mapping: Dict[str, Any],
+    ) -> Type["Model"]:
+        """
+        Derive a new model with new field definitions.
+
+        Args:
+            model_name: Name of new model class.
+            field_mapping: A mapping where the keys represent field names and the values
+                represent field definitions. String field definitions are used as
+                pointers to the original fields by name. Otherwise, specify field
+                definitions as (field_type, field_default) as accepted by
+                pydantic.create_model.
+
+        Returns:
+            A new model class derived from the model type of self.
+        """
+        new_fields = {}
+        for new_field_name, field_definition in field_mapping.items():
+            if isinstance(field_definition, str):
+                # A single string, interpreted as the name of a field on the existing
+                # model.
+                old_field = cls.__fields__[field_definition]
+                field_type = old_field.type_
+                field_default = old_field.default
+                if old_field.required and field_default is None:
+                    # The default None value needs to be replaced with ... in order to
+                    # make the field required in the new model.
+                    field_default = ...
+                new_fields[new_field_name] = (field_type, field_default)
+            else:
+                # We have been given a (field_type, field_default) tuple defining the
+                # new field directly.
+                new_fields[new_field_name] = field_definition
+        return create_model(  # type: ignore
+            __model_name=model_name,
+            __validators__={"__validators__": cls.__validators__},
+            __base__=Model,
+            **new_fields,
         )
