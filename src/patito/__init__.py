@@ -5,7 +5,7 @@ from polars import Expr, Series, col
 
 from patito import exceptions, sql
 from patito.exceptions import ValidationError
-from patito.polars import DataFrame
+from patito.polars import DataFrame, LazyFrame
 from patito.pydantic import Field, Model
 
 _DUCKDB_AVAILABLE = False
@@ -13,6 +13,7 @@ __all__ = [
     "DataFrame",
     "Expr",
     "Field",
+    "LazyFrame",
     "Model",
     "Series",
     "ValidationError",

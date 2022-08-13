@@ -155,8 +155,12 @@ def test_model_dataframe_class_creation():
     # The DataFrame class is a sub-class of patito.DataFrame
     assert issubclass(CustomModel.DataFrame, pt.DataFrame)
 
+    # The LazyFrame class is a sub-class of patito.LazyFrame
+    assert issubclass(CustomModel.LazyFrame, pt.LazyFrame)
+
     # And the model
     assert CustomModel.DataFrame.model is CustomModel
+    assert CustomModel.LazyFrame.model is CustomModel
 
 
 def test_mapping_to_polars_dtypes():

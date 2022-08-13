@@ -4,14 +4,25 @@ from __future__ import annotations
 import itertools
 from collections.abc import Iterable
 from datetime import date, datetime
-from typing import Any, ClassVar, Dict, List, Optional, Set, Type, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import polars as pl
 from pydantic import BaseConfig, BaseModel, Field, create_model  # noqa: F401
 from pydantic.main import ModelMetaclass as PydanticModelMetaclass
 from typing_extensions import Literal, get_args
 
-from patito.polars import DataFrame
+from patito.polars import DataFrame, LazyFrame
 from patito.validators import validate
 
 try:
@@ -20,6 +31,9 @@ try:
     _PANDAS_AVAILABLE = True
 except ImportError:
     _PANDAS_AVAILABLE = False
+
+if TYPE_CHECKING:
+    import patito.polars
 
 # The generic type of a single row in given Relation.
 # Should be a typed subclass of Model.
@@ -62,6 +76,10 @@ class ModelMetaclass(PydanticModelMetaclass):
         # Add a custom subclass of patito.DataFrame to the model class,
         # where .set_model() has been implicitly set.
         cls.DataFrame = DataFrame._construct_dataframe_model_class(
+            model=cls,  # type: ignore
+        )
+        # Similarly for LazyFrame
+        cls.LazyFrame = LazyFrame._construct_lazyframe_model_class(
             model=cls,  # type: ignore
         )
 
@@ -281,6 +299,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     @classmethod
     @property
     def DataFrame(cls: Type[ModelType]) -> Type[DataFrame[ModelType]]:  # type: ignore
+        """Return DataFrame class where DataFrame.set_model() is set to self."""
+
+    @classmethod
+    @property
+    def LazyFrame(cls: Type[ModelType]) -> Type[LazyFrame[ModelType]]:  # type: ignore
         """Return DataFrame class where DataFrame.set_model() is set to self."""
 
     @classmethod
@@ -562,7 +585,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         cls: Type[ModelType],
         data: Optional[Union[dict, Iterable]] = None,
         columns: Optional[Iterable[str]] = None,
-    ) -> pl.DataFrame:
+    ) -> "patito.polars.DataFrame":
         """
         Generate polars dataframe with dummy data for all unspecified columns.
 
@@ -622,11 +645,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             else:
                 series.append(pl.lit(value, dtype=dtype).alias(column_name))
 
-        return (
-            pl.DataFrame()
-            .with_columns(series)  # type: ignore
-            .with_columns(unique_series)
-        )
+        return DataFrame().with_columns(series).with_columns(unique_series)
 
     @classmethod
     def join(

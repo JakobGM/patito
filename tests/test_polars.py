@@ -46,7 +46,7 @@ def test_dataframe_get_method():
 
 
 def test_dataframe_set_model_method():
-    """You should be able to set the assocatiated model of a dataframe."""
+    """You should be able to set the associated model of a dataframe."""
 
     class MyModel(pt.Model):
         pass
@@ -101,6 +101,9 @@ def test_preservation_of_model():
     # The same goes for lazy round-trips
     assert df_with_model.lazy().collect().model is DummyModel
     assert df_with_another_model.lazy().collect().model is AnotherDummyModel
+
+    # Round-trips for DataFrames and LazyFrames should work without models as well
+    assert type(pt.DataFrame().lazy().collect()) is pt.DataFrame
 
 
 def test_dataframe_model_dtype_casting():

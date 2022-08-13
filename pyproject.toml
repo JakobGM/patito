@@ -12,7 +12,7 @@ keywords = ["validation", "dataframe"]
 [tool.poetry.dependencies]
 python = "^3.7"
 pydantic = ">=1.7.0"
-polars = ">=0.13.18"
+polars = ">=0.14.0"
 # Required for typing.Literal in python3.7
 typing-extensions = "*"
 pandas = {version = "*", optional = true, python = "^3.8"}

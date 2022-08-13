@@ -7,6 +7,7 @@ from typing import (
     Generic,
     List,
     Optional,
+    Sequence,
     Type,
     TypeVar,
     Union,
@@ -20,11 +21,80 @@ from typing_extensions import Literal
 from patito.exceptions import MultipleRowsReturned, RowDoesNotExist
 
 if TYPE_CHECKING:
+    import numpy as np
+
     from patito.pydantic import Model
 
 
 DF = TypeVar("DF", bound="DataFrame")
+LDF = TypeVar("LDF", bound="LazyFrame")
 ModelType = TypeVar("ModelType", bound="Model")
+OtherModelType = TypeVar("OtherModelType", bound="Model")
+
+
+class LazyFrame(pl.LazyFrame, Generic[ModelType]):
+    """LazyFrame class associated to DataFrame."""
+
+    model: Type[ModelType]
+
+    @classmethod
+    def _construct_lazyframe_model_class(
+        cls: Type[LDF], model: Optional[Type[ModelType]]
+    ) -> Type[LazyFrame[ModelType]]:
+        """
+        Return custom LazyFrame sub-class where LazyFrame.model is set.
+
+        Can be used to construct a LazyFrame class where
+        DataFrame.set_model(model) is implicitly invoked at collection.
+
+        Args:
+            model: A patito model which should be used to validate the final dataframe.
+                If None is provided, the regular LazyFrame class will be returned.
+
+        Returns:
+            A custom LazyFrame model class where LazyFrame.model has been correctly
+                "hard-coded" to the given model.
+        """
+        if model is None:
+            return cls
+
+        new_class = type(
+            f"{model.schema()['title']}LazyFrame",
+            (cls,),  # type: ignore
+            {"model": model},
+        )
+        return new_class
+
+    def collect(
+        self,
+        type_coercion: bool = True,
+        predicate_pushdown: bool = True,
+        projection_pushdown: bool = True,
+        simplify_expression: bool = True,
+        string_cache: bool = False,
+        no_optimization: bool = False,
+        slice_pushdown: bool = True,
+    ) -> "DataFrame[ModelType]":  # noqa: DAR101, DAR201
+        """
+        Collect into a DataFrame.
+
+        See documentation of polars.DataFrame.collect for full description of
+        parameters.
+        """
+        df = super().collect(
+            type_coercion=type_coercion,
+            predicate_pushdown=predicate_pushdown,
+            projection_pushdown=projection_pushdown,
+            simplify_expression=simplify_expression,
+            string_cache=string_cache,
+            no_optimization=no_optimization,
+            slice_pushdown=slice_pushdown,
+        )
+        if getattr(self, "model", False):
+            cls = DataFrame._construct_dataframe_model_class(model=self.model)
+        else:
+            cls = DataFrame
+        return cls._from_pydf(df._df)
 
 
 class DataFrame(pl.DataFrame, Generic[ModelType]):
@@ -35,12 +105,12 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
     `DataFrame.validate()`, `DataFrame.derive()`, and so on.
     """
 
-    model: ModelType
+    model: Type[ModelType]
 
     @classmethod
     def _construct_dataframe_model_class(
-        cls: Type[DF], model: Model
-    ) -> DataFrame[Model]:
+        cls: Type[DF], model: Type[OtherModelType]
+    ) -> Type[DataFrame[OtherModelType]]:
         """
         Return custom DataFrame sub-class where DataFrame.model is set.
 
@@ -59,12 +129,24 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             (cls,),  # type: ignore
             {"model": model},
         )
-        new_class._lazyframe_class = type(  # type: ignore
-            f"{model.__class__.__name__}LazyFrame",
-            (new_class._lazyframe_class,),  # type: ignore
-            {"_dataframe_class": new_class},
-        )
-        return cast("DataFrame[Model]", new_class)
+        return new_class
+
+    def lazy(self: DataFrame[ModelType]) -> LazyFrame[ModelType]:
+        """
+        Convert DataFrame into LazyFrame.
+
+        See documentation of polars.DataFrame.lazy() for full description.
+
+        Returns:
+            A new LazyFrame object.
+        """
+        lazyframe_class: LazyFrame[
+            ModelType
+        ] = LazyFrame._construct_lazyframe_model_class(
+            model=getattr(self, "model", None)
+        )  # type: ignore
+        ldf = lazyframe_class._from_pyldf(super().lazy()._ldf)
+        return ldf
 
     def set_model(self, model):  # noqa: ANN001, ANN201
         """
@@ -232,17 +314,16 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                         "Can not derive dataframe column from type "
                         f"{type(derived_from)}."
                     )
-        return df.collect()
+        return cast(DF, df.collect())
 
     def fill_null(
         self: DF,
-        strategy: Union[
+        value: Optional[Any] = None,
+        strategy: Optional[
             Literal[
-                "backward", "forward", "min", "max", "mean", "one", "zero", "defaults"
-            ],
-            pl.Expr,
-            Any,
-        ],
+                "forward", "backward", "min", "max", "mean", "zero", "one", "defaults"
+            ]
+        ] = None,
         limit: Optional[int] = None,
     ) -> DF:
         """
@@ -252,6 +333,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         are used to fill missing values.
 
         Args:
+            value: Value used to fill null values.
             strategy: Accepts the same arguments as `polars.DataFrame.fill_null` in
                 addition to `"defaults"` which will use the field's default value if
                 provided.
@@ -263,10 +345,10 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 parameter.
         """
         if strategy != "defaults":  # pragma: no cover
-            # Support older versions of polars without the limit argument
-            if limit is not None:
-                return super().fill_null(strategy=strategy, limit=limit)
-            return super().fill_null(strategy=strategy)
+            return cast(
+                DF,
+                super().fill_null(value=value, strategy=strategy, limit=limit),
+            )
         return self.with_columns(
             [
                 pl.col(column).fill_null(pl.lit(default_value))
@@ -348,3 +430,31 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             kwargs.setdefault("new_columns", cls.model.columns)
         df = cls.model.DataFrame._from_pydf(pl.read_csv(*args, **kwargs)._df)
         return df.derive()
+
+    # --- Type annotation overrides ---
+    def filter(  # noqa: D102
+        self: DF,
+        predicate: Union[pl.Expr, str, pl.Series, list[bool], np.ndarray[Any, Any]],
+    ) -> DF:
+        return cast(DF, super().filter(predicate=predicate))
+
+    def select(  # noqa: D102
+        self: DF,
+        exprs: Union[str, pl.Expr, pl.Series, Sequence[Union[str, pl.Expr, pl.Series]]],
+    ) -> DF:
+        return cast(DF, super().select(exprs=exprs))
+
+    def with_column(self: DF, column: Union[pl.Series, pl.Expr]) -> DF:  # noqa: D102
+        return cast(DF, super().with_column(column=column))
+
+    def with_columns(  # noqa: D102
+        self: DF,
+        exprs: Union[
+            pl.Expr,
+            pl.Series,
+            Sequence[Union[pl.Expr, pl.Series]],
+            None,
+        ] = None,
+        **named_exprs: Union[pl.Expr, pl.Series],
+    ) -> DF:
+        return cast(DF, super().with_columns(exprs=exprs, **named_exprs))

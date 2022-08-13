@@ -156,7 +156,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "duckdb"
-version = "0.4.1.dev1544"
+version = "0.4.1.dev1564"
 description = "DuckDB embedded database"
 category = "main"
 optional = true
@@ -511,7 +511,7 @@ testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "polars"
-version = "0.13.59"
+version = "0.14.0"
 description = "Blazingly fast DataFrame library"
 category = "main"
 optional = false
@@ -521,12 +521,12 @@ python-versions = ">=3.7"
 typing_extensions = {version = ">=4.0.0", markers = "python_version < \"3.10\""}
 
 [package.extras]
-connectorx = ["connectorx"]
-numpy = ["numpy (>=1.16.0)"]
+pyarrow = ["pyarrow (>=4.0)"]
 fsspec = ["fsspec"]
+numpy = ["numpy (>=1.16.0)"]
 pandas = ["pyarrow (>=4.0)", "pandas"]
 xlsx2csv = ["xlsx2csv (>=0.8.0)"]
-pyarrow = ["pyarrow (>=4.0)"]
+connectorx = ["connectorx"]
 
 [[package]]
 name = "py"
@@ -981,7 +981,7 @@ pandas = ["pandas"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "b0c7c65e85cfda566fb35d68f5b3db033f14d56c276f26603b5d015bca7155c3"
+content-hash = "2131c0a3cfa4400e4dfef8060ba335481ad039c221514ef7eddd0a187145d275"
 
 [metadata.files]
 alabaster = [

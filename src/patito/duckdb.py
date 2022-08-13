@@ -29,6 +29,7 @@ from pydantic import create_model
 from typing_extensions import Literal
 
 from patito import sql
+from patito.polars import DataFrame
 from patito.pydantic import Model, ModelType
 
 try:
@@ -44,7 +45,13 @@ if TYPE_CHECKING:
 
 # Types which can be used to instantiate a DuckDB Relation object
 RelationSource = Union[
-    "pd.DataFrame", pl.DataFrame, Path, str, "duckdb.DuckDBPyRelation", "Relation"
+    DataFrame,
+    pl.DataFrame,
+    "pd.DataFrame",
+    Path,
+    str,
+    "duckdb.DuckDBPyRelation",
+    "Relation",
 ]
 
 # Used to refer to type(self) in Relation methods which preserve the type.
@@ -675,7 +682,7 @@ class Relation(Generic[ModelType]):
         """Return a pandas DataFrame representation of relation object."""
         return cast("pd.DataFrame", self._relation.to_df())
 
-    def to_df(self) -> pl.DataFrame:
+    def to_df(self) -> DataFrame:
         """Return a polars DataFrame representation of relation object."""
         # Here we do a star-select to work around certain weird issues with DuckDB
         self._relation = self._relation.project("*")
@@ -691,7 +698,7 @@ class Relation(Generic[ModelType]):
                     schema = schema.set(index, dict_field)
             arrow_table = arrow_table.cast(schema)
         try:
-            return cast(pl.DataFrame, pl.from_arrow(arrow_table))
+            return DataFrame._from_arrow(arrow_table)
         except pa.ArrowInvalid:  # pragma: no cover
             # Empty relations with enum columns can sometimes produce errors.
             # As a last-ditch effort, we convert such columns to VARCHAR.
@@ -703,7 +710,7 @@ class Relation(Generic[ModelType]):
             ]
             non_enum_relation = self._relation.project(", ".join(casted_columns))
             arrow_table = non_enum_relation.to_arrow_table()
-            return cast(pl.DataFrame, pl.from_arrow(arrow_table))
+            return DataFrame._from_arrow(arrow_table)
 
     def to_series(self) -> pl.Series:
         if len(self._relation.columns) != 1:
@@ -711,7 +718,7 @@ class Relation(Generic[ModelType]):
                 f"{self.__class__.__name__}.to_series() was invoked on a relation with "
                 f"{len(self._relation.columns)} columns, while exactly 1 is required!"
             )
-        dataframe = cast(pl.DataFrame, pl.from_arrow(self._relation.to_arrow_table()))
+        dataframe = DataFrame._from_arrow(self._relation.to_arrow_table())
         return dataframe.to_series(index=0).alias(name=self.columns[0])
 
     def union(self: RelationType, other: RelationSource) -> RelationType:
