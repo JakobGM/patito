@@ -182,7 +182,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         Returns:
             A dataframe with columns casted to the correct dtypes.
         """
-        properties = self.model.schema()["properties"]
+        properties = self.model._schema_properties()
         valid_dtypes = self.model.valid_dtypes
         default_dtypes = self.model.dtypes
         columns = []
@@ -299,7 +299,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             └─────┴─────┴────────────┘
         """
         df = self.lazy()
-        for column_name, props in self.model.schema()["properties"].items():
+        for column_name, props in self.model._schema_properties().items():
             if "derived_from" in props:
                 derived_from = props["derived_from"]
                 dtype = self.model.dtypes[column_name]

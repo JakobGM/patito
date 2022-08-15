@@ -1,5 +1,6 @@
 """Tests for patito.Model."""
 # pyright: reportPrivateImportUsage=false
+import enum
 import re
 from datetime import date, datetime, timedelta
 from typing import Optional, Type
@@ -341,3 +342,33 @@ def test_with_fields():
     )
     assert sorted(ExpandedModel.columns) == list("abcde")
     assert ExpandedModel.nullable_columns == set("ce")
+
+
+def test_enum_annotated_field():
+    """It should use values of enums to infer types."""
+
+    class ABCEnum(enum.Enum):
+        ONE = "a"
+        TWO = "b"
+        THREE = "c"
+
+    class EnumModel(pt.Model):
+        column: ABCEnum
+
+    assert EnumModel.dtypes["column"] == pl.Categorical
+    assert EnumModel.example_value(field="column") == "a"
+    assert EnumModel.example() == EnumModel(column="a")
+
+    EnumModel.DataFrame({"column": ["a"]}).cast()
+
+    class MultiTypedEnum(enum.Enum):
+        ONE = 1
+        TWO = "2"
+
+    class InvalidEnumModel(pt.Model):
+        column: MultiTypedEnum
+
+    if pt._DUCKDB_AVAILABLE:
+        assert EnumModel.sql_types["column"].startswith("enum__")
+        with pytest.raises(TypeError, match=r".*Encountered types: \['int', 'str'\]\."):
+            InvalidEnumModel.sql_types

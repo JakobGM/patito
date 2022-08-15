@@ -101,9 +101,8 @@ def _find_errors(  # noqa: C901
 
     # Check if any column has a wrong dtype
     valid_dtypes = schema.valid_dtypes
-    model_schema = schema.schema()
     dataframe_datatypes = dict(zip(dataframe.columns, dataframe.dtypes))
-    for column_name, column_properties in model_schema["properties"].items():
+    for column_name, column_properties in schema._schema_properties().items():
         if column_name not in dataframe.columns:
             continue
 

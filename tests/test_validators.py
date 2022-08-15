@@ -1,4 +1,5 @@
 """Tests for the patito.validators module."""
+import enum
 from datetime import date, datetime
 from typing import Optional
 
@@ -229,7 +230,34 @@ def test_datetime_validation():
 
 
 def test_enum_validation():
-    """Test validation of enum-typed fields."""
+    """Test validation of enum.Enum-typed fields."""
+
+    class ABCEnum(enum.Enum):
+        ONE = "a"
+        TWO = "b"
+        THREE = "c"
+
+    class EnumModel(pt.Model):
+        column: ABCEnum
+
+    valid_df = pl.DataFrame({"column": ["a", "b", "b", "c"]})
+    validate(dataframe=valid_df, schema=EnumModel)
+
+    invalid_df = pl.DataFrame({"column": ["d"]})
+    with pytest.raises(ValidationError) as e_info:
+        validate(dataframe=invalid_df, schema=EnumModel)
+
+    errors = e_info.value.errors()
+    assert len(errors) == 1
+    assert errors[0] == {
+        "loc": ("column",),
+        "msg": "Rows with invalid values: {'d'}.",
+        "type": "value_error.rowvalue",
+    }
+
+
+def test_literal_enum_validation():
+    """Test validation of typing.Literal-typed fields."""
 
     class EnumModel(pt.Model):
         column: Literal["a", "b", "c"]

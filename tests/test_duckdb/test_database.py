@@ -1,4 +1,5 @@
 """Tests for patito.Database."""
+import enum
 from typing import Optional
 
 import polars as pl
@@ -196,7 +197,7 @@ def test_table_existence_check():
     assert "test_table" in db
 
 
-def test_use_of_same_enum_types():
+def test_use_of_same_enum_types_from_literal_annotation():
     """Identical literals should get the same DuckDB SQL enum type."""
 
     class Table1(pt.Model):
@@ -204,6 +205,33 @@ def test_use_of_same_enum_types():
 
     class Table2(pt.Model):
         column_2: Optional[Literal["b", "a"]]
+
+    db = pt.Database()
+    db.create_table(name="table_1", model=Table1)
+    db.create_table(name="table_2", model=Table2)
+
+    assert (
+        db.table("table_1").sql_types["column_1"]
+        == db.table("table_2").sql_types["column_2"]
+    )
+
+
+def test_use_of_same_enum_types_from_enum_annotation():
+    """Identical enums should get the same DuckDB SQL enum type."""
+
+    class ABEnum(enum.Enum):
+        ONE = "a"
+        TWO = "b"
+
+    class BAEnum(enum.Enum):
+        TWO = "b"
+        ONE = "a"
+
+    class Table1(pt.Model):
+        column_1: ABEnum
+
+    class Table2(pt.Model):
+        column_2: Optional[BAEnum]
 
     db = pt.Database()
     db.create_table(name="table_1", model=Table1)

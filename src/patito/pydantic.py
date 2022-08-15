@@ -15,6 +15,7 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    cast,
 )
 
 import polars as pl
@@ -131,11 +132,8 @@ class ModelMetaclass(PydanticModelMetaclass):
             NotImplementedError: If one or more model fields are annotated with types
                 not compatible with polars.
         """
-        schema = cls.schema()
-        properties = schema["properties"]
-
         valid_dtypes = {}
-        for column, props in properties.items():
+        for column, props in cls._schema_properties().items():
             if "dtype" in props:
                 valid_dtypes[column] = [
                     props["dtype"],
@@ -208,7 +206,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         """
         return {
             field_name: props["default"]
-            for field_name, props in cls.schema()["properties"].items()
+            for field_name, props in cls._schema_properties().items()
             if "default" in props
         }
 
@@ -246,7 +244,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         Returns:
             Set of column name strings.
         """
-        props = cls.schema()["properties"]
+        props = cls._schema_properties()
         return {column for column in cls.columns if props[column].get("unique", False)}
 
     @property
@@ -261,10 +259,8 @@ class ModelMetaclass(PydanticModelMetaclass):
         """
         from patito.duckdb import _enum_type_name
 
-        schema = cls.schema()
-        props = schema["properties"]
         types = {}
-        for column, props in schema["properties"].items():
+        for column, props in cls._schema_properties().items():
             if "enum" in props:
                 types[column] = _enum_type_name(field_properties=props)
             else:
@@ -410,9 +406,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         Raises:
             NotImplementedError: If the given field has no example generator.
         """
-        schema = cls.schema()
-        field_data = schema["properties"]
-        non_nullable = schema["required"]
+        field_data = cls._schema_properties()
         properties = field_data[field]
         field_type = properties["type"]
         if "const" in properties:
@@ -423,7 +417,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             # A default value has been specified in the model field definition
             return properties["default"]
 
-        elif field not in non_nullable:
+        elif not properties["required"]:
             return None
 
         elif "enum" in properties:
@@ -460,7 +454,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             if lower is not None:
                 return number(lower + 1)
             else:
-                return number(upper - 1)
+                return number(cast(float, upper) - 1)
 
         elif field_type == "string":
             if "pattern" in properties:
@@ -514,10 +508,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         if wrong_columns:
             raise TypeError(f"{cls.__name__} does not contain fields {wrong_columns}!")
 
-        schema = cls.schema()
-        properties = schema["properties"]
         new_kwargs = {}
-        for field_name in properties.keys():
+        for field_name in cls._schema_properties().keys():
             if field_name in kwargs:
                 # The value has been explicitly specified
                 new_kwargs[field_name] = kwargs[field_name]
@@ -924,6 +916,51 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             model_name=f"Expanded{cls.__name__}",
             field_mapping=fields,
         )
+
+    @classmethod
+    def _schema_properties(cls) -> Dict[str, Dict[str, Any]]:
+        """
+        Return schema properties where definition references have been resolved.
+
+        Returns:
+            Field information as a dictionary where the keys are field names and the
+                values are dictionaries containing metadata information about the field
+                itself.
+
+        Raises:
+            TypeError: if a field is annotated with an enum where the values are of
+                different types.
+        """
+        schema = cls.schema(ref_template="{model}")
+        required = schema.get("required", set())
+        fields = {}
+        for field_name, field_info in schema["properties"].items():
+            if "$ref" in field_info:
+                definition = schema["definitions"][field_info["$ref"]]
+                if "enum" in definition and "type" not in definition:
+                    enum_types = set(type(value) for value in definition["enum"])
+                    if len(enum_types) > 1:
+                        raise TypeError(
+                            "All enumerated values of enums used to annotate "
+                            "Patito model fields must have the same type. "
+                            "Encountered types: "
+                            f"{sorted(map(lambda t: t.__name__, enum_types))}."
+                        )
+                    enum_type = enum_types.pop()
+                    # TODO: Support time-delta, date, and date-time.
+                    definition["type"] = {
+                        str: "string",
+                        int: "integer",
+                        float: "number",
+                        bool: "boolean",
+                        type(None): "null",
+                    }[enum_type]
+                fields[field_name] = definition
+            else:
+                fields[field_name] = field_info
+            fields[field_name]["required"] = field_name in required
+
+        return fields
 
     @classmethod
     def _derive_model(

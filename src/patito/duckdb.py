@@ -1119,7 +1119,7 @@ class Database:
             model: Model for which all Literal-annotated string fields
                 will get respective DuckDB enum types.
         """
-        for props in model.schema()["properties"].values():
+        for props in model._schema_properties().values():
             if "enum" not in props or props["type"] != "string":
                 # DuckDB enums only support string values
                 continue
