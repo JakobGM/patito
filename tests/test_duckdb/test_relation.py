@@ -800,3 +800,20 @@ def test_converting_enum_column_to_polars():
     enum_df = db.table("enum_table").to_df()
     assert enum_df.frame_equal(pl.DataFrame({"enum_column": ["a", "a", "b"]}))
     assert enum_df.dtypes == [pl.Categorical]
+
+
+def test_multiple_filters():
+    """The filter method should AND multiple filters properly."""
+    db = pt.Database()
+    relation = db.to_relation("select 1 as a, 2 as b")
+    # The logical or should not make the filter valid for our row
+    assert relation.filter("(1 = 2) or b = 2", a=0).count() == 0
+    assert relation.filter("a=0", "(1 = 2) or b = 2").count() == 0
+
+
+def test_no_filter():
+    """No filters should return all rows."""
+    db = pt.Database()
+    relation = db.to_relation("select 1 as a, 2 as b")
+    # The logical or should not make the filter valid for our row
+    assert relation.filter().count()

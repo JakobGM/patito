@@ -495,6 +495,8 @@ class Relation(Generic[ModelType]):
         """
         Filter rows of relation.
 
+        The method returns self if no filters are provided.
+
         Args:
             filters (str): A conjunction of SQL where clauses.
             equalities (Any): A conjunction of SQL equality clauses. The keyword name
@@ -503,12 +505,15 @@ class Relation(Generic[ModelType]):
         Returns:
             rel (Relation): A new relation where all rows satisfy the given criteria.
         """
+        if not filters and not equalities:
+            return self
+
         clauses = []
         if filters:
             clauses.extend(filters)
         if equalities:
             clauses.extend(f"{key}={value!r}" for key, value in equalities.items())
-        filter_string = " and ".join(clauses)
+        filter_string = " and ".join(f"({clause})" for clause in clauses)
         return self._wrap(self._relation.filter(filter_string), schema_change=False)
 
     def inner_join(self: RelationType, other: RelationSource, on: str) -> RelationType:
