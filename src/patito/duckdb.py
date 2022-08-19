@@ -1071,8 +1071,8 @@ class Database:
 
         Args:
             derived_from (RelationSource): One of either a pandas DataFrame,
-            a pathlib.Path to a parquet or CSV file, a SQL query string,
-            or an existing relation.
+                a pathlib.Path to a parquet or CSV file, a SQL query string,
+                or an existing relation.
         """
         return Relation(
             derived_from=derived_from,

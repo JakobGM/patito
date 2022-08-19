@@ -11,3 +11,9 @@ extensions = [
 ]
 autodoc_member_order = "bysource"
 autosummary_generate = False
+
+# Allow the TOC tree to be expanded three levels
+html_theme_options = {
+    "collapse_navigation": False,
+    "navigation_depth": 4,
+}
