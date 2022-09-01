@@ -25,3 +25,13 @@ You can simply install Patito with :code:`pip` like so:
 .. code-block:: console
 
    pip install patito
+
+DuckDB Integration
+~~~~~~~~~~~~~~~~~~
+
+Patito can also integrate with `DuckDB <https://duckdb.org/>`_.
+In order to enable this integration you must explicitly specify it during installation:
+
+.. code-block:: console
+
+   pip install patito[duckdb]

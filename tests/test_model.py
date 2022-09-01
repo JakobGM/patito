@@ -129,7 +129,7 @@ def test_instantiating_model_from_row():
     with pytest.raises(
         TypeError, match=r"Model.from_row not implemented for \<class 'NoneType'\>."
     ):
-        Model.from_row(None)  # type: ignore
+        Model.from_row(None)  # pyright: ignore
 
 
 def test_insstantiation_from_pandas_row():

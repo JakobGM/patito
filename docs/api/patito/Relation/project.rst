@@ -1,3 +1,5 @@
+.. _Relation.project:
+
 patito.Relation.project
 =======================
 

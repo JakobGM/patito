@@ -60,7 +60,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
 
         new_class = type(
             f"{model.schema()['title']}LazyFrame",
-            (cls,),  # type: ignore
+            (cls,),
             {"model": model},
         )
         return new_class
@@ -99,10 +99,32 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
 
 class DataFrame(pl.DataFrame, Generic[ModelType]):
     """
-    A custom model-aware sub-class of polars.DataFrame.
+    A sub-class of polars.DataFrame with additional functionality related to Model.
 
-    Adds additional model-related methods such as `DataFrame.set_model()`,
-    `DataFrame.validate()`, `DataFrame.derive()`, and so on.
+    Two different methods are available for constructing model-aware data frames.
+    Assume a simple model with two fields:
+
+    >>> import patito as pt
+    >>> class Product(pt.Model):
+    ...     name: str
+    ...     price_in_cents: int
+    ...
+
+    We can construct a data frame containing products and then associate the
+    :code:`Product` model to the data frame using ``DataFrame.set_model``:
+
+    >>> df = pt.DataFrame({"name": ["apple", "banana"], "price": [25, 61]}).set_model(
+    ...     Product
+    ... )
+
+    Alternatively, we can use the custom :code:`Product.DataFrame` class which
+    automatically associates the :code:`Product` model to the data frame at
+    instantiation.
+
+    >>> df = Product.DataFrame({"name": ["apple", "banana"], "price": [25, 61]})
+
+    The :code:`df` data frame now has a set of model-aware methods such as as
+    :ref:`Product.validate <DataFrame.validate>`.
     """
 
     model: Type[ModelType]
@@ -126,7 +148,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         """
         new_class = type(
             f"{model.schema()['title']}DataFrame",
-            (cls,),  # type: ignore
+            (cls,),
             {"model": model},
         )
         return new_class
@@ -148,39 +170,109 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         ldf = lazyframe_class._from_pyldf(super().lazy()._ldf)
         return ldf
 
-    def set_model(self, model):  # noqa: ANN001, ANN201
+    def set_model(self, model):  # type: ignore[no-untyped-def] # noqa: ANN001, ANN201
         """
-        Set the model which represents the data frame schema.
+        Associate a given patito ``Model`` with the dataframe.
 
-        The model schema is used by methods such as `DataFrame.validate()` and
-        `DataFrame.get()`.
+        The model schema is used by methods that depend on a model being associated with
+        the given dataframe such as :ref:`DataFrame.validate() <DataFrame.validate>`
+        and :ref:`DataFrame.get() <DataFrame.get>`.
+
+        ``DataFrame(...).set_model(Model)`` is equivalent with ``Model.DataFrame(...)``.
 
         Args:
-            model: Sub-class of patito.Model declaring the schema of the dataframe.
+            model: Sub-class of ``patito.Model`` declaring the schema of the dataframe.
 
         Returns:
-            Returns the same dataframe, but with attached model validation metadata.
+            DataFrame[Model]: Returns the same dataframe, but with an attached model
+            that is required for certain model-specific dataframe methods to work.
+
+        Examples:
+            >>> from typing_extensions import Literal
+            >>> import patito as pt
+            >>> import polars as pl
+            >>> class SchoolClass(pt.Model):
+            ...     year: int = pt.Field(dtype=pl.UInt16)
+            ...     letter: Literal["A", "B"] = pt.Field(dtype=pl.Categorical)
+            ...
+            >>> classes = pt.DataFrame(
+            ...     {"year": [1, 1, 2, 2], "letter": list("ABAB")}
+            ... ).set_model(SchoolClass)
+            >>> classes
+            shape: (4, 2)
+            ┌──────┬────────┐
+            │ year ┆ letter │
+            │ ---  ┆ ---    │
+            │ i64  ┆ str    │
+            ╞══════╪════════╡
+            │ 1    ┆ A      │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 1    ┆ B      │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2    ┆ A      │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2    ┆ B      │
+            └──────┴────────┘
+            >>> casted_classes = classes.cast()
+            >>> casted_classes
+            shape: (4, 2)
+            ┌──────┬────────┐
+            │ year ┆ letter │
+            │ ---  ┆ ---    │
+            │ u16  ┆ cat    │
+            ╞══════╪════════╡
+            │ 1    ┆ A      │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 1    ┆ B      │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2    ┆ A      │
+            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
+            │ 2    ┆ B      │
+            └──────┴────────┘
+            >>> casted_classes.validate()
         """
         cls = self._construct_dataframe_model_class(model=model)
         return cast(
             DataFrame[model],
-            cls._from_pydf(self._df),  # type: ignore
+            cls._from_pydf(self._df),
         )
 
     def cast(self: DF, strict: bool = False) -> DF:
         """
-        Cast columns to dtypes specified by the Patito model.
+        Cast columns to `dtypes` specified by the associated Patito model.
 
         Args:
-            strict: If set to False, columns which are technically compliant with the
-                specified field type, will not be casted. For example, a column
-                annotated with int is technically compliant with pl.UInt8, even if
-                pl.Int64 is the default dtype associated with such fields. If strict
-                is set to True, the resulting dtypes will be forced to the default dtype
-                associated with each python type.
+            strict: If set to ``False``, columns which are technically compliant with
+                the specified field type, will not be casted. For example, a column
+                annotated with ``int`` is technically compliant with ``pl.UInt8``, even
+                if ``pl.Int64`` is the default dtype associated with ``int``-annotated
+                fields. If ``strict`` is set to ``True``, the resulting dtypes will
+                be forced to the default dtype associated with each python type.
 
         Returns:
             A dataframe with columns casted to the correct dtypes.
+
+        Examples:
+            Create a simple model:
+
+            >>> import patito as pt
+            >>> import polars as pl
+            >>> class Product(pt.Model):
+            ...     name: str
+            ...     cent_price: int = pt.Field(dtype=pl.UInt16)
+            ...
+
+            Now we can use this model to cast some simple data:
+
+            >>> Product.DataFrame({"name": ["apple"], "cent_price": ["8"]}).cast()
+            shape: (1, 2)
+            ┌───────┬────────────┐
+            │ name  ┆ cent_price │
+            │ ---   ┆ ---        │
+            │ str   ┆ u16        │
+            ╞═══════╪════════════╡
+            │ apple ┆ 8          │
+            └───────┴────────────┘
         """
         properties = self.model._schema_properties()
         valid_dtypes = self.model.valid_dtypes
@@ -201,8 +293,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         """
         Drop one or more columns from the dataframe.
 
-        If `name` is not provided, all columns not specified in the DataFrame
-        model, set with DataFrame.set_model(), are dropped.
+        If ``name`` is not provided then all columns `not` specified by the associated
+        patito model, for instance set with
+        :ref:`DataFrame.set_model <DataFrame.set_model>`, are dropped.
 
         Args:
             name: A single column string name, or list of strings, indicating
@@ -214,10 +307,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-
             >>> class Model(pt.Model):
             ...     column_1: int
-
+            ...
             >>> Model.DataFrame({"column_1": [1, 2], "column_2": [3, 4]}).drop()
             shape: (2, 1)
             ┌──────────┐
@@ -238,13 +330,13 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
     def validate(self: DF) -> DF:
         """
-        Validate the schema and content of the data frame.
+        Validate the schema and content of the dataframe.
 
-        You must invoke .set_model() before invoking .validate() in order
-        to specify the model schema of the data frame.
+        You must invoke ``.set_model()`` before invoking ``.validate()`` in order
+        to specify how the dataframe should be validated.
 
         Returns:
-            The original dataframe, if correctly validated.
+            DataFrame: The original dataframe, if correctly validated.
 
         Raises:
             TypeError: If `DataFrame.set_model()` has not been invoked prior to
@@ -252,6 +344,35 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 `DataFrame.set_model()` for you.
             patito.exceptions.ValidationError:  # noqa: DAR402
                 If the dataframe does not match the specified schema.
+
+        Examples:
+            >>> import patito as pt
+
+
+            >>> class Product(pt.Model):
+            ...     product_id: int = pt.Field(unique=True)
+            ...     temperature_zone: Literal["dry", "cold", "frozen"]
+            ...     is_for_sale: bool
+            ...
+
+            >>> df = pt.DataFrame(
+            ...     {
+            ...         "product_id": [1, 1, 3],
+            ...         "temperature_zone": ["dry", "dry", "oven"],
+            ...     }
+            ... ).set_model(Product)
+            >>> try:
+            ...     df.validate()
+            ... except pt.ValidationError as exc:
+            ...     print(exc)
+            ...
+            3 validation errors for Product
+            is_for_sale
+              Missing column (type=type_error.missingcolumns)
+            product_id
+              2 rows with duplicated values. (type=value_error.rowvalue)
+            temperature_zone
+              Rows with invalid values: {'oven'}. (type=value_error.rowvalue)
         """
         if not hasattr(self, "model"):
             raise TypeError(
@@ -263,25 +384,24 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
     def derive(self: DF) -> DF:
         """
-        Derive columns which are derived from other columns or expressions.
+        Populate columns which have ``pt.Field(derived_from=...)`` definitions.
 
-        If a column field on the DataFrame model has patito.Field(derived_from=...)
-        specified, the given value will be used to define the column. If `derived_from`
-        is set to a string, the column will be derived from the given column name.
-        Alternatively, an arbitrary polars expression can be given, the result of which
-        will be used to populate the column values.
+        If a column field on the data frame model has ``patito.Field(derived_from=...)``
+        specified, the given value will be used to define the column. If
+        ``derived_from`` is set to a string, the column will be derived from the given
+        column name. Alternatively, an arbitrary polars expression can be given, the
+        result of which will be used to populate the column values.
 
         Returns:
             A new dataframe where all derivable columns are provided.
 
         Raises:
-            TypeError: If the `derived_from` parameter of `patito.Field` is given as
-                something elso than a string or polars expression.
+            TypeError: If the ``derived_from`` parameter of ``patito.Field`` is given
+                as something else than a string or polars expression.
 
         Examples:
             >>> import patito as pt
             >>> import polars as pl
-            ...
             >>> class Foo(pt.Model):
             ...     bar: int = pt.Field(derived_from="foo")
             ...     double_bar: int = pt.Field(derived_from=2 * pl.col("bar"))
@@ -327,28 +447,46 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         limit: Optional[int] = None,
     ) -> DF:
         """
-        Fill null values using a filling strategy, literal, or Expr.
+        Fill null values using a filling strategy, literal, or ``Expr``.
 
-        If "default" is provided as the strategy, the model fields with default values
-        are used to fill missing values.
+        If ``"default"`` is provided as the strategy, the model fields with default
+        values are used to fill missing values.
 
         Args:
             value: Value used to fill null values.
-            strategy: Accepts the same arguments as `polars.DataFrame.fill_null` in
-                addition to `"defaults"` which will use the field's default value if
+            strategy: Accepts the same arguments as ``polars.DataFrame.fill_null`` in
+                addition to ``"defaults"`` which will use the field's default value if
                 provided.
             limit: The number of consecutive null values to forward/backward fill.
-                Only valid if `strategy` is 'forward' or 'backward'.
+                Only valid if ``strategy`` is ``"forward"`` or ``"backward"``.
 
         Returns:
-            A new dataframe with nulls filled in according to the provided `strategy`
+            A new dataframe with nulls filled in according to the provided ``strategy``
                 parameter.
+
+        Example:
+            >>> import patito as pt
+            >>> class Product(pt.Model):
+            ...     name: str
+            ...     price: int = 19
+            ...
+            >>> df = Product.DataFrame(
+            ...     {"name": ["apple", "banana"], "price": [10, None]}
+            ... )
+            >>> df.fill_null(strategy="defaults")
+            shape: (2, 2)
+            ┌────────┬───────┐
+            │ name   ┆ price │
+            │ ---    ┆ ---   │
+            │ str    ┆ i64   │
+            ╞════════╪═══════╡
+            │ apple  ┆ 10    │
+            ├╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
+            │ banana ┆ 19    │
+            └────────┴───────┘
         """
         if strategy != "defaults":  # pragma: no cover
-            return cast(
-                DF,
-                super().fill_null(value=value, strategy=strategy, limit=limit),
-            )
+            return super().fill_null(value=value, strategy=strategy, limit=limit)
         return self.with_columns(
             [
                 pl.col(column).fill_null(pl.lit(default_value))
@@ -361,21 +499,69 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         Fetch the single row that matches the given polars predicate.
 
         If you expect a data frame to already consist of one single row,
-        you can use get() without any arguments to return that row.
+        you can use ``.get()`` without any arguments to return that row.
 
         Raises:
             RowDoesNotExist: If zero rows evaluate to true for the given predicate.
             MultipleRowsReturned: If more than one row evaluates to true for the given
                 predicate.
-            RuntimeError:  # noqa: DAR402
-                The superclass of both `RowDoesNotExist` and `MultipleRowsReturned`
-                if you want to catch both exeptions with the same class.
+            RuntimeError: The superclass of both ``RowDoesNotExist`` and
+                ``MultipleRowsReturned`` if you want to catch both exceptions with the
+                same class.
 
         Args:
             predicate: A polars expression defining the criteria of the filter.
 
         Returns:
             A pydantic-derived base model representing the given row.
+
+        Example:
+            >>> import patito as pt
+            >>> import polars as pl
+            >>> df = pt.DataFrame({"product_id": [1, 2, 3], "price": [10, 10, 20]})
+
+            The ``.get()`` will by default return a dynamically constructed pydantic
+            model if no model has been associated with the given dataframe:
+
+            >>> df.get(pl.col("product_id") == 1)
+            UntypedRow(product_id=1, price=10)
+
+            If a Patito model has been associated with the dataframe, by the use of
+            :ref:`DataFrame.set_model()<DataFrame.set_model>`, then the given model will
+            be used to represent the return type:
+
+            >>> class Product(pt.Model):
+            ...     product_id: int = pt.Field(unique=True)
+            ...     price: float
+            ...
+            >>> df.set_model(Product).get(pl.col("product_id") == 1)
+            Product(product_id=1, price=10.0)
+
+            You can invoke ``.get()`` without any arguments on dataframes containing
+            exactly one row:
+
+            >>> df.filter(pl.col("product_id") == 1).get()
+            UntypedRow(product_id=1, price=10)
+
+            If the given predicate matches multiple rows a ``MultipleRowsReturned`` will
+            be raised:
+
+            >>> try:
+            ...     df.get(pl.col("price") == 10)
+            ... except pt.exceptions.MultipleRowsReturned as e:
+            ...     print(e)
+            ...
+            DataFrame.get() yielded 2 rows.
+
+            If the given predicate matches zero rows a ``RowDoesNotExist`` will
+            be raised:
+
+            >>> try:
+            ...     df.get(pl.col("price") == 0)
+            ... except pt.exceptions.RowDoesNotExist as e:
+            ...     print(e)
+            ...
+            DataFrame.get() yielded 0 rows.
         """
         row = self if predicate is None else self.filter(predicate)
         if row.height == 0:
@@ -411,19 +597,65 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         )
 
     @classmethod
-    def read_csv(cls: Type[DF], *args, **kwargs) -> DF:  # noqa: ANN
-        """
+    def read_csv(  # type: ignore[no-untyped-def]
+        cls: Type[DF],
+        *args,  # noqa: ANN002
+        **kwargs,  # noqa: ANN003
+    ) -> DF:
+        r"""
         Read CSV and apply correct column name and types from model.
 
-        If any fields have `derived_from` specified, the given expression will be used
-        to populate the given column.
+        If any fields have ``derived_from`` specified, the given expression will be used
+        to populate the given column(s).
 
         Args:
-            *args: All positional arguments are forwarded to `polars.read_csv`.
-            **kwargs: All keyword arguments are forwarded to `polars.read_csv`.
+            *args: All positional arguments are forwarded to ``polars.read_csv``.
+            **kwargs: All keyword arguments are forwarded to ``polars.read_csv``.
 
         Returns:
             A dataframe representing the given CSV file data.
+
+        Examples:
+            The ``DataFrame.read_csv`` method can be used to automatically set the
+            correct column names when reading CSV files without headers.
+
+            >>> import io
+            >>> import patito as pt
+            >>> class CSVModel(pt.Model):
+            ...     a: float
+            ...     b: str
+            ...
+            >>> csv_file = io.StringIO("1,2")
+            >>> CSVModel.DataFrame.read_csv(csv_file, has_header=False)
+            shape: (1, 2)
+            ┌─────┬─────┐
+            │ a   ┆ b   │
+            │ --- ┆ --- │
+            │ f64 ┆ str │
+            ╞═════╪═════╡
+            │ 1.0 ┆ 2   │
+            └─────┴─────┘
+
+            The ``derived_from`` paramater of ``pt.Field`` allows you to specify
+            the mapping between the CSV file's column names, and the final column names
+            you intend to construct.
+
+            >>> import io
+            >>> import patito as pt
+            >>> class CSVModel(pt.Model):
+            ...     a: float
+            ...     b: str = pt.Field(derived_from="source_of_b")
+            ...
+            >>> csv_file = io.StringIO("a,source_of_b\n1,1")
+            >>> CSVModel.DataFrame.read_csv(csv_file).drop()
+            shape: (1, 2)
+            ┌─────┬─────┐
+            │ a   ┆ b   │
+            │ --- ┆ --- │
+            │ f64 ┆ str │
+            ╞═════╪═════╡
+            │ 1.0 ┆ 1   │
+            └─────┴─────┘
         """
         kwargs.setdefault("dtypes", cls.model.dtypes)
         if not kwargs.get("has_header", True) and "columns" not in kwargs:
@@ -442,7 +674,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         self: DF,
         exprs: Union[str, pl.Expr, pl.Series, Sequence[Union[str, pl.Expr, pl.Series]]],
     ) -> DF:
-        return cast(DF, super().select(exprs=exprs))
+        return super().select(exprs=exprs)
 
     def with_column(self: DF, column: Union[pl.Series, pl.Expr]) -> DF:  # noqa: D102
         return cast(DF, super().with_column(column=column))

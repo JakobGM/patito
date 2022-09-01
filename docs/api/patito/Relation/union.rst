@@ -1,3 +1,5 @@
+.. _Relation.union:
+
 patito.Relation.union
 =====================
 

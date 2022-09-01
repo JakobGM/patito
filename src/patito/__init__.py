@@ -1,6 +1,4 @@
 """Patito, a data-modelling library built on top of polars and pydantic."""
-import pkg_resources
-from pkg_resources import DistributionNotFound
 from polars import Expr, Series, col
 
 from patito import exceptions, sql
@@ -24,7 +22,6 @@ __all__ = [
 ]
 
 try:
-    pkg_resources.require(["duckdb>=0.3.2"])
     from patito.duckdb import Database, Relation, RelationSource
 
     _DUCKDB_AVAILABLE = True
@@ -33,12 +30,12 @@ try:
         "Relation",
         "RelationSource",
     ]
-except DistributionNotFound:  # pragma: no cover
+except ImportError:  # pragma: no cover
     pass
 
 
 try:
-    from importlib.metadata import PackageNotFoundError, version  # type: ignore
+    from importlib.metadata import PackageNotFoundError, version
 except ImportError:  # pragma: no cover
     from importlib_metadata import PackageNotFoundError, version  # type: ignore
 

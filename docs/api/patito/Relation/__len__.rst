@@ -1,3 +1,5 @@
+.. _Relation.__len__:
+
 patito.Relation.__len__
 =======================
 

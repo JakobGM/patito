@@ -1,9 +1,21 @@
 version: 2
-sphinx:
-  configuration: docs/conf.py
-formats: all
+
 python:
-  version: 3.7
   install:
-    - requirements: docs/requirements.txt
-    - path: .
+    - method: pip
+      path: .
+      extra_requirements:
+        - duckdb
+        - pandas
+        - docs
+
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.10"
+
+sphinx:
+   configuration: docs/conf.py
+   fail_on_warning: true
+
+formats: all

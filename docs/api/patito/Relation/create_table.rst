@@ -1,3 +1,5 @@
+.. _Relation.create_table:
+
 patito.Relation.create_table
 ============================
 

@@ -1,3 +1,5 @@
+.. _DataFrame.validate:
+
 patito.DataFrame.validate
 =========================
 

@@ -1,3 +1,5 @@
+.. _Relation.__iter__:
+
 patito.Relation.__iter__
 ========================
 

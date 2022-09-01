@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 from typing import Optional
 from unittest.mock import MagicMock
 
@@ -118,7 +119,7 @@ def test_relation():
         ValueError,
         match=(
             "Column 'a' can not be renamed as it does not exist. "
-            "The columns of the relation are: column_1, column_2."
+            "The columns of the relation are: column_[12], column_[12]"
         ),
     ):
         table_relation.rename(a="new_name")
@@ -161,9 +162,9 @@ def test_relation():
         }
     )
     assert (
-        left_relation.inner_join(
-            right_relation,
-            on="left_foreign_key = right_primary_key",
+        left_relation.set_alias("l").inner_join(
+            right_relation.set_alias("r"),
+            on="l.left_foreign_key = r.right_primary_key",
         )
         == joined_table
     )
@@ -177,15 +178,76 @@ def test_relation():
         }
     )
     assert (
-        left_relation.left_join(
-            right_relation,
-            on="left_foreign_key = right_primary_key",
+        left_relation.set_alias("l").left_join(
+            right_relation.set_alias("r"),
+            on="l.left_foreign_key = r.right_primary_key",
         )
         == left_joined_table
     )
 
 
-def test_relation_with_defualt_database():
+def test_star_select():
+    """It should select all columns with star."""
+    df = pt.DataFrame({"a": [1, 2], "b": [3, 4]})
+    relation = pt.Relation(df)
+    assert relation.project("*") == relation
+
+
+def test_casting_relations_between_database_connections():
+    """It should raise when you try to mix databases."""
+    db_1 = pt.Database()
+    relation_1 = db_1.query("select 1 as a")
+    db_2 = pt.Database()
+    relation_2 = db_2.query("select 1 as a")
+    with pytest.raises(
+        ValueError,
+        match="Relations can't be casted between database connections.",
+    ):
+        relation_1 + relation_2  # pyright: ignore
+
+
+def test_creating_relation_from_pandas_df():
+    """It should be able to create a relation from a pandas dataframe."""
+    pd = pytest.importorskip("pandas")
+    pandas_df = pd.DataFrame({"a": [1, 2]})
+    relation = pt.Relation(pandas_df)
+    pd.testing.assert_frame_equal(relation.to_pandas(), pandas_df)
+
+
+def test_creating_relation_from_a_csv_file(tmp_path):
+    """It should be able to create a relation from a CSV path."""
+    df = pl.DataFrame({"a": [1, 2]})
+    csv_path = tmp_path / "test.csv"
+    df.write_csv(csv_path)
+    relation = pt.Relation(csv_path)
+    assert relation.to_df().frame_equal(df)
+
+
+def test_creating_relation_from_a_parquet_file(tmp_path):
+    """It should be able to create a relation from a parquet path."""
+    df = pl.DataFrame({"a": [1, 2]})
+    parquet_path = tmp_path / "test.parquet"
+    df.write_parquet(parquet_path, compression="uncompressed")
+    relation = pt.Relation(parquet_path)
+    assert relation.to_df().frame_equal(df)
+
+
+def test_creating_relation_from_a_unknown_file_format(tmp_path):
+    """It should raise when you try to create relation from unknown path."""
+    with pytest.raises(
+        ValueError,
+        match="Unsupported file suffix '.unknown' for data import!",
+    ):
+        pt.Relation(Path("test.unknown"))
+
+    with pytest.raises(
+        ValueError,
+        match="Unsupported file suffix '' for data import!",
+    ):
+        pt.Relation(Path("test"))
+
+
+def test_relation_with_default_database():
     """It should be constructable with the default DuckDB cursor."""
     import duckdb
 
@@ -244,6 +306,12 @@ def test_add_suffix():
     assert relation.add_suffix("x", exclude=["a"]).columns == ["a", "bx"]
     assert relation.add_suffix("x", include=["a"]).columns == ["ax", "b"]
 
+    with pytest.raises(
+        TypeError,
+        match="Both include and exclude provided at the same time!",
+    ):
+        relation.add_suffix("x", exclude=["a"], include=["b"])
+
 
 def test_add_prefix():
     """It should be able to add prefixes to all column names."""
@@ -252,6 +320,12 @@ def test_add_prefix():
     assert relation.add_prefix("x").columns == ["xa", "xb"]
     assert relation.add_prefix("x", exclude=["a"]).columns == ["a", "xb"]
     assert relation.add_prefix("x", include=["a"]).columns == ["xa", "b"]
+
+    with pytest.raises(
+        TypeError,
+        match="Both include and exclude provided at the same time!",
+    ):
+        relation.add_prefix("x", exclude=["a"], include=["b"])
 
 
 def test_relation_aggregate_method():
@@ -381,12 +455,12 @@ def test_relation_union_method():
         TypeError,
         match="Union between relations with different column names is not allowed.",
     ):
-        incompatible + right  # type: ignore
+        incompatible + right  # pyright: ignore
     with pytest.raises(
         TypeError,
         match="Union between relations with different column names is not allowed.",
     ):
-        left + incompatible  # type: ignore
+        left + incompatible  # pyright: ignore
 
 
 def test_relation_model_functionality():
@@ -629,22 +703,29 @@ def test_with_missing_nullable_enum_columns_without_table():
 
     # We should be able to create the correct type without a table
     db = pt.Database()
-    relation = (
-        db.to_relation("select 1 as other_column")
-        .set_model(EnumModel)
-        .with_missing_nullable_columns()
+    relation = db.to_relation("select 1 as other_column")
+    with pytest.raises(
+        TypeError, match=r".*You should invoke Relation.set_model\(\) first!"
+    ):
+        relation.with_missing_nullable_columns()
+
+    model_relation = relation.set_model(EnumModel).with_missing_nullable_columns()
+    assert model_relation.sql_types["enum_column_1"].startswith("enum__")
+    assert (
+        model_relation.sql_types["enum_column_2"]
+        == model_relation.sql_types["enum_column_1"]
     )
-    assert relation.sql_types["enum_column_1"].startswith("enum__")
-    assert relation.sql_types["enum_column_2"] == relation.sql_types["enum_column_1"]
 
     # And now we should be able to insert it into a new table
-    relation.create_table(name="enum_table")
+    model_relation.create_table(name="enum_table")
     table_relation = db.table("enum_table")
     assert (
-        table_relation.sql_types["enum_column_1"] == relation.sql_types["enum_column_1"]
+        table_relation.sql_types["enum_column_1"]
+        == model_relation.sql_types["enum_column_1"]
     )
     assert (
-        table_relation.sql_types["enum_column_2"] == relation.sql_types["enum_column_1"]
+        table_relation.sql_types["enum_column_2"]
+        == model_relation.sql_types["enum_column_1"]
     )
 
 
@@ -656,12 +737,15 @@ def test_with_missing_defualtable_enum_columns():
         other_column: int
 
     db = pt.Database()
-    relation = (
-        db.to_relation("select 1 as other_column")
-        .set_model(EnumModel)
-        .with_missing_defaultable_columns()
-    )
-    assert relation.sql_types["enum_column"].startswith("enum__")
+    relation = db.to_relation("select 1 as other_column")
+    with pytest.raises(
+        TypeError,
+        match=r".*You should invoke Relation.set_model\(\) first!",
+    ):
+        relation.with_missing_defaultable_columns()
+
+    model_relation = relation.set_model(EnumModel).with_missing_defaultable_columns()
+    assert model_relation.sql_types["enum_column"].startswith("enum__")
 
 
 def test_relation_insert_into():
@@ -733,7 +817,7 @@ def test_polars_support():
 
     # Anything besides a polars dataframe should raise TypeError
     with pytest.raises(TypeError):
-        MyModel.from_polars(None)  # type: ignore
+        MyModel.from_polars(None)  # pyright: ignore
 
     # But we can also skip validation if we want
     unvalidated_model = MyModel.from_row(
@@ -802,6 +886,30 @@ def test_converting_enum_column_to_polars():
     assert enum_df.dtypes == [pl.Categorical]
 
 
+def test_non_string_enum():
+    """It should handle other types than just string enums."""
+
+    class EnumModel(pt.Model):
+        enum_column: Literal[10, 11, 12]
+
+    db = pt.Database()
+    db.create_table(name="enum_table", model=EnumModel)
+
+    db.execute(
+        """
+        insert into enum_table
+            (enum_column)
+        values
+            (10),
+            (11),
+            (12);
+        """
+    )
+    enum_df = db.table("enum_table").to_df()
+    assert enum_df.frame_equal(pl.DataFrame({"enum_column": [10, 11, 12]}))
+    assert enum_df.dtypes == [pl.Int64]
+
+
 def test_multiple_filters():
     """The filter method should AND multiple filters properly."""
     db = pt.Database()
@@ -817,3 +925,26 @@ def test_no_filter():
     relation = db.to_relation("select 1 as a, 2 as b")
     # The logical or should not make the filter valid for our row
     assert relation.filter().count()
+
+
+def test_relation_should_raise_attribute_error_on_missing_attributes():
+    """It should behave as any other object when it comes to attributes."""
+    with pytest.raises(
+        AttributeError,
+        match="Relation has no attribute 'unknown'",
+    ):
+        pt.Relation("select 1 as a").unknown
+
+    # Certain specific methods are not forwarded to the underlying relation
+    with pytest.raises(
+        AttributeError,
+        match="Relation has no attribute 'df'",
+    ):
+        pt.Relation("select 1 as a").df
+
+
+def test_string_representation_of_relation():
+    """It should have a string representation."""
+    relation = pt.Relation("select 1 as my_column")
+    relation_str = str(relation)
+    assert "my_column" in relation_str

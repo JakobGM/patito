@@ -20,10 +20,16 @@ pandas = {version = "*", optional = true, python = "^3.8"}
 duckdb = {version = ">=0.3.2, !=0.4.0", optional = true, python = "^3.8", allow-prereleases = true}
 pyarrow = {version = ">=5.0.0", optional = true, python = "^3.8"}
 importlib-metadata = {version = "*", python = "<3.8"}
+# Optional docs dependencies
+Sphinx = {version = "*", optional = true}
+sphinx-rtd-theme = {version = "*", optional = true}
+sphinx-autobuild = {version = "*", optional = true}
+sphinx-autodoc-typehints = {version = "*", optional = true}
 
 [tool.poetry.extras]
 duckdb = ["duckdb", "pyarrow"]
 pandas = ["pandas"]
+docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-autobuild", "sphinx-autodoc-typehints"]
 
 [tool.poetry.dev-dependencies]
 black = ">=22.3.0"
@@ -44,11 +50,8 @@ xdoctest = ">=1.0.0"
 mypy = ">=0.950"
 types-setuptools = ">=57.4.14"
 pandas-stubs = ">=1.2.0"
-Sphinx = "*"
-sphinx-rtd-theme = "*"
-sphinx-autobuild = "*"
-sphinx-autodoc-typehints = "*"
 codecov = "^2.1.12"
+blackdoc = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -68,8 +71,6 @@ source = ["src", "*/site-packages"]
 [tool.coverage.run]
 branch = true
 source = ["patito"]
-# TODO: Remove once DuckDB-API becomes public
-omit = ["src/patito/duckdb.py"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -88,7 +89,22 @@ profile = "black"
 exclude = ["noxfile.py"]
 
 [tool.mypy]
-# TODO: Remove once DuckDB wrapper becomes public API
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+strict_optional = false
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+allow_redefinition = true
+show_error_codes = true
 exclude = [
-  "src/patito/duckdb.py",
+  "noxfile.py",
 ]
+
+[[tool.mypy.overrides]]
+module = ["tests.*", "noxfile"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false

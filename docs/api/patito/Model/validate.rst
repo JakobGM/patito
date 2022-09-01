@@ -1,3 +1,5 @@
+.. _Model.validate:
+
 patito.Model.validate
 =====================
 

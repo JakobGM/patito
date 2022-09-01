@@ -1,3 +1,5 @@
+.. _DataFrame.set_model:
+
 patito.DataFrame.set_model
 ==========================
 

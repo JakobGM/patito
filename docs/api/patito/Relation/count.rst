@@ -1,3 +1,5 @@
+.. _Relation.count:
+
 patito.Relation.count
 =====================
 

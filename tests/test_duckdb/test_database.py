@@ -94,7 +94,7 @@ def test_database_create_table():
     with pytest.raises(
         Exception,
         match=(
-            "Failed to insert into table 'test_table': Constraint Error:.*"
+            "Failed to insert into table 'test_table': "
             "NOT NULL constraint failed: test_table.int_column"
         ),
     ):
@@ -117,10 +117,18 @@ def test_database_create_table():
         "VARCHAR",
         "BOOLEAN",
         "BOOLEAN",
-        pt.duckdb._enum_type_name(  # type: ignore
+        pt.duckdb._enum_type_name(  # pyright: ignore
             field_properties=Model.schema()["properties"]["enum_column"]
         ),
     ]
+
+
+def test_create_view():
+    """It should be able to create a view from a relation source."""
+    db = pt.Database()
+    df = pt.DataFrame({"a": [1, 2], "b": [3.0, 4.0]})
+    db.create_view(name="my_view", data=df)
+    assert db.view("my_view").to_df().frame_equal(df)
 
 
 def test_validate_non_nullable_enum_columns():
@@ -146,7 +154,7 @@ def test_validate_non_nullable_enum_columns():
     with pytest.raises(
         Exception,
         match=(
-            "Failed to insert into table 'enum_table': Constraint Error:.*"
+            "Failed to insert into table 'enum_table': "
             "NOT NULL constraint failed: enum_table.non_nullable_enum_column"
         ),
     ):
@@ -159,7 +167,7 @@ def test_validate_non_nullable_enum_columns():
     with pytest.raises(
         Exception,
         match=(
-            "Failed to insert into table 'enum_table': Conversion Error:.*"
+            ".*Failed to insert into table 'enum_table': "
             "Could not convert string 'd' to UINT8"
         ),
     ):
@@ -172,7 +180,7 @@ def test_validate_non_nullable_enum_columns():
     with pytest.raises(
         Exception,
         match=(
-            "Failed to insert into table 'enum_table': Conversion Error:.*"
+            ".*Failed to insert into table 'enum_table': "
             "Could not convert string 'd' to UINT8"
         ),
     ):
@@ -195,6 +203,18 @@ def test_table_existence_check():
 
     # And now the table should exist
     assert "test_table" in db
+
+
+def test_creating_enums_several_tiems():
+    """Enums should be able to be defined several times."""
+
+    class EnumModel(pt.Model):
+        enum_column: Literal["a", "b", "c"]
+
+    db = pt.Database()
+    db.create_enum_types(EnumModel)
+    db.enum_types = set()
+    db.create_enum_types(EnumModel)
 
 
 def test_use_of_same_enum_types_from_literal_annotation():

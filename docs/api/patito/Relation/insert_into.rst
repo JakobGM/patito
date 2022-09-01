@@ -1,3 +1,5 @@
+.. _Relation.insert_into:
+
 patito.Relation.insert_into
 ===========================
 
