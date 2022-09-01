@@ -1,5 +1,8 @@
 """Sphinx configuration."""
+import patito as pt
+
 project = "Patito"
+version = pt.__version__
 author = "Jakob Gerhard Martinussen"
 copyright = "2022, Oda Group Holding AS"
 html_theme = "sphinx_rtd_theme"
