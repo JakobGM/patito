@@ -46,7 +46,7 @@ Patito can also integrate with [DuckDB](https://duckdb.org/).
 In order to enable this integration you must explicitly specify it during installation:
 
 ```sh
-pip install patito[duckdb]
+pip install 'patito[duckdb]'
 ```
 
 

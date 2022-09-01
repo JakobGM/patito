@@ -34,4 +34,4 @@ In order to enable this integration you must explicitly specify it during instal
 
 .. code-block:: console
 
-   pip install patito[duckdb]
+   pip install 'patito[duckdb]'
