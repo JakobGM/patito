@@ -17,7 +17,9 @@ Methods
    create_view <create_view>
    default <default>
    empty_relation <empty_relation>
+   execute <execute>
    from_connection <from_connection>
+   query <query>
    table <table>
    to_relation <to_relation>
    __contains__ <__contains__>

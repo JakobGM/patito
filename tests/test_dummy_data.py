@@ -77,7 +77,7 @@ def test_creation_of_empty_relation():
     db = pt.Database()
     empty_relation = db.empty_relation(schema=MyModel)
     assert empty_relation.columns == ["a", "b"]
-    assert empty_relation.types == ["BIGINT", "VARCHAR"]
+    assert empty_relation.types == {"a": "BIGINT", "b": "VARCHAR"}
     assert empty_relation.count() == 0
 
 

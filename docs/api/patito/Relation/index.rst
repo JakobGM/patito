@@ -12,10 +12,10 @@ Properties
 
 .. toctree::
 
-   model
-   alias
-   columns
-   sql_types
+   alias <alias>
+   columns <columns>
+   model <model>
+   types <types>
 
 Methods
 -------
@@ -30,14 +30,21 @@ Methods
    coalesce <coalesce>
    count <count>
    create_table <create_table>
+   create_view <create_view>
+   distinct <distinct>
    drop <drop>
+   except_ <except_>
    execute <execute>
    filter <filter>
    get <get>
    inner_join <inner_join>
    insert_into <insert_into>
+   intersect <intersect>
+   join <join>
    left_join <left_join>
-   project <project>
+   limit <limit>
+   order <order>
+   select <select>
    rename <rename>
    set_alias <set_alias>
    set_model <set_model>

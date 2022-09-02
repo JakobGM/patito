@@ -28,18 +28,18 @@ def test_relation():
     table_relation = db.table("table_name")
 
     # A projection can be done in several different ways
-    assert table_relation.project("column_1", "column_2") == table_relation.project(
+    assert table_relation.select("column_1", "column_2") == table_relation.select(
         "column_1, column_2"
     )
     assert (
-        table_relation.project("column_1, column_2")
+        table_relation.select("column_1, column_2")
         == table_relation[["column_1, column_2"]]
     )
     assert table_relation[["column_1, column_2"]] == table_relation
-    assert table_relation.project("column_1") != table_relation.project("column_2")
+    assert table_relation.select("column_1") != table_relation.select("column_2")
 
     # We can also use kewyrod arguments to rename columns
-    assert tuple(table_relation.project(column_3="column_1::varchar || column_2")) == (
+    assert tuple(table_relation.select(column_3="column_1::varchar || column_2")) == (
         {"column_3": "1a"},
         {"column_3": "2b"},
         {"column_3": "3c"},
@@ -86,7 +86,7 @@ def test_relation():
     )
 
     # You should be able to subscript columns
-    assert table_relation["column_1"] == table_relation.project("column_1")
+    assert table_relation["column_1"] == table_relation.select("column_1")
     assert table_relation[["column_1", "column_2"]] == table_relation
 
     # The relation's columns can be retrieved
@@ -104,7 +104,7 @@ def test_relation():
 
     # You can drop one or more columns
     assert table_relation.drop("column_1").columns == ["column_2"]
-    assert table_relation.project("*, 1 as column_3").drop(
+    assert table_relation.select("*, 1 as column_3").drop(
         "column_1", "column_2"
     ).columns == ["column_3"]
 
@@ -123,13 +123,6 @@ def test_relation():
         ),
     ):
         table_relation.rename(a="new_name")
-
-    # Accessing non-existing attributes should raise AttributeError
-    with pytest.raises(
-        AttributeError,
-        match="Relation has no attribute 'attribute_that_does_not_exist'",
-    ):
-        table_relation.attribute_that_does_not_exist
 
     # Null values should be correctly handled
     none_df = pl.DataFrame({"column_1": [1, None]})
@@ -190,7 +183,7 @@ def test_star_select():
     """It should select all columns with star."""
     df = pt.DataFrame({"a": [1, 2], "b": [3, 4]})
     relation = pt.Relation(df)
-    assert relation.project("*") == relation
+    assert relation.select("*") == relation
 
 
 def test_casting_relations_between_database_connections():
@@ -409,9 +402,7 @@ def test_relation_case_method():
         mapping={"A": 10, "B": 20, "D": None},
         default=0,
     )
-    alt_mapped_actions = db.to_relation(df).project(
-        f"*, {case_statement} as max_weight"
-    )
+    alt_mapped_actions = db.to_relation(df).select(f"*, {case_statement} as max_weight")
     assert alt_mapped_actions == correct_mapped_actions
 
 
@@ -520,7 +511,7 @@ def test_relation_model_functionality():
 
     # But the model is "lost" when we use schema-changing methods
     assert not isinstance(
-        dummy_relation.set_model(MyModel).limit(1).project("a").get(),
+        dummy_relation.set_model(MyModel).limit(1).select("a").get(),
         MyModel,
     )
 
@@ -584,7 +575,7 @@ def test_fill_missing_columns():
         "e": None,
     }
     # And these nulls are properly typed
-    assert filled_nullables.sql_types == {
+    assert filled_nullables.types == {
         "a": "VARCHAR",
         "b": "VARCHAR",
         "c": "VARCHAR",
@@ -599,7 +590,7 @@ def test_fill_missing_columns():
         "b": "default_value",
         "d": 10.5,
     }
-    assert filled_defaults.sql_types == {
+    assert filled_defaults.types == {
         "a": "VARCHAR",
         "b": "VARCHAR",
         "d": "DOUBLE",
@@ -660,10 +651,10 @@ def test_with_missing_nullable_enum_columns():
     # We insert data into a properly typed table in order to get the correct enum type
     db.create_table(name="enum_table", model=EnumModel)
     db.to_relation("select 'a' as enum_column, 1 as other_column").insert_into(
-        table_name="enum_table"
+        table="enum_table"
     )
     table_relation = db.table("enum_table")
-    assert table_relation.sql_types["enum_column"].startswith("enum__")
+    assert table_relation.types["enum_column"].startswith("enum__")
 
     # We generate another dynamic relation where we expect the correct enum type
     null_relation = (
@@ -671,17 +662,11 @@ def test_with_missing_nullable_enum_columns():
         .set_model(EnumModel)
         .with_missing_nullable_columns()
     )
-    assert (
-        null_relation.sql_types["enum_column"]
-        == table_relation.sql_types["enum_column"]
-    )
+    assert null_relation.types["enum_column"] == table_relation.types["enum_column"]
 
     # These two relations should now be unionable
     union_relation = (null_relation + table_relation).order("other_column asc")
-    assert (
-        union_relation.sql_types["enum_column"]
-        == table_relation.sql_types["enum_column"]
-    )
+    assert union_relation.types["enum_column"] == table_relation.types["enum_column"]
 
     with pl.StringCache():
         correct_union_df = pl.DataFrame(
@@ -710,22 +695,19 @@ def test_with_missing_nullable_enum_columns_without_table():
         relation.with_missing_nullable_columns()
 
     model_relation = relation.set_model(EnumModel).with_missing_nullable_columns()
-    assert model_relation.sql_types["enum_column_1"].startswith("enum__")
+    assert model_relation.types["enum_column_1"].startswith("enum__")
     assert (
-        model_relation.sql_types["enum_column_2"]
-        == model_relation.sql_types["enum_column_1"]
+        model_relation.types["enum_column_2"] == model_relation.types["enum_column_1"]
     )
 
     # And now we should be able to insert it into a new table
     model_relation.create_table(name="enum_table")
     table_relation = db.table("enum_table")
     assert (
-        table_relation.sql_types["enum_column_1"]
-        == model_relation.sql_types["enum_column_1"]
+        table_relation.types["enum_column_1"] == model_relation.types["enum_column_1"]
     )
     assert (
-        table_relation.sql_types["enum_column_2"]
-        == model_relation.sql_types["enum_column_1"]
+        table_relation.types["enum_column_2"] == model_relation.types["enum_column_1"]
     )
 
 
@@ -745,7 +727,7 @@ def test_with_missing_defualtable_enum_columns():
         relation.with_missing_defaultable_columns()
 
     model_relation = relation.set_model(EnumModel).with_missing_defaultable_columns()
-    assert model_relation.sql_types["enum_column"].startswith("enum__")
+    assert model_relation.types["enum_column"].startswith("enum__")
 
 
 def test_relation_insert_into():
@@ -759,7 +741,7 @@ def test_relation_insert_into():
         )
     """
     )
-    db.to_relation("select 2 as b, 1 as a").insert_into(table_name="foo")
+    db.to_relation("select 2 as b, 1 as a").insert_into(table="foo")
     row = db.table("foo").get()
     assert row.a == 1
     assert row.b == 2
@@ -771,7 +753,7 @@ def test_relation_insert_into():
             "in order to be inserted into table 'foo'!"
         ),
     ):
-        db.to_relation("select 2 as b, 1 as c").insert_into(table_name="foo")
+        db.to_relation("select 2 as b, 1 as c").insert_into(table="foo")
 
 
 def test_polars_support():
@@ -807,17 +789,17 @@ def test_polars_support():
     my_model_df = pl.DataFrame({"a": [1, 2], "b": ["x", "y"]})
     with pytest.raises(
         ValueError,
-        match=r"MyModel.from_polars\(\) can only be invoked with exactly 1 row.*",
+        match=r"MyModel._from_polars\(\) can only be invoked with exactly 1 row.*",
     ):
-        MyModel.from_polars(my_model_df)
+        MyModel.from_row(my_model_df)
 
-    my_model = MyModel.from_polars(my_model_df.head(1))
+    my_model = MyModel.from_row(my_model_df.head(1))
     assert my_model.a == 1
     assert my_model.b == "x"
 
     # Anything besides a polars dataframe should raise TypeError
     with pytest.raises(TypeError):
-        MyModel.from_polars(None)  # pyright: ignore
+        MyModel.from_row(None)  # pyright: ignore
 
     # But we can also skip validation if we want
     unvalidated_model = MyModel.from_row(
@@ -925,22 +907,6 @@ def test_no_filter():
     relation = db.to_relation("select 1 as a, 2 as b")
     # The logical or should not make the filter valid for our row
     assert relation.filter().count()
-
-
-def test_relation_should_raise_attribute_error_on_missing_attributes():
-    """It should behave as any other object when it comes to attributes."""
-    with pytest.raises(
-        AttributeError,
-        match="Relation has no attribute 'unknown'",
-    ):
-        pt.Relation("select 1 as a").unknown
-
-    # Certain specific methods are not forwarded to the underlying relation
-    with pytest.raises(
-        AttributeError,
-        match="Relation has no attribute 'df'",
-    ):
-        pt.Relation("select 1 as a").df
 
 
 def test_string_representation_of_relation():

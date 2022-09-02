@@ -53,7 +53,7 @@ class Case:
             ...     default="three",
             ...     as_column="b",
             ... )
-            >>> relation.project(f"*, {case_statement}").to_df()
+            >>> relation.select(f"*, {case_statement}").to_df()
             shape: (2, 2)
             ┌─────┬─────┐
             │ a   ┆ b   │

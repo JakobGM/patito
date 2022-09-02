@@ -181,7 +181,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         ``DataFrame(...).set_model(Model)`` is equivalent with ``Model.DataFrame(...)``.
 
         Args:
-            model: Sub-class of ``patito.Model`` declaring the schema of the dataframe.
+            model (Model): Sub-class of ``patito.Model`` declaring the schema of the
+                dataframe.
 
         Returns:
             DataFrame[Model]: Returns the same dataframe, but with an attached model
@@ -250,7 +251,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 be forced to the default dtype associated with each python type.
 
         Returns:
-            A dataframe with columns casted to the correct dtypes.
+            DataFrame[Model]: A dataframe with columns casted to the correct dtypes.
 
         Examples:
             Create a simple model:
@@ -303,7 +304,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 specified by the associated dataframe model will be dropped.
 
         Returns:
-            New dataframe without the specified columns.
+            DataFrame[Model]: New dataframe without the specified columns.
 
         Examples:
             >>> import patito as pt
@@ -336,14 +337,15 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         to specify how the dataframe should be validated.
 
         Returns:
-            DataFrame: The original dataframe, if correctly validated.
+            DataFrame[Model]: The original dataframe, if correctly validated.
 
         Raises:
-            TypeError: If `DataFrame.set_model()` has not been invoked prior to
-                validation. Note that `patito.Model.DataFrame` automatically invokes
-                `DataFrame.set_model()` for you.
-            patito.exceptions.ValidationError:  # noqa: DAR402
-                If the dataframe does not match the specified schema.
+            TypeError: If ``DataFrame.set_model()`` has not been invoked prior to
+                validation. Note that ``patito.Model.DataFrame`` automatically invokes
+                ``DataFrame.set_model()`` for you.
+
+            patito.exceptions.ValidationError: If the dataframe does not match the
+                specified schema.
 
         Examples:
             >>> import patito as pt
@@ -393,7 +395,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         result of which will be used to populate the column values.
 
         Returns:
-            A new dataframe where all derivable columns are provided.
+            DataFrame[Model]: A new dataframe where all derivable columns are provided.
 
         Raises:
             TypeError: If the ``derived_from`` parameter of ``patito.Field`` is given
@@ -461,8 +463,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 Only valid if ``strategy`` is ``"forward"`` or ``"backward"``.
 
         Returns:
-            A new dataframe with nulls filled in according to the provided ``strategy``
-                parameter.
+            DataFrame[Model]: A new dataframe with nulls filled in according to the
+            provided ``strategy`` parameter.
 
         Example:
             >>> import patito as pt
@@ -486,7 +488,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             └────────┴───────┘
         """
         if strategy != "defaults":  # pragma: no cover
-            return super().fill_null(value=value, strategy=strategy, limit=limit)
+            return cast(  # type: ignore[redundant-cast]
+                DF, super().fill_null(value=value, strategy=strategy, limit=limit)
+            )
         return self.with_columns(
             [
                 pl.col(column).fill_null(pl.lit(default_value))
@@ -513,7 +517,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             predicate: A polars expression defining the criteria of the filter.
 
         Returns:
-            A pydantic-derived base model representing the given row.
+            Model: A pydantic-derived base model representing the given row.
 
         Example:
             >>> import patito as pt
@@ -613,7 +617,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             **kwargs: All keyword arguments are forwarded to ``polars.read_csv``.
 
         Returns:
-            A dataframe representing the given CSV file data.
+            DataFrame[Model]: A dataframe representing the given CSV file data.
 
         Examples:
             The ``DataFrame.read_csv`` method can be used to automatically set the
@@ -674,7 +678,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         self: DF,
         exprs: Union[str, pl.Expr, pl.Series, Sequence[Union[str, pl.Expr, pl.Series]]],
     ) -> DF:
-        return super().select(exprs=exprs)
+        return cast(DF, super().select(exprs=exprs))  # type: ignore[redundant-cast]
 
     def with_column(self: DF, column: Union[pl.Series, pl.Expr]) -> DF:  # noqa: D102
         return cast(DF, super().with_column(column=column))

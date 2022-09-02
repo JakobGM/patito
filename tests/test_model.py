@@ -131,6 +131,12 @@ def test_instantiating_model_from_row():
     ):
         Model.from_row(None)  # pyright: ignore
 
+    with pytest.raises(
+        TypeError,
+        match=r"Model._from_polars\(\) must be invoked with polars.DataFrame.*",
+    ):
+        Model._from_polars(None)  # pyright: ignore
+
 
 def test_insstantiation_from_pandas_row():
     """You should be able to instantiate models from pandas rows."""

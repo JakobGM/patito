@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Dict,
     Generic,
     List,
@@ -148,8 +147,6 @@ class Relation(Generic[ModelType]):
 
     # The alias that can be used to refer to the relation in queries
     alias: str
-    # The SQL types of the relation
-    types: List[DuckDBSQLType]
 
     def __init__(  # noqa: C901
         self,
@@ -387,7 +384,7 @@ class Relation(Generic[ModelType]):
         else:
             included = lambda _: True  # noqa: E731
 
-        return self.project(
+        return self.select(
             ", ".join(
                 f"{column} as {column}{suffix}" if included(column) else column
                 for column in self.columns
@@ -453,7 +450,7 @@ class Relation(Generic[ModelType]):
         else:
             included = lambda _: True
 
-        return self.project(
+        return self.select(
             ", ".join(
                 f"{column} as {prefix}{column}" if included(column) else column
                 for column in self.columns
@@ -547,7 +544,7 @@ class Relation(Generic[ModelType]):
             ...     default="three",
             ...     as_column="b",
             ... )
-            >>> relation.project(f"*, {case_statement}").to_df()
+            >>> relation.select(f"*, {case_statement}").to_df()
             shape: (2, 2)
             ┌─────┬─────┐
             │ a   ┆ b   │
@@ -620,7 +617,7 @@ class Relation(Generic[ModelType]):
                 projections.append(f"coalesce({column}, {expression!r}) as {column}")
             else:
                 projections.append(column)
-        return cast(RelationType, self.project(*projections))
+        return cast(RelationType, self.select(*projections))
 
     @property
     def columns(self) -> List[str]:
@@ -678,21 +675,55 @@ class Relation(Generic[ModelType]):
 
             >>> df = pt.DataFrame({"enum_column": ["A", "A", "B"]})
             >>> relation = pt.Relation(df)
-            >>> relation.create_table("permissive_table").sql_types
+            >>> relation.create_table("permissive_table").types
             {'enum_column': 'VARCHAR'}
 
             >>> class TableSchema(pt.Model):
             ...     enum_column: Literal["A", "B", "C"]
             ...
-            >>> relation.set_model(TableSchema).create_table("strict_table").sql_types
+            >>> relation.set_model(TableSchema).create_table("strict_table").types
             {'enum_column': 'enum__7ba49365cc1b0fd57e61088b3bc9aa25'}
         """
         if self.model is not None:
             self.database.create_table(name=name, model=self.model)
-            self.insert_into(table_name=name)
+            self.insert_into(table=name)
         else:
             self._relation.create(table_name=name)
         return cast(RelationType, self.database.table(name))
+
+    def create_view(
+        self: RelationType,
+        name: str,
+        replace: bool = False,
+    ) -> RelationType:
+        """
+        Create new database view based on relation.
+
+        Returns:
+            Relation: A relation pointing to the newly created view.
+
+        Examples:
+            >>> import patito as pt
+            >>> db = pt.Database()
+            >>> df = pt.DataFrame({"column": ["A", "A", "B"]})
+            >>> relation = db.to_relation(df)
+            >>> relation.create_view("my_view")
+            >>> db.query("select * from my_view").to_df()
+            shape: (3, 1)
+            ┌────────┐
+            │ column │
+            │ ---    │
+            │ str    │
+            ╞════════╡
+            │ A      │
+            ├╌╌╌╌╌╌╌╌┤
+            │ A      │
+            ├╌╌╌╌╌╌╌╌┤
+            │ B      │
+            └────────┘
+        """
+        self._relation.create_view(view_name=name, replace=replace)
+        return cast(RelationType, self.database.view(name))
 
     def drop(self, *columns: str) -> Relation:
         """
@@ -715,6 +746,98 @@ class Relation(Generic[ModelType]):
         for column in columns:
             new_columns.remove(column)
         return self[new_columns]
+
+    def distinct(self: RelationType) -> RelationType:
+        """
+        Drop all duplicate rows of the relation.
+
+        Example:
+            >>> import patito as pt
+            >>> df = pt.DataFrame(
+            ...     [[1, 2, 3], [1, 2, 3], [3, 2, 1]],
+            ...     columns=["a", "b", "c"],
+            ...     orient="row",
+            ... )
+            >>> relation = pt.Relation(df)
+            >>> relation.to_df()
+            shape: (3, 3)
+            ┌─────┬─────┬─────┐
+            │ a   ┆ b   ┆ c   │
+            │ --- ┆ --- ┆ --- │
+            │ i64 ┆ i64 ┆ i64 │
+            ╞═════╪═════╪═════╡
+            │ 1   ┆ 2   ┆ 3   │
+            ├╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌┤
+            │ 1   ┆ 2   ┆ 3   │
+            ├╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌┤
+            │ 3   ┆ 2   ┆ 1   │
+            └─────┴─────┴─────┘
+            >>> relation.distinct().to_df()
+            shape: (2, 3)
+            ┌─────┬─────┬─────┐
+            │ a   ┆ b   ┆ c   │
+            │ --- ┆ --- ┆ --- │
+            │ i64 ┆ i64 ┆ i64 │
+            ╞═════╪═════╪═════╡
+            │ 1   ┆ 2   ┆ 3   │
+            ├╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌┤
+            │ 3   ┆ 2   ┆ 1   │
+            └─────┴─────┴─────┘
+        """
+        return self._wrap(self._relation.distinct(), schema_change=False)
+
+    def except_(self: RelationType, other: RelationSource) -> RelationType:
+        """
+        Remove all rows that can be found in the other other relation.
+
+        Args:
+            other: Another relation or something that can be casted to a relation.
+
+        Returns:
+            New relation without the rows that can be found in the other relation.
+
+        Example:
+            >>> import patito as pt
+            >>> relation_123 = pt.Relation("select 1 union select 2 union select 3")
+            >>> relation_123.to_df()
+            shape: (3, 1)
+            ┌─────┐
+            │ 1   │
+            │ --- │
+            │ i32 │
+            ╞═════╡
+            │ 1   │
+            ├╌╌╌╌╌┤
+            │ 2   │
+            ├╌╌╌╌╌┤
+            │ 3   │
+            └─────┘
+            >>> relation_2 = pt.Relation("select 2")
+            >>> relation_2.to_df()
+            shape: (1, 1)
+            ┌─────┐
+            │ 2   │
+            │ --- │
+            │ i32 │
+            ╞═════╡
+            │ 2   │
+            └─────┘
+            >>> relation_123.except_(relation_2).to_df()
+            shape: (2, 1)
+            ┌─────┐
+            │ 1   │
+            │ --- │
+            │ i32 │
+            ╞═════╡
+            │ 1   │
+            ├╌╌╌╌╌┤
+            │ 3   │
+            └─────┘
+        """
+        return self._wrap(
+            self._relation.except_(self.database.to_relation(other)._relation),
+            schema_change=False,
+        )
 
     def execute(self) -> duckdb.DuckDBPyResult:
         """
@@ -904,6 +1027,87 @@ class Relation(Generic[ModelType]):
         filter_string = " and ".join(f"({clause})" for clause in clauses)
         return self._wrap(self._relation.filter(filter_string), schema_change=False)
 
+    def join(
+        self: RelationType,
+        other: RelationSource,
+        *,
+        on: str,
+        how: Literal["inner", "left"] = "inner",
+    ) -> RelationType:
+        """
+        Join relation with other relation source based on condition.
+
+        See :ref:`Relation.inner_join() <Relation.inner_join>` and
+        :ref:`Relation.left_join() <Relation.left_join>` for alternative method
+        shortcuts instead of using ``how``.
+
+        Args:
+            other: A source which can be casted to a ``Relation`` object, and be used
+                as the right table in the join.
+            on: Join condition following the ``INNER JOIN ... ON`` in the SQL query.
+            how: Either ``"left"`` or ``"inner"`` for what type of SQL join operation to
+                perform.
+
+        Returns:
+            Relation: New relation based on the joined relations.
+
+        Example:
+            >>> import patito as pt
+            >>> products_df = pt.DataFrame(
+            ...     {
+            ...         "product_name": ["apple", "banana", "oranges"],
+            ...         "supplier_id": [2, 1, 3],
+            ...     }
+            ... )
+            >>> products = pt.Relation(products_df)
+            >>> supplier_df = pt.DataFrame(
+            ...     {
+            ...         "id": [1, 2],
+            ...         "supplier_name": ["Banana Republic", "Applies Inc."],
+            ...     }
+            ... )
+            >>> suppliers = pt.Relation(supplier_df)
+            >>> products.set_alias("p").join(
+            ...     suppliers.set_alias("s"),
+            ...     on="p.supplier_id = s.id",
+            ...     how="inner",
+            ... ).to_df()
+            shape: (2, 4)
+            ┌──────────────┬─────────────┬─────┬─────────────────┐
+            │ product_name ┆ supplier_id ┆ id  ┆ supplier_name   │
+            │ ---          ┆ ---         ┆ --- ┆ ---             │
+            │ str          ┆ i64         ┆ i64 ┆ str             │
+            ╞══════════════╪═════════════╪═════╪═════════════════╡
+            │ apple        ┆ 2           ┆ 2   ┆ Applies Inc.    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ banana       ┆ 1           ┆ 1   ┆ Banana Republic │
+            └──────────────┴─────────────┴─────┴─────────────────┘
+
+            >>> products.set_alias("p").join(
+            ...     suppliers.set_alias("s"),
+            ...     on="p.supplier_id = s.id",
+            ...     how="left",
+            ... ).to_df()
+            shape: (3, 4)
+            ┌──────────────┬─────────────┬──────┬─────────────────┐
+            │ product_name ┆ supplier_id ┆ id   ┆ supplier_name   │
+            │ ---          ┆ ---         ┆ ---  ┆ ---             │
+            │ str          ┆ i64         ┆ i64  ┆ str             │
+            ╞══════════════╪═════════════╪══════╪═════════════════╡
+            │ apple        ┆ 2           ┆ 2    ┆ Applies Inc.    │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ banana       ┆ 1           ┆ 1    ┆ Banana Republic │
+            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+            │ oranges      ┆ 3           ┆ null ┆ null            │
+            └──────────────┴─────────────┴──────┴─────────────────┘
+        """
+        return self._wrap(
+            self._relation.join(
+                self.database.to_relation(other)._relation, condition=on, how=how
+            ),
+            schema_change=True,
+        )
+
     def inner_join(self: RelationType, other: RelationSource, on: str) -> RelationType:
         """
         Inner join relation with other relation source based on condition.
@@ -1010,9 +1214,126 @@ class Relation(Generic[ModelType]):
             schema_change=True,
         )
 
+    def limit(self: RelationType, n: int, *, offset: int = 0) -> RelationType:
+        """
+        Remove all but the first n rows.
+
+        Args:
+            n: The number of rows to keep.
+            offset: Disregard the first ``offset`` rows before starting to count which
+                rows to keep.
+
+        Returns:
+            New relation with only n rows.
+
+        Example:
+            >>> import patito as pt
+            >>> relation = (
+            ...     pt.Relation("select 1 as column")
+            ...     + pt.Relation("select 2 as column")
+            ...     + pt.Relation("select 3 as column")
+            ...     + pt.Relation("select 4 as column")
+            ... )
+            >>> relation.limit(2).to_df()
+            shape: (2, 1)
+            ┌────────┐
+            │ column │
+            │ ---    │
+            │ i32    │
+            ╞════════╡
+            │ 1      │
+            ├╌╌╌╌╌╌╌╌┤
+            │ 2      │
+            └────────┘
+            >>> relation.limit(2, offset=2).to_df()
+            shape: (2, 1)
+            ┌────────┐
+            │ column │
+            │ ---    │
+            │ i32    │
+            ╞════════╡
+            │ 3      │
+            ├╌╌╌╌╌╌╌╌┤
+            │ 4      │
+            └────────┘
+        """
+        return self._wrap(self._relation.limit(n=n, offset=offset), schema_change=False)
+
+    def order(self: RelationType, by: Union[str, Iterable[str]]) -> RelationType:
+        """
+        Change the order of the rows of the relation.
+
+        Args:
+            by: An ``ORDER BY`` SQL expression such as ``"age DESC"`` or
+                ``("age DESC", "name ASC")``.
+
+        Returns:
+            New relation where the rows have been ordered according to ``by``.
+
+        Example:
+            >>> import patito as pt
+            >>> df = pt.DataFrame(
+            ...     {
+            ...         "name": ["Alice", "Bob", "Charles", "Diana"],
+            ...         "age": [20, 20, 30, 35],
+            ...     }
+            ... )
+            >>> df
+            shape: (4, 2)
+            ┌─────────┬─────┐
+            │ name    ┆ age │
+            │ ---     ┆ --- │
+            │ str     ┆ i64 │
+            ╞═════════╪═════╡
+            │ Alice   ┆ 20  │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
+            │ Bob     ┆ 20  │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
+            │ Charles ┆ 30  │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
+            │ Diana   ┆ 35  │
+            └─────────┴─────┘
+            >>> relation = pt.Relation(df)
+            >>> relation.order(by="age desc").to_df()
+            shape: (4, 2)
+            ┌─────────┬─────┐
+            │ name    ┆ age │
+            │ ---     ┆ --- │
+            │ str     ┆ i64 │
+            ╞═════════╪═════╡
+            │ Diana   ┆ 35  │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
+            │ Charles ┆ 30  │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
+            │ Alice   ┆ 20  │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
+            │ Bob     ┆ 20  │
+            └─────────┴─────┘
+            >>> relation.order(by=["age desc", "name desc"]).to_df()
+            shape: (4, 2)
+            ┌─────────┬─────┐
+            │ name    ┆ age │
+            │ ---     ┆ --- │
+            │ str     ┆ i64 │
+            ╞═════════╪═════╡
+            │ Diana   ┆ 35  │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
+            │ Charles ┆ 30  │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
+            │ Bob     ┆ 20  │
+            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
+            │ Alice   ┆ 20  │
+            └─────────┴─────┘
+        """
+        order_expr = by if isinstance(by, str) else ", ".join(by)
+        return self._wrap(
+            self._relation.order(order_expr=order_expr),
+            schema_change=False,
+        )
+
     def insert_into(
         self: RelationType,
-        table_name: str,
+        table: str,
     ) -> RelationType:
         """
         Insert all rows of the relation into a given table.
@@ -1022,7 +1343,7 @@ class Relation(Generic[ModelType]):
         with the target table.
 
         Args:
-            table_name: Name of table for which to insert values into.
+            table: Name of table for which to insert values into.
 
         Returns:
             Relation: The original relation, i.e. ``self``.
@@ -1053,19 +1374,52 @@ class Relation(Generic[ModelType]):
             │ 2   │
             └─────┘
         """
-        table = self.database.table(table_name)
-        missing_columns = set(table.columns) - set(self.columns)
+        table_relation = self.database.table(table)
+        missing_columns = set(table_relation.columns) - set(self.columns)
         if missing_columns:
             raise TypeError(
                 f"Relation is missing column(s) {missing_columns} "
-                f"in order to be inserted into table '{table_name}'!",
+                f"in order to be inserted into table '{table}'!",
             )
 
-        reordered_relation = self[table.columns]
-        reordered_relation._relation.insert_into(table_name=table_name)
+        reordered_relation = self[table_relation.columns]
+        reordered_relation._relation.insert_into(table_name=table)
         return self
 
-    def project(
+    def intersect(self: RelationType, other: RelationSource) -> RelationType:
+        """
+        Return a new relation containing the rows that are present in both relations.
+
+        This is a set operation which will remove duplicate rows as well.
+
+        Args:
+            other: Another relation with the same column names.
+
+        Returns:
+            Relation[Model]: A new relation with only those rows that are present in
+            both relations.
+
+        Example:
+            >>> import patito as pt
+            >>> df1 = pt.DataFrame({"a": [1, 1, 2], "b": [1, 1, 2]})
+            >>> df2 = pt.DataFrame({"a": [1, 1, 3], "b": [1, 1, 3]})
+            >>> pt.Relation(df1).intersect(pt.Relation(df2)).to_df()
+            shape: (1, 2)
+            ┌─────┬─────┐
+            │ a   ┆ b   │
+            │ --- ┆ --- │
+            │ i64 ┆ i64 │
+            ╞═════╪═════╡
+            │ 1   ┆ 1   │
+            └─────┴─────┘
+        """
+        other = self.database.to_relation(other)
+        return self._wrap(
+            self._relation.intersect(other._relation),
+            schema_change=False,
+        )
+
+    def select(
         self,
         *projections: Union[str, int, float],
         **named_projections: Union[str, int, float],
@@ -1088,7 +1442,7 @@ class Relation(Generic[ModelType]):
             >>> import patito as pt
             >>> db = pt.Database()
             >>> relation = db.to_relation(pt.DataFrame({"original_column": [1, 2, 3]}))
-            >>> relation.project("*").to_df()
+            >>> relation.select("*").to_df()
             shape: (3, 1)
             ┌─────────────────┐
             │ original_column │
@@ -1101,7 +1455,7 @@ class Relation(Generic[ModelType]):
             ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ 3               │
             └─────────────────┘
-            >>> relation.project("*", multiplied_column="2 * original_column").to_df()
+            >>> relation.select("*", multiplied_column="2 * original_column").to_df()
             shape: (3, 2)
             ┌─────────────────┬───────────────────┐
             │ original_column ┆ multiplied_column │
@@ -1211,7 +1565,7 @@ class Relation(Generic[ModelType]):
             >>> relation_1.set_alias("x").inner_join(
             ...     relation_2.set_alias("y"),
             ...     on="x.a = y.a",
-            ... ).project("x.a", "y.a", "b", "c").to_df()
+            ... ).select("x.a", "y.a", "b", "c").to_df()
             shape: (1, 4)
             ┌─────┬─────┬─────┬─────┐
             │ a   ┆ a:1 ┆ b   ┆ c   │
@@ -1253,9 +1607,9 @@ class Relation(Generic[ModelType]):
             query_relation(float_column=1, enum_column='A')
             >>> relation.set_model(MySchema).get()
             MySchema(float_column=1.0, enum_column='A')
-            >>> relation.create_table("unmodeled_table").sql_types
+            >>> relation.create_table("unmodeled_table").types
             {'float_column': 'INTEGER', 'enum_column': 'VARCHAR'}
-            >>> relation.set_model(MySchema).create_table("modeled_table").sql_types
+            >>> relation.set_model(MySchema).create_table("modeled_table").types
             {'float_column': 'DOUBLE',
              'enum_column': 'enum__7ba49365cc1b0fd57e61088b3bc9aa25'}
         """
@@ -1273,7 +1627,7 @@ class Relation(Generic[ModelType]):
         )
 
     @property
-    def sql_types(self) -> dict[str, str]:
+    def types(self) -> dict[str, DuckDBSQLType]:
         """
         Return the SQL types of all the columns of the given relation.
 
@@ -1283,7 +1637,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> pt.Relation("select 1 as a, 'my_value' as b").sql_types
+            >>> pt.Relation("select 1 as a, 'my_value' as b").types
             {'a': 'INTEGER', 'b': 'VARCHAR'}
         """
         return dict(zip(self.columns, self._relation.types))
@@ -1468,7 +1822,7 @@ class Relation(Generic[ModelType]):
             │ 1   ┆ 2   ┆ 3   │
             └─────┴─────┴─────┘
         """
-        return self.project("*", **named_projections)
+        return self.select("*", **named_projections)
 
     def with_missing_defaultable_columns(
         self: RelationType,
@@ -1662,44 +2016,6 @@ class Relation(Generic[ModelType]):
         return self.count() == other_relation.count() and all(
             row == other_row for row, other_row in zip(self, other_relation)
         )
-
-    def __getattr__(self, name: str) -> Any:  # noqa: ANN
-        """
-        Resolve object attribute access.
-
-        This magic method is called whenever a non-existing attribute of self is
-        accessed. We delegate all attributes to the underlying DuckDB relation
-        but wrap methods which return new relations.
-        """
-        # We do not want end-users to use these DuckDB methods, but rather:
-        # create_table, to_df, and inner_join.
-        if name in {"create", "df", "join"}:
-            raise AttributeError(f"{self.__class__.__name__} has no attribute '{name}'")
-
-        schema_preserving = {
-            "distinct",
-            "except_",
-            "intersect",
-            "limit",
-            "order",
-            "set_alias",
-        }
-        schema_changing = {
-            "join",
-            "map",
-        }
-        relation_returning_methods = schema_preserving | schema_changing
-
-        if name in relation_returning_methods:
-            return lambda *args, **kwargs: self._wrap(
-                relation=getattr(self._relation, name)(*args, **kwargs),
-                schema_change=name in schema_changing,
-            )
-
-        try:
-            return getattr(self._relation, name)
-        except AttributeError:
-            raise AttributeError(f"{self.__class__.__name__} has no attribute '{name}'")
 
     def __getitem__(self, key: Union[str, Iterable[str]]) -> Relation:
         """
@@ -1916,12 +2232,6 @@ class Relation(Generic[ModelType]):
 
 
 class Database:
-    # Method for executing SQL queries which do not return relations
-    execute: Callable[[str], None]
-
-    # Method for executing arbitrary select queries which return relations
-    query: Callable[[str], Relation]
-
     # Types created in order to represent enum strings
     enum_types: Set[str]
 
@@ -2058,6 +2368,134 @@ class Database:
             database=self,
         )
 
+    def execute(
+        self,
+        query: str,
+        *parameters: Collection[Union[str, int, float, bool]],
+    ) -> None:
+        """
+        Execute SQL query in DuckDB database.
+
+        Args:
+            query: A SQL statement to execute. Does `not` have to be terminated with
+                a semicolon (``;``).
+            parameters: One or more sets of parameters to insert into prepared
+                statements. The values are replaced in place of the question marks
+                (``?``) in the prepared query.
+
+        Example:
+            >>> import patito as pt
+            >>> db = pt.Database()
+            >>> db.execute("create table my_table (x bigint);")
+            >>> db.execute("insert into my_table values (1), (2), (3)")
+            >>> db.table("my_table").to_df()
+            shape: (3, 1)
+            ┌─────┐
+            │ x   │
+            │ --- │
+            │ i64 │
+            ╞═════╡
+            │ 1   │
+            ├╌╌╌╌╌┤
+            │ 2   │
+            ├╌╌╌╌╌┤
+            │ 3   │
+            └─────┘
+
+            Parameters can be specified when executing prepared queries.
+
+            >>> db.execute("delete from my_table where x = ?", (2,))
+            >>> db.table("my_table").to_df()
+            shape: (2, 1)
+            ┌─────┐
+            │ x   │
+            │ --- │
+            │ i64 │
+            ╞═════╡
+            │ 1   │
+            ├╌╌╌╌╌┤
+            │ 3   │
+            └─────┘
+
+            Multiple parameter sets can be specified when executing multiple prepared
+            queries.
+
+            >>> db.execute(
+            ...     "delete from my_table where x = ?",
+            ...     (1,),
+            ...     (3,),
+            ... )
+            >>> db.table("my_table").to_df()
+            shape: (0, 1)
+            ┌─────┐
+            │ x   │
+            │ --- │
+            │ i64 │
+            ╞═════╡
+            └─────┘
+        """
+        duckdb_parameters: Union[
+            Collection[Union[str, int, float, bool]],
+            Collection[Collection[Union[str, int, float, bool]]],
+            None,
+        ]
+        if parameters is None or len(parameters) == 0:
+            duckdb_parameters = []
+            multiple_parameter_sets = False
+        elif len(parameters) == 1:
+            duckdb_parameters = parameters[0]
+            multiple_parameter_sets = False
+        else:
+            duckdb_parameters = parameters
+            multiple_parameter_sets = True
+
+        self.connection.execute(
+            query=query,
+            parameters=duckdb_parameters,
+            multiple_parameter_sets=multiple_parameter_sets,
+        )
+
+    def query(self, query: str, alias: str = "query_relation") -> Relation:
+        """
+        Execute arbitrary SQL select query and return the relation.
+
+        Args:
+            query: Arbitrary SQL select query.
+            alias: The alias to assign to the resulting relation, to be used in further
+                queries.
+
+        Returns: A relation representing the data produced by the given query.
+
+        Example:
+            >>> import patito as pt
+            >>> db = pt.Database()
+            >>> relation = db.query("select 1 as a, 2 as b, 3 as c")
+            >>> relation.to_df()
+            shape: (1, 3)
+            ┌─────┬─────┬─────┐
+            │ a   ┆ b   ┆ c   │
+            │ --- ┆ --- ┆ --- │
+            │ i32 ┆ i32 ┆ i32 │
+            ╞═════╪═════╪═════╡
+            │ 1   ┆ 2   ┆ 3   │
+            └─────┴─────┴─────┘
+
+            >>> relation = db.query("select 1 as a, 2 as b, 3 as c", alias="my_alias")
+            >>> relation.select("my_alias.a").to_df()
+            shape: (1, 1)
+            ┌─────┐
+            │ a   │
+            │ --- │
+            │ i32 │
+            ╞═════╡
+            │ 1   │
+            └─────┘
+        """
+        return Relation(
+            self.connection.query(query=query, alias=alias),
+            database=self,
+        )
+
     def empty_relation(self, schema: Type[ModelType]) -> Relation[ModelType]:
         """
         Create relation with zero rows, but correct schema that matches the given model.
@@ -2139,7 +2577,7 @@ class Database:
             >>> df = pt.DataFrame({"a": [1, 2], "b": [3, 4]})
             >>> db = pt.Database()
             >>> relation = db.to_relation(df)
-            >>> relation.create_view(view_name="my_view")
+            >>> relation.create_view(name="my_view")
             >>> db.view("my_view").to_df()
             shape: (2, 2)
             ┌─────┬─────┐
@@ -2187,7 +2625,7 @@ class Database:
             ...
             >>> db = pt.Database()
             >>> db.create_table(name="my_table", model=MyModel)
-            >>> db.table("my_table").sql_types
+            >>> db.table("my_table").types
             {'str_column': 'VARCHAR', 'nullable_string_column': 'VARCHAR'}
         """
         self.create_enum_types(model=model)
@@ -2250,33 +2688,6 @@ class Database:
     ) -> Relation:
         """Create a view based on the given data source."""
         return self.to_relation(derived_from=data).create_view(name)
-
-    def __getattr__(
-        self, name: str
-    ) -> Union[duckdb.DuckDBPyRelation, Relation, Callable[..., Relation]]:
-        """
-        Resolve object attribute access.
-
-        This magic method is called whenever a non-existing attribute of self is
-        accessed. We delegate all attributes to the underlying DuckDB connection,
-        but wrap methods which return relations in the Relations wrapper.
-        """
-        relation_methods = {
-            "from_arrow_table",
-            "from_csv_auto",
-            "from_df",
-            "from_parquet",
-            "from_query",
-            "query",
-            "table_function",
-            "values",
-        }
-        if name in relation_methods:
-            return lambda *args, **kwargs: Relation(
-                getattr(self.connection, name)(*args, **kwargs), database=self
-            )
-        else:
-            return getattr(self.connection, name)
 
     def __contains__(self, table: str) -> bool:
         """

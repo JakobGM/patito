@@ -1,3 +1,5 @@
+.. _Relation.left_join:
+
 patito.Relation.left_join
 =========================
 

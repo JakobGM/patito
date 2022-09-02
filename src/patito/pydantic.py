@@ -417,7 +417,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         validate: bool = True,
     ) -> ModelType:
         """
-        Represent a single data frame row as a patito model.
+        Represent a single data frame row as a Patito model.
 
         Args:
             row: A dataframe, either polars and pandas, consisting of a single row.
@@ -456,10 +456,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             return cls(**dict(row.iteritems()))  # type: ignore[unreachable]
         else:
             raise TypeError(f"{cls.__name__}.from_row not implemented for {type(row)}.")
-        return cls.from_polars(dataframe=dataframe, validate=validate)
+        return cls._from_polars(dataframe=dataframe, validate=validate)
 
     @classmethod
-    def from_polars(
+    def _from_polars(
         cls: Type[ModelType],
         dataframe: pl.DataFrame,
         validate: bool = True,
@@ -495,19 +495,19 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             ...     [["1", "product name", "1.22"]],
             ...     columns=["product_id", "name", "price"],
             ... )
-            >>> Product.from_polars(df)
+            >>> Product._from_polars(df)
             Product(product_id=1, name='product name', price=1.22)
-            >>> Product.from_polars(df, validate=False)
+            >>> Product._from_polars(df, validate=False)
             Product(product_id='1', name='product name', price='1.22')
         """
         if not isinstance(dataframe, pl.DataFrame):
             raise TypeError(
-                f"{cls.__name__}.from_polars() must be invoked with polars.DataFrame, "
+                f"{cls.__name__}._from_polars() must be invoked with polars.DataFrame, "
                 f"not {type(dataframe)}!"
             )
         elif len(dataframe) != 1:
             raise ValueError(
-                f"{cls.__name__}.from_polars() can only be invoked with exactly "
+                f"{cls.__name__}._from_polars() can only be invoked with exactly "
                 f"1 row, while {len(dataframe)} rows were provided."
             )
 

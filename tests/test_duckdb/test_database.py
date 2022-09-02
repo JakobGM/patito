@@ -87,10 +87,10 @@ def test_database_create_table():
 
     # We insert some dummy data into the new table
     dummy_relation = db.to_relation(Model.examples({"optional_int_column": [1, None]}))
-    dummy_relation.insert_into(table_name="test_table")
+    dummy_relation.insert_into(table="test_table")
 
     # But we should not be able to insert null data in non-optional columns
-    null_relation = dummy_relation.drop("int_column").project("null as int_column, *")
+    null_relation = dummy_relation.drop("int_column").select("null as int_column, *")
     with pytest.raises(
         Exception,
         match=(
@@ -98,7 +98,7 @@ def test_database_create_table():
             "NOT NULL constraint failed: test_table.int_column"
         ),
     ):
-        null_relation.insert_into(table_name="test_table")
+        null_relation.insert_into(table="test_table")
 
     # Check if the correct columns and types have been set
     assert table.columns == [
@@ -110,7 +110,7 @@ def test_database_create_table():
         "optional_bool_column",
         "enum_column",
     ]
-    assert table.types == [
+    assert list(table.types.values()) == [
         "BIGINT",
         "BIGINT",
         "VARCHAR",
@@ -158,7 +158,7 @@ def test_validate_non_nullable_enum_columns():
             "NOT NULL constraint failed: enum_table.non_nullable_enum_column"
         ),
     ):
-        invalid_relation.insert_into(table_name="enum_table")
+        invalid_relation.insert_into(table="enum_table")
 
     # The non-nullable enum column should do enum value validation
     invalid_relation = db.to_relation(
@@ -171,7 +171,7 @@ def test_validate_non_nullable_enum_columns():
             "Could not convert string 'd' to UINT8"
         ),
     ):
-        invalid_relation.insert_into(table_name="enum_table")
+        invalid_relation.insert_into(table="enum_table")
 
     # And the nullable enum column should do enum value validation
     invalid_relation = db.to_relation(
@@ -184,7 +184,7 @@ def test_validate_non_nullable_enum_columns():
             "Could not convert string 'd' to UINT8"
         ),
     ):
-        invalid_relation.insert_into(table_name="enum_table")
+        invalid_relation.insert_into(table="enum_table")
 
 
 def test_table_existence_check():
@@ -231,8 +231,7 @@ def test_use_of_same_enum_types_from_literal_annotation():
     db.create_table(name="table_2", model=Table2)
 
     assert (
-        db.table("table_1").sql_types["column_1"]
-        == db.table("table_2").sql_types["column_2"]
+        db.table("table_1").types["column_1"] == db.table("table_2").types["column_2"]
     )
 
 
@@ -258,6 +257,27 @@ def test_use_of_same_enum_types_from_enum_annotation():
     db.create_table(name="table_2", model=Table2)
 
     assert (
-        db.table("table_1").sql_types["column_1"]
-        == db.table("table_2").sql_types["column_2"]
+        db.table("table_1").types["column_1"] == db.table("table_2").types["column_2"]
+    )
+
+
+def test_execute():
+    """It should be able to execute prepared statements."""
+    db = pt.Database()
+    db.execute("create table my_table (a int, b int, c int)")
+    db.execute("insert into my_table select ? as a, ? as b, ? as c", [2, 3, 4])
+    assert (
+        db.table("my_table")
+        .to_df()
+        .frame_equal(pt.DataFrame({"a": [2], "b": [3], "c": [4]}))
+    )
+    db.execute(
+        "insert into my_table select ? as a, ? as b, ? as c",
+        [5, 6, 7],
+        [8, 9, 10],
+    )
+    assert (
+        db.table("my_table")
+        .to_df()
+        .frame_equal(pt.DataFrame({"a": [2, 5, 8], "b": [3, 6, 9], "c": [4, 7, 10]}))
     )

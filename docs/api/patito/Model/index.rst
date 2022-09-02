@@ -28,7 +28,6 @@ Class methods
    example <example>
    example_value <example_value>
    examples <examples>
-   from_polars <from_polars>
    from_row <from_row>
    join <join>
    pandas_examples <pandas_examples>
