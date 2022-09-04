@@ -20,3 +20,17 @@ html_theme_options = {
     "collapse_navigation": False,
     "navigation_depth": 5,
 }
+
+# These folders are copied to the documentation's HTML output
+html_static_path = ["_static"]
+
+# These paths are either relative to html_static_path
+# or fully qualified paths (eg. https://...)
+html_css_files = [
+    "css/custom.css",
+]
+
+html_logo = (
+    "https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com"
+    "/thumbs/120/samsung/78/duck_1f986.png"
+)

@@ -1733,13 +1733,13 @@ class Relation(Generic[ModelType]):
         )
 
     @property
-    def types(self) -> dict[str, DuckDBSQLType]:
+    def types(self) -> Dict[str, DuckDBSQLType]:
         """
         Return the SQL types of all the columns of the given relation.
 
         Returns:
-            A dictionary where the keys are the column names and the values are SQL
-            types as strings.
+            dict[str, str]: A dictionary where the keys are the column names and the
+            values are SQL types as strings.
 
         Examples:
             >>> import patito as pt

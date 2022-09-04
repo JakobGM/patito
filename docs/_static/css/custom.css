@@ -1,0 +1,128 @@
+:root {
+  --egg-yolk: #FFAA1E;
+  --cream: #FFF5E6;
+  --grapefruit: #FA3C0F;
+  --aubergine: #280F3C;
+  --lavender: #A573D2;
+}
+
+/* Unvisited links are Grapefruit colored */
+a {
+  color: var(--grapefruit);
+}
+
+/* Visited links are Grapefruit colored */
+a:visited {
+  color: var(--grapefruit);
+}
+
+/* Links become Aubergine colored on hover */
+a:hover {
+  color: var(--aubergine);
+  text-decoration: underline;
+}
+
+
+/* Left sidebar in Cream color */
+.wy-nav-side {
+  background-color: var(--cream);
+}
+
+/* All links in TOC tree as aubergine */
+.wy-menu-vertical li a {
+  color: var(--aubergine);
+}
+.wy-menu-vertical li.current a {
+  color: var(--aubergine);
+}
+
+/* The current navigation tree is highlighted in Grapefruit */
+.wy-menu-vertical li.current > a {
+  color: var(--grapefruit);
+}
+
+/* The top part of the navbar is highlighted in Egg Yolk */
+.wy-side-nav-search {
+  background-color: var(--egg-yolk);
+}
+
+/* Also on mobile */
+.wy-nav-top {
+  background: var(--egg-yolk);
+}
+.wy-nav-top a {
+  color: white;
+}
+.wy-nav-top a:visited {
+  color: white;
+}
+.wy-nav-top a:before {
+  content: "🦆";
+}
+
+/* Make link colors on top and bottom Egg Yolk to blend better in. */
+.wy-breadcrumbs a {
+  color: var(--egg-yolk);
+}
+.wy-breadcrumbs a:visited {
+  color: var(--egg-yolk);
+}
+footer a {
+  color: var(--egg-yolk);
+}
+footer a:visited {
+  color: var(--egg-yolk);
+}
+
+/* Make the entire sidebar cream, also the part we have expanded */
+.wy-menu-vertical li a {
+  background-color: var(--cream) !important;
+  /* Remove all borders around list elements in the navbar */
+  border-right: none !important;
+  border-bottom: none !important;
+  border-top: none !important;
+}
+
+/* Highlight list elements in sidebar on hover */
+.wy-menu-vertical li a:hover {
+  background-color: white !important;
+}
+
+/* Make the logo color aubergine */
+.wy-side-nav-search .icon a {
+  color: var(--grapefruit) !important;
+}
+.icon a:visited {
+  color: var(--grapefruit) !important;
+}
+
+/* Make the search field in the sidebar Cream colored */
+.wy-side-nav-search input[type="text"] {
+  background-color: var(--cream);
+  border-color: var(--cream);
+}
+
+/* Make class/function signatures Oda colored */
+.sig {
+  background: var(--cream) !important;
+  color: var(--aubergine) !important;
+  border-top: 3px solid var(--egg-yolk) !important;
+}
+
+/* Make all main headers Egg Yolk colored. */
+h1 {
+  color: var(--egg-yolk);
+}
+
+/* Make code example background color Cream. */
+.highlight {
+  background-color: var(--cream);
+}
+
+/* Make the icon color text white */
+.wy-side-nav-search a {
+  color: white !important;
+}
+.wy-side-nav-search a:visited {
+  color: white !important;
+}
