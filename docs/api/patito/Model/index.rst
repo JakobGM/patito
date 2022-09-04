@@ -19,6 +19,7 @@ Class properties
    sql_types <sql_types>
    unique_columns <unique_columns>
    valid_dtypes <valid_dtypes>
+   valid_sql_types <valid_sql_types>
 
 Class methods
 -------------

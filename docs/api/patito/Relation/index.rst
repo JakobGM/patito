@@ -27,6 +27,7 @@ Methods
    aggregate <aggregate>
    all <all>
    case <case>
+   cast <cast>
    coalesce <coalesce>
    count <count>
    create_table <create_table>

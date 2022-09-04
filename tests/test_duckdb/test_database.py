@@ -111,8 +111,8 @@ def test_database_create_table():
         "enum_column",
     ]
     assert list(table.types.values()) == [
-        "BIGINT",
-        "BIGINT",
+        "INTEGER",
+        "INTEGER",
         "VARCHAR",
         "VARCHAR",
         "BOOLEAN",

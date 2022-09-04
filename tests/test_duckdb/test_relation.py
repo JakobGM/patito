@@ -1,4 +1,5 @@
 import re
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Optional
 from unittest.mock import MagicMock
@@ -537,7 +538,7 @@ def test_row_sql_type_functionality():
 
     assert TypeModel.sql_types == {
         "a": "VARCHAR",
-        "b": "BIGINT",
+        "b": "INTEGER",
         "c": "DOUBLE",
         "d": "BOOLEAN",
     }
@@ -889,7 +890,7 @@ def test_non_string_enum():
     )
     enum_df = db.table("enum_table").to_df()
     assert enum_df.frame_equal(pl.DataFrame({"enum_column": [10, 11, 12]}))
-    assert enum_df.dtypes == [pl.Int64]
+    assert enum_df.dtypes == [pl.Int32]
 
 
 def test_multiple_filters():
@@ -914,3 +915,126 @@ def test_string_representation_of_relation():
     relation = pt.Relation("select 1 as my_column")
     relation_str = str(relation)
     assert "my_column" in relation_str
+
+
+def test_cast():
+    """It should be able to cast to the correct SQL types based on model."""
+
+    class Schema(pt.Model):
+        float_column: float
+
+    relation = pt.Relation("select 1 as float_column, 2 as other_column")
+    with pytest.raises(
+        TypeError,
+        match=(
+            r"Relation\.cast\(\) invoked without Relation.model having been set\! "
+            r"You should invoke Relation\.set_model\(\) first or explicitly provide "
+            r"a model to \.cast\(\)."
+        ),
+    ):
+        relation.cast()
+
+    # Originally the type of both columns are integers
+    modeled_relation = relation.set_model(Schema)
+    assert modeled_relation.types["float_column"] == "INTEGER"
+    assert modeled_relation.types["other_column"] == "INTEGER"
+
+    # The casted variant has converted the float column to double
+    casted_relation = relation.set_model(Schema).cast()
+    assert casted_relation.types["float_column"] == "DOUBLE"
+    # But kept the other as-is
+    assert casted_relation.types["other_column"] == "INTEGER"
+
+    # You can either set the model with .set_model() or provide it to cast
+    assert (
+        relation.set_model(Schema)
+        .cast()
+        .to_df()
+        .frame_equal(relation.cast(Schema).to_df())
+    )
+
+    # Other types that should be considered compatible should be kept as-is
+    compatible_relation = pt.Relation("select 1::FLOAT as float_column")
+    assert compatible_relation.cast(Schema).types["float_column"] == "FLOAT"
+
+    # Unless the strict parameter is specified
+    assert (
+        compatible_relation.cast(Schema, strict=True).types["float_column"] == "DOUBLE"
+    )
+
+    # We can also specify a specific SQL type
+    class SpecificSQLTypeSchema(pt.Model):
+        float_column: float = pt.Field(sql_type="BIGINT")
+
+    specific_cast_relation = relation.set_model(SpecificSQLTypeSchema).cast()
+    assert specific_cast_relation.types["float_column"] == "BIGINT"
+
+    # Unknown types raise
+    class ObjectModel(pt.Model):
+        object_column: object
+
+    with pytest.raises(
+        NotImplementedError,
+        match=r"No valid sql_type mapping found for column 'object_column'\.",
+    ):
+        pt.Relation("select 1 as object_column").set_model(ObjectModel).cast()
+
+    # Check for more specific type annotations
+    class TotalModel(pt.Model):
+        timedelta_column: timedelta
+        date_column: date
+        null_column: None
+
+    df = pt.DataFrame(
+        {
+            "timedelta_column": [timedelta(seconds=90)],
+            "date_column": [date(2022, 9, 4)],
+            "null_column": [None],
+        }
+    )
+    casted_relation = pt.Relation(df, model=TotalModel).cast()
+    assert casted_relation.types == {
+        "timedelta_column": "INTERVAL",
+        "date_column": "DATE",
+        "null_column": "INTEGER",
+    }
+    assert casted_relation.to_df().frame_equal(df)
+
+    # It is possible to only cast a subset
+    class MyModel(pt.Model):
+        column_1: float
+        column_2: float
+
+    relation = pt.Relation("select 1 as column_1, 2 as column_2").set_model(MyModel)
+    assert relation.cast(include=[]).types == {
+        "column_1": "INTEGER",
+        "column_2": "INTEGER",
+    }
+    assert relation.cast(include=["column_1"]).types == {
+        "column_1": "DOUBLE",
+        "column_2": "INTEGER",
+    }
+    assert relation.cast(include=["column_1", "column_2"]).types == {
+        "column_1": "DOUBLE",
+        "column_2": "DOUBLE",
+    }
+
+    assert relation.cast(exclude=[]).types == {
+        "column_1": "DOUBLE",
+        "column_2": "DOUBLE",
+    }
+    assert relation.cast(exclude=["column_1"]).types == {
+        "column_1": "INTEGER",
+        "column_2": "DOUBLE",
+    }
+    assert relation.cast(exclude=["column_1", "column_2"]).types == {
+        "column_1": "INTEGER",
+        "column_2": "INTEGER",
+    }
+
+    # Providing both include and exclude should raise a value error
+    with pytest.raises(
+        ValueError,
+        match=r"Both include and exclude provided to Relation.cast\(\)\!",
+    ):
+        relation.cast(include=["column_1"], exclude=["column_2"])

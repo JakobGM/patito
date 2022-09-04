@@ -35,6 +35,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     import patito.polars
+    from patito.duckdb import DuckDBSQLType
 
 # The generic type of a single row in given Relation.
 # Should be a typed subclass of Model.
@@ -182,9 +183,7 @@ class ModelMetaclass(PydanticModelMetaclass):
                 valid_dtypes[column] = [
                     props["dtype"],
                 ]
-            elif "enum" in props:
-                if props["type"] != "string":  # pragma: no cover
-                    raise NotImplementedError
+            elif "enum" in props and props["type"] == "string":
                 valid_dtypes[column] = [pl.Categorical, pl.Utf8]
             elif "type" not in props:
                 raise NotImplementedError(
@@ -237,6 +236,172 @@ class ModelMetaclass(PydanticModelMetaclass):
                 )
 
         return valid_dtypes
+
+    @property
+    def valid_sql_types(  # type: ignore  # noqa: C901
+        cls: Type[ModelType],
+    ) -> dict[str, List["DuckDBSQLType"]]:
+        """
+        Return a list of DuckDB SQL types which Patito considers valid for each field.
+
+        The first item of each list is the default dtype chosen by Patito.
+
+        Returns:
+            A dictionary mapping each column string name to a list of DuckDB SQL types
+            represented as strings.
+
+        Raises:
+            NotImplementedError: If one or more model fields are annotated with types
+                not compatible with DuckDB.
+
+        Example:
+            >>> import patito as pt
+            >>> from pprint import pprint
+
+            >>> class MyModel(pt.Model):
+            ...     bool_column: bool
+            ...     str_column: str
+            ...     int_column: int
+            ...     float_column: float
+            ...
+            >>> pprint(MyModel.valid_sql_types)
+            {'bool_column': ['BOOLEAN', 'BOOL', 'LOGICAL'],
+             'float_column': ['DOUBLE',
+                                                'FLOAT8',
+                                                'NUMERIC',
+                                                'DECIMAL',
+                                                'REAL',
+                                                'FLOAT4',
+                                                'FLOAT'],
+              'int_column': ['INTEGER',
+                                             'INT4',
+                                             'INT',
+                                             'SIGNED',
+                                             'BIGINT',
+                                             'INT8',
+                                             'LONG',
+                                             'HUGEINT',
+                                             'SMALLINT',
+                                             'INT2',
+                                             'SHORT',
+                                             'TINYINT',
+                                             'INT1',
+                                             'UBIGINT',
+                                             'UINTEGER',
+                                             'USMALLINT',
+                                             'UTINYINT'],
+              'str_column': ['VARCHAR', 'CHAR', 'BPCHAR', 'TEXT', 'STRING']}
+        """
+        valid_dtypes: Dict[str, List["DuckDBSQLType"]] = {}
+        for column, props in cls._schema_properties().items():
+            if "sql_type" in props:
+                valid_dtypes[column] = [
+                    props["sql_type"],
+                ]
+            elif "enum" in props and props["type"] == "string":
+                from patito.duckdb import _enum_type_name
+
+                # fmt: off
+                valid_dtypes[column] = [
+                    _enum_type_name(field_properties=props),  # type: ignore
+                    "VARCHAR", "CHAR", "BPCHAR", "TEXT", "STRING",
+                ]
+                # fmt: on
+            elif "type" not in props:
+                raise NotImplementedError(
+                    f"No valid sql_type mapping found for column '{column}'."
+                )
+            elif props["type"] == "integer":
+                # fmt: off
+                valid_dtypes[column] = [
+                    "INTEGER", "INT4", "INT", "SIGNED",
+                    "BIGINT", "INT8", "LONG",
+                    "HUGEINT",
+                    "SMALLINT", "INT2", "SHORT",
+                    "TINYINT", "INT1",
+                    "UBIGINT",
+                    "UINTEGER",
+                    "USMALLINT",
+                    "UTINYINT",
+                ]
+                # fmt: on
+            elif props["type"] == "number":
+                if props.get("format") == "time-delta":
+                    valid_dtypes[column] = [
+                        "INTERVAL",
+                    ]
+                else:
+                    # fmt: off
+                    valid_dtypes[column] = [
+                        "DOUBLE", "FLOAT8", "NUMERIC", "DECIMAL",
+                        "REAL", "FLOAT4", "FLOAT",
+                    ]
+                    # fmt: on
+            elif props["type"] == "boolean":
+                # fmt: off
+                valid_dtypes[column] = [
+                    "BOOLEAN", "BOOL", "LOGICAL",
+                ]
+                # fmt: on
+            elif props["type"] == "string":
+                string_format = props.get("format")
+                if string_format is None:
+                    # fmt: off
+                    valid_dtypes[column] = [
+                        "VARCHAR", "CHAR", "BPCHAR", "TEXT", "STRING",
+                    ]
+                    # fmt: on
+                elif string_format == "date":
+                    valid_dtypes[column] = ["DATE"]
+                # TODO: Find out why this branch is not being hit
+                elif string_format == "date-time":  # pragma: no cover
+                    # fmt: off
+                    valid_dtypes[column] = [
+                        "TIMESTAMP", "DATETIME",
+                        "TIMESTAMP WITH TIMEZONE", "TIMESTAMPTZ",
+                    ]
+                    # fmt: on
+            elif props["type"] == "null":
+                valid_dtypes[column] = [
+                    "INTEGER",
+                ]
+            else:  # pragma: no cover
+                raise NotImplementedError(
+                    f"No valid sql_type mapping found for column '{column}'"
+                )
+
+        return valid_dtypes
+
+    @property
+    def sql_types(  # type: ignore
+        cls: Type[ModelType],
+    ) -> dict[str, str]:
+        """
+        Return compatible DuckDB SQL types for all model fields.
+
+        Returns:
+            Dictionary with column name keys and SQL type identifier strings.
+
+        Example:
+            >>> from typing import Literal
+            >>> import patito as pt
+
+            >>> class MyModel(pt.Model):
+            ...     int_column: int
+            ...     str_column: str
+            ...     float_column: float
+            ...     literal_column: Literal["a", "b", "c"]
+            ...
+            >>> MyModel.sql_types
+            {'int_column': 'INTEGER',
+             'str_column': 'VARCHAR',
+             'float_column': 'DOUBLE',
+             'literal_column': 'enum__4a496993dde04060df4e15a340651b45'}
+        """
+        return {
+            column: valid_types[0]
+            for column, valid_types in cls.valid_sql_types.items()
+        }
 
     @property
     def defaults(  # type: ignore
@@ -338,43 +503,6 @@ class ModelMetaclass(PydanticModelMetaclass):
         props = cls._schema_properties()
         return {column for column in cls.columns if props[column].get("unique", False)}
 
-    @property
-    def sql_types(  # type: ignore
-        cls: Type[ModelType],
-    ) -> dict[str, str]:
-        """
-        Return compatible DuckDB SQL types for all model fields.
-
-        Returns:
-            Dictionary with column name keys and SQL type identifier strings.
-
-        Example:
-            >>> import patito as pt
-
-            >>> class MyModel(pt.Model):
-            ...     int_column: int
-            ...     str_column: str
-            ...     float_column: float
-            ...     literal_column: Literal["a", "b", "c"]
-            ...
-            >>> MyModel.sql_types
-            {'int_column': 'BIGINT',
-             'str_column': 'VARCHAR',
-             'float_column': 'DOUBLE',
-             'literal_column': 'enum__4a496993dde04060df4e15a340651b45'}
-        """
-        from patito.duckdb import _enum_type_name
-
-        types = {}
-        for column, props in cls._schema_properties().items():
-            if "enum" in props and all(
-                isinstance(variant, str) for variant in props["enum"]
-            ):
-                types[column] = _enum_type_name(field_properties=props)
-            else:
-                types[column] = PYDANTIC_TO_DUCKDB_TYPES[props["type"]]
-        return types
-
 
 class Model(BaseModel, metaclass=ModelMetaclass):
     """Custom pydantic class for representing table schema and constructing rows."""
@@ -397,6 +525,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     dtypes: ClassVar[Dict[str, Type[pl.DataType]]]
     sql_types: ClassVar[Dict[str, str]]
     valid_dtypes: ClassVar[Dict[str, List[Type[pl.DataType]]]]
+    valid_sql_types: ClassVar[Dict[str, List["DuckDBSQLType"]]]
 
     defaults: ClassVar[Dict[str, Any]]
 
