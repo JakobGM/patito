@@ -221,7 +221,7 @@ class Relation(Generic[ModelType]):
             ┌─────┬─────┐
             │ a   ┆ b   │
             │ --- ┆ --- │
-            │ i32 ┆ i32 │
+            │ i64 ┆ i64 │
             ╞═════╪═════╡
             │ 1   ┆ 2   │
             └─────┴─────┘
@@ -353,7 +353,7 @@ class Relation(Generic[ModelType]):
             ┌──────────────────┬──────────────────┐
             │ column_1_renamed ┆ column_2_renamed │
             │ ---              ┆ ---              │
-            │ i32              ┆ i32              │
+            │ i64              ┆ i64              │
             ╞══════════════════╪══════════════════╡
             │ 1                ┆ 2                │
             └──────────────────┴──────────────────┘
@@ -363,7 +363,7 @@ class Relation(Generic[ModelType]):
             ┌──────────────────┬──────────┐
             │ column_1_renamed ┆ column_2 │
             │ ---              ┆ ---      │
-            │ i32              ┆ i32      │
+            │ i64              ┆ i64      │
             ╞══════════════════╪══════════╡
             │ 1                ┆ 2        │
             └──────────────────┴──────────┘
@@ -373,7 +373,7 @@ class Relation(Generic[ModelType]):
             ┌──────────┬──────────────────┐
             │ column_1 ┆ column_2_renamed │
             │ ---      ┆ ---              │
-            │ i32      ┆ i32              │
+            │ i64      ┆ i64              │
             ╞══════════╪══════════════════╡
             │ 1        ┆ 2                │
             └──────────┴──────────────────┘
@@ -419,7 +419,7 @@ class Relation(Generic[ModelType]):
             ┌──────────────────┬──────────────────┐
             │ renamed_column_1 ┆ renamed_column_2 │
             │ ---              ┆ ---              │
-            │ i32              ┆ i32              │
+            │ i64              ┆ i64              │
             ╞══════════════════╪══════════════════╡
             │ 1                ┆ 2                │
             └──────────────────┴──────────────────┘
@@ -429,7 +429,7 @@ class Relation(Generic[ModelType]):
             ┌──────────────────┬──────────┐
             │ renamed_column_1 ┆ column_2 │
             │ ---              ┆ ---      │
-            │ i32              ┆ i32      │
+            │ i64              ┆ i64      │
             ╞══════════════════╪══════════╡
             │ 1                ┆ 2        │
             └──────────────────┴──────────┘
@@ -439,7 +439,7 @@ class Relation(Generic[ModelType]):
             ┌──────────┬──────────────────┐
             │ column_1 ┆ renamed_column_2 │
             │ ---      ┆ ---              │
-            │ i32      ┆ i32              │
+            │ i64      ┆ i64              │
             ╞══════════╪══════════════════╡
             │ 1        ┆ 2                │
             └──────────┴──────────────────┘
@@ -532,7 +532,7 @@ class Relation(Generic[ModelType]):
             ┌─────┬─────┐
             │ a   ┆ b   │
             │ --- ┆ --- │
-            │ i32 ┆ str │
+            │ i64 ┆ str │
             ╞═════╪═════╡
             │ 1   ┆ one │
             ├╌╌╌╌╌┼╌╌╌╌╌┤
@@ -552,7 +552,7 @@ class Relation(Generic[ModelType]):
             ┌─────┬─────┐
             │ a   ┆ b   │
             │ --- ┆ --- │
-            │ i32 ┆ str │
+            │ i64 ┆ str │
             ╞═════╪═════╡
             │ 1   ┆ one │
             ├╌╌╌╌╌┼╌╌╌╌╌┤
@@ -910,7 +910,7 @@ class Relation(Generic[ModelType]):
             ┌─────┐
             │ 1   │
             │ --- │
-            │ i32 │
+            │ i64 │
             ╞═════╡
             │ 1   │
             ├╌╌╌╌╌┤
@@ -924,7 +924,7 @@ class Relation(Generic[ModelType]):
             ┌─────┐
             │ 2   │
             │ --- │
-            │ i32 │
+            │ i64 │
             ╞═════╡
             │ 2   │
             └─────┘
@@ -933,7 +933,7 @@ class Relation(Generic[ModelType]):
             ┌─────┐
             │ 1   │
             │ --- │
-            │ i32 │
+            │ i64 │
             ╞═════╡
             │ 1   │
             ├╌╌╌╌╌┤
@@ -1345,7 +1345,7 @@ class Relation(Generic[ModelType]):
             ┌────────┐
             │ column │
             │ ---    │
-            │ i32    │
+            │ i64    │
             ╞════════╡
             │ 1      │
             ├╌╌╌╌╌╌╌╌┤
@@ -1356,7 +1356,7 @@ class Relation(Generic[ModelType]):
             ┌────────┐
             │ column │
             │ ---    │
-            │ i32    │
+            │ i64    │
             ╞════════╡
             │ 3      │
             ├╌╌╌╌╌╌╌╌┤
@@ -1463,7 +1463,7 @@ class Relation(Generic[ModelType]):
             ┌─────┐
             │ a   │
             │ --- │
-            │ i32 │
+            │ i64 │
             ╞═════╡
             │ 1   │
             └─────┘
@@ -1473,7 +1473,7 @@ class Relation(Generic[ModelType]):
             ┌─────┐
             │ a   │
             │ --- │
-            │ i32 │
+            │ i64 │
             ╞═════╡
             │ 1   │
             ├╌╌╌╌╌┤
@@ -1630,7 +1630,7 @@ class Relation(Generic[ModelType]):
             ┌─────┬─────┐
             │ a   ┆ c   │
             │ --- ┆ --- │
-            │ i32 ┆ i32 │
+            │ i64 ┆ i64 │
             ╞═════╪═════╡
             │ 1   ┆ 2   │
             └─────┴─────┘
@@ -1676,7 +1676,7 @@ class Relation(Generic[ModelType]):
             ┌─────┬─────┬─────┬─────┐
             │ a   ┆ a:1 ┆ b   ┆ c   │
             │ --- ┆ --- ┆ --- ┆ --- │
-            │ i32 ┆ i32 ┆ i32 ┆ i32 │
+            │ i64 ┆ i64 ┆ i64 ┆ i64 │
             ╞═════╪═════╪═════╪═════╡
             │ 1   ┆ 1   ┆ 2   ┆ 3   │
             └─────┴─────┴─────┴─────┘
@@ -1776,7 +1776,7 @@ class Relation(Generic[ModelType]):
             ┌────────┐
             │ column │
             │ ---    │
-            │ i32    │
+            │ i64    │
             ╞════════╡
             │ 1      │
             ├╌╌╌╌╌╌╌╌┤
@@ -1787,7 +1787,13 @@ class Relation(Generic[ModelType]):
         self._relation = self._relation.project("*")
         arrow_table = cast(pa.lib.Table, self._relation.to_arrow_table())
         try:
-            return DataFrame._from_arrow(arrow_table)
+            # We cast `INTEGER`-typed columns to `pl.Int64` when converting to Polars
+            # because polars is much more eager to store integer Series as 64-bit
+            # integers. Otherwise there must be done a lot of manual casting whenever
+            # you cross the boundary between DuckDB and polars.
+            return DataFrame._from_arrow(arrow_table).with_column(
+                pl.col(pl.Int32).cast(pl.Int64)
+            )
         except pa.ArrowInvalid:  # pragma: no cover
             # Empty relations with enum columns can sometimes produce errors.
             # As a last-ditch effort, we convert such columns to VARCHAR.
@@ -1799,7 +1805,9 @@ class Relation(Generic[ModelType]):
             ]
             non_enum_relation = self._relation.project(", ".join(casted_columns))
             arrow_table = non_enum_relation.to_arrow_table()
-            return DataFrame._from_arrow(arrow_table)
+            return DataFrame._from_arrow(arrow_table).with_column(
+                pl.col(pl.Int32).cast(pl.Int64)
+            )
 
     def to_series(self) -> pl.Series:
         """
@@ -1860,7 +1868,7 @@ class Relation(Generic[ModelType]):
             ┌─────┐
             │ a   │
             │ --- │
-            │ i32 │
+            │ i64 │
             ╞═════╡
             │ 1   │
             ├╌╌╌╌╌┤
@@ -1872,7 +1880,7 @@ class Relation(Generic[ModelType]):
             ┌─────┐
             │ a   │
             │ --- │
-            │ i32 │
+            │ i64 │
             ╞═════╡
             │ 1   │
             ├╌╌╌╌╌┤
@@ -1923,7 +1931,7 @@ class Relation(Generic[ModelType]):
             ┌─────┬─────┬─────┐
             │ a   ┆ b   ┆ c   │
             │ --- ┆ --- ┆ --- │
-            │ i32 ┆ i32 ┆ i32 │
+            │ i64 ┆ i64 ┆ i64 │
             ╞═════╪═════╪═════╡
             │ 1   ┆ 2   ┆ 3   │
             └─────┴─────┴─────┘
@@ -1968,7 +1976,7 @@ class Relation(Generic[ModelType]):
             ┌────────────────────┬────────────────┐
             │ non_default_column ┆ default_column │
             │ ---                ┆ ---            │
-            │ i32                ┆ i32            │
+            │ i64                ┆ i64            │
             ╞════════════════════╪════════════════╡
             │ 1                  ┆ 2              │
             └────────────────────┴────────────────┘
@@ -1977,7 +1985,7 @@ class Relation(Generic[ModelType]):
             ┌────────────────────┬────────────────┬────────────────────────┐
             │ non_default_column ┆ default_column ┆ another_default_column │
             │ ---                ┆ ---            ┆ ---                    │
-            │ i32                ┆ i32            ┆ i32                    │
+            │ i64                ┆ i64            ┆ i64                    │
             ╞════════════════════╪════════════════╪════════════════════════╡
             │ 1                  ┆ 2              ┆ 42                     │
             └────────────────────┴────────────────┴────────────────────────┘
@@ -2056,7 +2064,7 @@ class Relation(Generic[ModelType]):
             ┌─────────────────┐
             │ nullable_column │
             │ ---             │
-            │ i32             │
+            │ i64             │
             ╞═════════════════╡
             │ 1               │
             └─────────────────┘
@@ -2065,7 +2073,7 @@ class Relation(Generic[ModelType]):
             ┌─────────────────┬─────────────────────────┐
             │ nullable_column ┆ another_nullable_column │
             │ ---             ┆ ---                     │
-            │ i32             ┆ i32                     │
+            │ i64             ┆ i64                     │
             ╞═════════════════╪═════════════════════════╡
             │ 1               ┆ null                    │
             └─────────────────┴─────────────────────────┘
@@ -2147,7 +2155,7 @@ class Relation(Generic[ModelType]):
             ┌─────┬─────┬─────┐
             │ a   ┆ b   ┆ c   │
             │ --- ┆ --- ┆ --- │
-            │ i32 ┆ i32 ┆ i32 │
+            │ i64 ┆ i64 ┆ i64 │
             ╞═════╪═════╪═════╡
             │ 1   ┆ 2   ┆ 3   │
             └─────┴─────┴─────┘
@@ -2156,7 +2164,7 @@ class Relation(Generic[ModelType]):
             ┌─────┬─────┐
             │ a   ┆ b   │
             │ --- ┆ --- │
-            │ i32 ┆ i32 │
+            │ i64 ┆ i64 │
             ╞═════╪═════╡
             │ 1   ┆ 2   │
             └─────┴─────┘
@@ -2165,7 +2173,7 @@ class Relation(Generic[ModelType]):
             ┌─────┐
             │ a   │
             │ --- │
-            │ i32 │
+            │ i64 │
             ╞═════╡
             │ 1   │
             └─────┘
@@ -2365,7 +2373,7 @@ class Database:
             ┌─────┬─────┐
             │ a   ┆ b   │
             │ --- ┆ --- │
-            │ i32 ┆ i32 │
+            │ i64 ┆ i64 │
             ╞═════╪═════╡
             │ 1   ┆ 2   │
             └─────┴─────┘
@@ -2397,7 +2405,7 @@ class Database:
             ┌─────┬─────┐
             │ a   ┆ b   │
             │ --- ┆ --- │
-            │ i32 ┆ i32 │
+            │ i64 ┆ i64 │
             ╞═════╪═════╡
             │ 1   ┆ 2   │
             └─────┴─────┘
@@ -2453,7 +2461,7 @@ class Database:
             ┌─────┬─────┐
             │ a   ┆ b   │
             │ --- ┆ --- │
-            │ i32 ┆ i32 │
+            │ i64 ┆ i64 │
             ╞═════╪═════╡
             │ 1   ┆ 2   │
             └─────┴─────┘
@@ -2581,7 +2589,7 @@ class Database:
             ┌─────┬─────┬─────┐
             │ a   ┆ b   ┆ c   │
             │ --- ┆ --- ┆ --- │
-            │ i32 ┆ i32 ┆ i32 │
+            │ i64 ┆ i64 ┆ i64 │
             ╞═════╪═════╪═════╡
             │ 1   ┆ 2   ┆ 3   │
             └─────┴─────┴─────┘
@@ -2592,7 +2600,7 @@ class Database:
             ┌─────┐
             │ a   │
             │ --- │
-            │ i32 │
+            │ i64 │
             ╞═════╡
             │ 1   │
             └─────┘

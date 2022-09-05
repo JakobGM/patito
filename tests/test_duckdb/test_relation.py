@@ -890,7 +890,7 @@ def test_non_string_enum():
     )
     enum_df = db.table("enum_table").to_df()
     assert enum_df.frame_equal(pl.DataFrame({"enum_column": [10, 11, 12]}))
-    assert enum_df.dtypes == [pl.Int32]
+    assert enum_df.dtypes == [pl.Int64]
 
 
 def test_multiple_filters():

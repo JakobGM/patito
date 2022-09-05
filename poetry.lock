@@ -163,7 +163,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
 name = "duckdb"
-version = "0.4.1.dev2392"
+version = "0.4.1.dev2407"
 description = "DuckDB embedded database"
 category = "main"
 optional = true
@@ -1015,7 +1015,7 @@ pandas = ["pandas"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "cea44ef6f135e891e18b45834b517653095e4837050d5977f73f2ec87984f76e"
+content-hash = "eb492dd59798453ad253b007e9e9480726e73bfcdcc976f8939b180dd7a119a9"
 
 [metadata.files]
 alabaster = []
