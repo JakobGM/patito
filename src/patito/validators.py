@@ -133,7 +133,8 @@ def _find_errors(  # noqa: C901
                 )
 
         if column_properties.get("unique", False):
-            num_duplicated = dataframe[column_name].is_duplicated().sum()
+            # Coalescing to 0 in the case of dataframe of height 0
+            num_duplicated = dataframe[column_name].is_duplicated().sum() or 0
             if num_duplicated > 0:
                 errors.append(
                     ErrorWrapper(

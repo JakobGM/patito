@@ -186,6 +186,23 @@ def test_validate_dtype_checks():
     )
 
 
+def test_uniqueness_validation():
+    """It should be able to validate uniqueness."""
+
+    class MyModel(pt.Model):
+        column: int = pt.Field(unique=True)
+
+    non_duplicated_df = pt.DataFrame({"column": [1, 2, 3]})
+    MyModel.validate(non_duplicated_df)
+
+    empty_df = pt.DataFrame([pl.Series("column", [], dtype=pl.Int64)])
+    MyModel.validate(empty_df)
+
+    duplicated_df = pt.DataFrame({"column": [1, 1, 2]})
+    with pytest.raises(pt.exceptions.ValidationError):
+        MyModel.validate(duplicated_df)
+
+
 def test_datetime_validation():
     """
     Test for date(time) validation.
