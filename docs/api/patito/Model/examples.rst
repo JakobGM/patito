@@ -1,3 +1,5 @@
+.. _Model.examples:
+
 patito.Model.examples
 =====================
 

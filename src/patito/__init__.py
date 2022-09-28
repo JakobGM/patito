@@ -7,6 +7,7 @@ from patito.polars import DataFrame, LazyFrame
 from patito.pydantic import Field, Model
 
 _DUCKDB_AVAILABLE = False
+field = col("_")
 __all__ = [
     "DataFrame",
     "Expr",
@@ -18,6 +19,7 @@ __all__ = [
     "_DUCKDB_AVAILABLE",
     "col",
     "exceptions",
+    "field",
     "sql",
 ]
 

@@ -182,9 +182,16 @@ def _find_errors(  # noqa: C901
             custom_constraints = column_properties["constraints"]
             if isinstance(custom_constraints, pl.Expr):
                 custom_constraints = [custom_constraints]
-            illegal_rows = dataframe.filter(
-                pl.all([constraint.is_not() for constraint in custom_constraints])
+            constraints = pl.all(
+                [constraint.is_not() for constraint in custom_constraints]
             )
+            if "_" in constraints.meta.root_names():
+                # An underscore is an alias for the current field
+                illegal_rows = dataframe.with_column(
+                    pl.col(column_name).alias("_")
+                ).filter(constraints)
+            else:
+                illegal_rows = dataframe.filter(constraints)
             if illegal_rows.height > 0:
                 errors.append(
                     ErrorWrapper(

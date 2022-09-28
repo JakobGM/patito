@@ -75,7 +75,7 @@ uvloop = ["uvloop (>=0.15.2)"]
 
 [[package]]
 name = "blackdoc"
-version = "0.3.6"
+version = "0.3.7"
 description = "run black on documentation code snippets"
 category = "dev"
 optional = false
@@ -90,7 +90,7 @@ tomli = "*"
 
 [[package]]
 name = "certifi"
-version = "2022.6.15.1"
+version = "2022.6.15.2"
 description = "Python package for providing Mozilla's CA Bundle."
 category = "main"
 optional = false
@@ -292,7 +292,7 @@ typing-extensions = {version = ">=3.7.4.3", markers = "python_version < \"3.8\""
 
 [[package]]
 name = "idna"
-version = "3.3"
+version = "3.4"
 description = "Internationalized Domain Names in Applications (IDNA)"
 category = "main"
 optional = false
@@ -619,7 +619,7 @@ diagrams = ["railroad-diagrams", "jinja2"]
 
 [[package]]
 name = "pyright"
-version = "1.1.270"
+version = "1.1.271"
 description = "Command line wrapper for pyright"
 category = "dev"
 optional = false
@@ -875,6 +875,14 @@ python-versions = ">=3.5"
 test = ["mypy", "flake8", "pytest"]
 
 [[package]]
+name = "sphinxcontrib-mermaid"
+version = "0.7.1"
+description = "Mermaid diagrams in yours Sphinx powered docs"
+category = "main"
+optional = true
+python-versions = "*"
+
+[[package]]
 name = "sphinxcontrib-qthelp"
 version = "1.0.3"
 description = "sphinxcontrib-qthelp is a sphinx extension which outputs QtHelp document."
@@ -1009,14 +1017,14 @@ docs = ["sphinx", "jaraco.packaging (>=9)", "rst.linker (>=1.9)", "jaraco.tideli
 testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytest-cov", "pytest-enabler (>=1.3)", "jaraco.itertools", "func-timeout", "pytest-black (>=0.3.7)", "pytest-mypy (>=0.9.1)"]
 
 [extras]
-docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-autobuild", "sphinx-autodoc-typehints"]
+docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-autobuild", "sphinx-autodoc-typehints", "sphinxcontrib-mermaid"]
 duckdb = ["duckdb", "pyarrow"]
 pandas = ["pandas"]
 
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "f78ba6cb810500f3bb85ad757f830d9b1efe177edeeb6e39ffb45a8c1d0b8f06"
+content-hash = "6136e0f3c6dde8212476d8f69a382bba3fad0618161582e570f8fefef7352f41"
 
 [metadata.files]
 alabaster = []
@@ -1090,6 +1098,7 @@ sphinxcontrib-applehelp = []
 sphinxcontrib-devhelp = []
 sphinxcontrib-htmlhelp = []
 sphinxcontrib-jsmath = []
+sphinxcontrib-mermaid = []
 sphinxcontrib-qthelp = []
 sphinxcontrib-serializinghtml = []
 stevedore = []

@@ -25,11 +25,12 @@ Sphinx = {version = "*", optional = true}
 sphinx-rtd-theme = {version = "*", optional = true}
 sphinx-autobuild = {version = "*", optional = true}
 sphinx-autodoc-typehints = {version = "*", optional = true}
+sphinxcontrib-mermaid = {version = "*", optional = true}
 
 [tool.poetry.extras]
 duckdb = ["duckdb", "pyarrow"]
 pandas = ["pandas"]
-docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-autobuild", "sphinx-autodoc-typehints"]
+docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-autobuild", "sphinx-autodoc-typehints", "sphinxcontrib-mermaid"]
 
 [tool.poetry.dev-dependencies]
 black = ">=22.3.0"

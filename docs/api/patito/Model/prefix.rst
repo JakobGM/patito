@@ -1,3 +1,5 @@
+.. _Model.prefix:
+
 patito.Model.prefix
 ===================
 

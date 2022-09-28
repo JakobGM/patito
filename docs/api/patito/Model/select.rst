@@ -1,3 +1,5 @@
+.. _Model.select:
+
 patito.Model.select
 ===================
 

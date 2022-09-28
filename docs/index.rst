@@ -4,6 +4,7 @@ Overview
 .. toctree::
    :hidden:
 
+   Tutorials - User Guide <tutorial/index>
    api/index
    license
 

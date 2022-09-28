@@ -5,6 +5,7 @@ API Reference
 
    patito/DataFrame/index
    patito/Model/index
+   patito/Field/index
 
 .. toctree::
    :caption: DuckDB Functionality

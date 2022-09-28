@@ -445,3 +445,36 @@ def test_custom_constraint_validation():
         "type": "value_error.rowvalue",
     }
     df.limit(1).validate()
+
+    # We can also validate aggregation queries
+    class PizzaSlice(pt.Model):
+        fraction: float = pt.Field(constraints=pl.col("fraction").sum() == 1)
+
+    whole_pizza = pt.DataFrame({"fraction": [0.25, 0.75]})
+    PizzaSlice.validate(whole_pizza)
+
+    part_pizza = pt.DataFrame({"fraction": [0.25, 0.25]})
+    with pytest.raises(ValidationError):
+        PizzaSlice.validate(part_pizza)
+
+
+def test_anonymous_column_constraints():
+    """You should be able to refer to the field column with an anonymous column."""
+
+    class Pair(pt.Model):
+        # pl.col("_") refers to the given field column
+        odd_number: int = pt.Field(constraints=pl.col("_") % 2 == 1)
+        # pt.field is simply an alias for pl.col("_")
+        even_number: int = pt.Field(constraints=pt.field % 2 == 0)
+
+    pairs = pt.DataFrame({"odd_number": [1, 3, 5], "even_number": [2, 4, 6]})
+    Pair.validate(pairs)
+    with pytest.raises(ValidationError):
+        Pair.validate(
+            pairs.select(
+                [
+                    pl.col("odd_number").alias("even_number"),
+                    pl.col("even_number").alias("odd_number"),
+                ]
+            )
+        )

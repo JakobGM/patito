@@ -1,3 +1,5 @@
+.. _Model.join:
+
 patito.Model.join
 =================
 
