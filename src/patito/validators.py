@@ -120,6 +120,8 @@ def _find_errors(  # noqa: C901
         # Test for when only specific values are accepted
         if "enum" in column_properties:
             permissible_values = set(column_properties["enum"])
+            if column_name in schema.nullable_columns:
+                permissible_values.add(None)
             actual_values = set(dataframe[column_name].unique())
             impermissible_values = actual_values - permissible_values
             if impermissible_values:

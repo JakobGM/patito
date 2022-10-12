@@ -1,5 +1,6 @@
 """Tests for the patito.validators module."""
 import enum
+import sys
 from datetime import date, datetime
 from typing import Optional
 
@@ -478,3 +479,34 @@ def test_anonymous_column_constraints():
                 ]
             )
         )
+
+
+def test_optional_enum():
+    """It should handle optional enums correctly."""
+
+    class OptionalEnumModel(pt.Model):
+        # Old type annotation syntax
+        optional_enum: Optional[Literal["A", "B"]]
+
+    df = pl.DataFrame({"optional_enum": ["A", "B", None]})
+    OptionalEnumModel.validate(df)
+
+
+@pytest.mark.skipif(
+    sys.version_info <= (3, 10),
+    reason="Using | as a type union operator is only supported from python 3.10.",
+)
+def test_optional_pipe_operator():
+    class OptionalEnumModel(pt.Model):
+        # Old type annotation syntax
+        optional_enum_1: Optional[Literal["A", "B"]]
+        # New type annotation syntax
+        optional_enum_2: Literal["A", "B"] | None  # pyright: ignore
+
+    df = pl.DataFrame(
+        {
+            "optional_enum_1": ["A", "B", None],
+            "optional_enum_2": ["A", "B", None],
+        }
+    )
+    OptionalEnumModel.validate(df)
