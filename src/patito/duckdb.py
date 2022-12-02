@@ -115,7 +115,7 @@ def _enum_type_name(field_properties: dict) -> str:
     The same enum values, regardless of ordering, will always be given the same name.
     """
     enum_values = ", ".join(repr(value) for value in sorted(field_properties["enum"]))
-    value_hash = hashlib.md5(enum_values.encode("utf-8")).hexdigest()  # noqa: S324
+    value_hash = hashlib.md5(enum_values.encode("utf-8")).hexdigest()  # noqa: #S303
     return f"enum__{value_hash}"
 
 
@@ -527,7 +527,7 @@ class Relation(Generic[ModelType]):
             ...     to_column="b",
             ...     mapping={1: "one", 2: "two"},
             ...     default="three",
-            ... ).to_df()
+            ... ).order(by="a").to_df()
             shape: (2, 2)
             ┌─────┬─────┐
             │ a   ┆ b   │
@@ -547,7 +547,7 @@ class Relation(Generic[ModelType]):
             ...     default="three",
             ...     as_column="b",
             ... )
-            >>> relation.select(f"*, {case_statement}").to_df()
+            >>> relation.select(f"*, {case_statement}").order(by="a").to_df()
             shape: (2, 2)
             ┌─────┬─────┐
             │ a   ┆ b   │
@@ -905,7 +905,7 @@ class Relation(Generic[ModelType]):
         Example:
             >>> import patito as pt
             >>> relation_123 = pt.Relation("select 1 union select 2 union select 3")
-            >>> relation_123.to_df()
+            >>> relation_123.order(by="1").to_df()
             shape: (3, 1)
             ┌─────┐
             │ 1   │
@@ -928,7 +928,7 @@ class Relation(Generic[ModelType]):
             ╞═════╡
             │ 2   │
             └─────┘
-            >>> relation_123.except_(relation_2).to_df()
+            >>> relation_123.except_(relation_2).order(by="1").to_df()
             shape: (2, 1)
             ┌─────┐
             │ 1   │
@@ -1756,8 +1756,10 @@ class Relation(Generic[ModelType]):
 
         Example:
             >>> import patito as pt
-            >>> pt.Relation("select 1 as column union select 2 as column").to_pandas()
-               column
+            >>> pt.Relation("select 1 as column union select 2 as column").order(
+            ...     by="1"
+            ... ).to_pandas()
+                  column
                0       1
                1       2
         """
@@ -1771,7 +1773,9 @@ class Relation(Generic[ModelType]):
 
         Example:
             >>> import patito as pt
-            >>> pt.Relation("select 1 as column union select 2 as column").to_df()
+            >>> pt.Relation("select 1 as column union select 2 as column").order(
+            ...     by="1"
+            ... ).to_df()
             shape: (2, 1)
             ┌────────┐
             │ column │
@@ -1821,7 +1825,7 @@ class Relation(Generic[ModelType]):
         Example:
             >>> import patito as pt
             >>> relation = pt.Relation("select 1 as a union select 2 as a")
-            >>> relation.to_series()
+            >>> relation.order(by="a").to_series()
             shape: (2,)
             Series: 'a' [i32]
             [

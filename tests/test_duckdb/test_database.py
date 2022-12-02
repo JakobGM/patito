@@ -31,7 +31,6 @@ def test_database(tmp_path):
     db_table = db.table("table_name_1").to_df()
     assert db_table is not table_df
     assert table_df.frame_equal(db_table)
-    pl.testing.assert_frame_equal(table_df, db_table)
 
     # Check that new database objects are isolated from previous ones
     another_db = pt.Database()

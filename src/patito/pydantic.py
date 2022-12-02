@@ -529,12 +529,12 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     defaults: ClassVar[Dict[str, Any]]
 
-    @classmethod
+    @classmethod  # type: ignore[misc]
     @property
     def DataFrame(cls: Type[ModelType]) -> Type[DataFrame[ModelType]]:
         """Return DataFrame class where DataFrame.set_model() is set to self."""
 
-    @classmethod
+    @classmethod  # type: ignore[misc]
     @property
     def LazyFrame(cls: Type[ModelType]) -> Type[LazyFrame[ModelType]]:
         """Return DataFrame class where DataFrame.set_model() is set to self."""
@@ -582,7 +582,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         elif _PANDAS_AVAILABLE and isinstance(row, pd.DataFrame):
             dataframe = pl.DataFrame._from_pandas(row)
         elif _PANDAS_AVAILABLE and isinstance(row, pd.Series):  # type: ignore[unreachable]
-            return cls(**dict(row.iteritems()))  # type: ignore[unreachable]
+            return cls(**dict(row.items()))  # type: ignore[unreachable]
         else:
             raise TypeError(f"{cls.__name__}.from_row not implemented for {type(row)}.")
         return cls._from_polars(dataframe=dataframe, validate=validate)

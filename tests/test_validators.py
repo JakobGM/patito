@@ -501,7 +501,7 @@ def test_optional_pipe_operator():
         # Old type annotation syntax
         optional_enum_1: Optional[Literal["A", "B"]]
         # New type annotation syntax
-        optional_enum_2: Literal["A", "B"] | None  # pyright: ignore
+        optional_enum_2: Literal["A", "B"] | None  # type: ignore
 
     df = pl.DataFrame(
         {

@@ -5,7 +5,7 @@ import nox  # type: ignore
 
 nox.options.sessions = "lint", "test", "type_check"
 locations = "src", "tests", "noxfile.py", "docs/conf.py"
-supported_python_versions = "3.7", "3.8", "3.9", "3.10"
+supported_python_versions = "3.7", "3.8", "3.9", "3.10", "3.11"
 
 
 def install_with_constraints(session, *args, **kwargs):
@@ -29,8 +29,8 @@ def install_with_constraints(session, *args, **kwargs):
             "poetry",
             "export",
             "--without-hashes",
-            "--dev",
-            "--format=requirements.txt",
+            "--with=dev",
+            "--format=constraints.txt",
             f"--output={requirements.name}",
             external=True,
         )
@@ -49,7 +49,7 @@ def test(session):
     session.run(
         "poetry",
         "install",
-        "--no-dev",
+        "--only=main",
         "--extras",
         # Pandas requires python version >= 3.8
         "duckdb" if session.python == "3.7" else "duckdb pandas",
@@ -80,7 +80,7 @@ def type_check(session):
     session.run(
         "poetry",
         "install",
-        "--no-dev",
+        "--only=main",
         "--extras",
         "duckdb pandas",
         external=True,
@@ -125,7 +125,7 @@ def docs(session) -> None:
     session.run(
         "poetry",
         "install",
-        "--no-dev",
+        "--only=main",
         "--extras",
         "duckdb pandas",
         external=True,

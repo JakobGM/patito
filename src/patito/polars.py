@@ -5,7 +5,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Generic,
-    List,
     Optional,
     Sequence,
     Type,
@@ -22,6 +21,7 @@ from patito.exceptions import MultipleRowsReturned, RowDoesNotExist
 
 if TYPE_CHECKING:
     import numpy as np
+    from polars.internals import WhenThen, WhenThenThen
 
     from patito.pydantic import Model
 
@@ -71,9 +71,10 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         predicate_pushdown: bool = True,
         projection_pushdown: bool = True,
         simplify_expression: bool = True,
-        string_cache: bool = False,
         no_optimization: bool = False,
         slice_pushdown: bool = True,
+        common_subplan_elimination: bool = True,
+        streaming: bool = False,
     ) -> "DataFrame[ModelType]":  # noqa: DAR101, DAR201
         """
         Collect into a DataFrame.
@@ -86,9 +87,10 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
             predicate_pushdown=predicate_pushdown,
             projection_pushdown=projection_pushdown,
             simplify_expression=simplify_expression,
-            string_cache=string_cache,
             no_optimization=no_optimization,
             slice_pushdown=slice_pushdown,
+            common_subplan_elimination=common_subplan_elimination,
+            streaming=streaming,
         )
         if getattr(self, "model", False):
             cls = DataFrame._construct_dataframe_model_class(model=self.model)
@@ -290,7 +292,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 columns.append(pl.col(column).cast(default_dtypes[column]))
         return self.with_columns(columns)
 
-    def drop(self: DF, name: Optional[Union[str, List[str]]] = None) -> DF:
+    def drop(self: DF, columns: Optional[Union[str, Sequence[str]]] = None) -> DF:
         """
         Drop one or more columns from the dataframe.
 
@@ -299,7 +301,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         :ref:`DataFrame.set_model <DataFrame.set_model>`, are dropped.
 
         Args:
-            name: A single column string name, or list of strings, indicating
+            columns: A single column string name, or list of strings, indicating
                 which columns to drop. If not specified, all columns *not*
                 specified by the associated dataframe model will be dropped.
 
@@ -324,8 +326,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             └──────────┘
 
         """
-        if name is not None:
-            return super().drop(name)
+        if columns is not None:
+            return super().drop(columns)
         else:
             return self.drop(list(set(self.columns) - set(self.model.columns)))
 
@@ -447,6 +449,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             ]
         ] = None,
         limit: Optional[int] = None,
+        matches_supertype: bool = True,
     ) -> DF:
         """
         Fill null values using a filling strategy, literal, or ``Expr``.
@@ -461,6 +464,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 provided.
             limit: The number of consecutive null values to forward/backward fill.
                 Only valid if ``strategy`` is ``"forward"`` or ``"backward"``.
+            matches_supertype: Fill all matching supertype of the fill ``value``.
+
 
         Returns:
             DataFrame[Model]: A new dataframe with nulls filled in according to the
@@ -489,7 +494,13 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         """
         if strategy != "defaults":  # pragma: no cover
             return cast(  # type: ignore[redundant-cast]
-                DF, super().fill_null(value=value, strategy=strategy, limit=limit)
+                DF,
+                super().fill_null(
+                    value=value,
+                    strategy=strategy,
+                    limit=limit,
+                    matches_supertype=matches_supertype,
+                ),
             )
         return self.with_columns(
             [
@@ -676,7 +687,11 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
     def select(  # noqa: D102
         self: DF,
-        exprs: Union[str, pl.Expr, pl.Series, Sequence[Union[str, pl.Expr, pl.Series]]],
+        exprs: Union[
+            pl.Expr,
+            pl.Series,
+            Sequence[Union[str, pl.Expr, pl.Series, "WhenThen", "WhenThenThen"]],
+        ],
     ) -> DF:
         return cast(DF, super().select(exprs=exprs))  # type: ignore[redundant-cast]
 
