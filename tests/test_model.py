@@ -3,7 +3,7 @@
 import enum
 import re
 from datetime import date, datetime, timedelta
-from typing import Optional, Type
+from typing import List, Optional, Type
 
 import polars as pl
 import pytest
@@ -217,6 +217,56 @@ def test_mapping_to_polars_dtypes():
         "duration_column": [pl.Duration],
         "categorical_column": [pl.Categorical, pl.Utf8],
         "null_column": [pl.Null],
+    }
+
+
+def test_mapping_to_polars_dtypes_with_lists():
+    """Model list fields should be mappable to polars dtypes."""
+
+    class CompleteModel(pt.Model):
+        str_column: List[str]
+        int_column: List[int]
+        float_column: List[float]
+        bool_column: List[bool]
+
+        date_column: List[date]
+        datetime_column: List[datetime]
+        duration_column: List[timedelta]
+
+        categorical_column: List[Literal["a", "b", "c"]]
+        null_column: List[None]
+
+    assert CompleteModel.dtypes == {
+        "str_column": pl.List(pl.Utf8),
+        "int_column": pl.List(pl.Int64),
+        "float_column": pl.List(pl.Float64),
+        "bool_column": pl.List(pl.Boolean),
+        "date_column": pl.List(pl.Date),
+        "datetime_column": pl.List(pl.Datetime),
+        "duration_column": pl.List(pl.Duration),
+        "categorical_column": pl.List(pl.Categorical),
+        "null_column": pl.List(pl.Null),
+    }
+
+    assert CompleteModel.valid_dtypes == {
+        "str_column": [pl.List(pl.Utf8)],
+        "int_column": [
+            pl.List(pl.Int64),
+            pl.List(pl.Int32),
+            pl.List(pl.Int16),
+            pl.List(pl.Int8),
+            pl.List(pl.UInt64),
+            pl.List(pl.UInt32),
+            pl.List(pl.UInt16),
+            pl.List(pl.UInt8),
+        ],
+        "float_column": [pl.List(pl.Float64), pl.List(pl.Float32)],
+        "bool_column": [pl.List(pl.Boolean)],
+        "date_column": [pl.List(pl.Date)],
+        "datetime_column": [pl.List(pl.Datetime)],
+        "duration_column": [pl.List(pl.Duration)],
+        "categorical_column": [pl.List(pl.Categorical), pl.List(pl.Utf8)],
+        "null_column": [pl.List(pl.Null)],
     }
 
 

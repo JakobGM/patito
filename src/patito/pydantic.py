@@ -19,6 +19,7 @@ from typing import (
 )
 
 import polars as pl
+from polars.datatypes import PolarsDataType
 from pydantic import BaseConfig, BaseModel, Field, create_model  # noqa: F401
 from pydantic.main import ModelMetaclass as PydanticModelMetaclass
 from typing_extensions import Literal, get_args
@@ -138,9 +139,9 @@ class ModelMetaclass(PydanticModelMetaclass):
         }
 
     @property
-    def valid_dtypes(  # type: ignore  # noqa: C901
+    def valid_dtypes(  # type: ignore
         cls: Type[ModelType],
-    ) -> dict[str, List[Type[pl.DataType]]]:
+    ) -> dict[str, List[Union[pl.PolarsDataType, pl.List]]]:
         """
         Return a list of polars dtypes which Patito considers valid for each field.
 
@@ -179,63 +180,82 @@ class ModelMetaclass(PydanticModelMetaclass):
         """
         valid_dtypes = {}
         for column, props in cls._schema_properties().items():
-            if "dtype" in props:
-                valid_dtypes[column] = [
-                    props["dtype"],
-                ]
-            elif "enum" in props and props["type"] == "string":
-                valid_dtypes[column] = [pl.Categorical, pl.Utf8]
-            elif "type" not in props:
+            column_dtypes: List[Union[PolarsDataType, pl.List]]
+            if props.get("type") == "array":
+                array_props = props["items"]
+                item_dtypes = cls._valid_dtypes(props=array_props)
+                if item_dtypes is None:
+                    raise NotImplementedError(
+                        f"No valid dtype mapping found for column '{column}'."
+                    )
+                column_dtypes = [pl.List(dtype) for dtype in item_dtypes]
+            else:
+                column_dtypes = cls._valid_dtypes(props=props)
+
+            if column_dtypes is None:
                 raise NotImplementedError(
                     f"No valid dtype mapping found for column '{column}'."
                 )
-            elif props["type"] == "integer":
-                valid_dtypes[column] = [
-                    pl.Int64,
-                    pl.Int32,
-                    pl.Int16,
-                    pl.Int8,
-                    pl.UInt64,
-                    pl.UInt32,
-                    pl.UInt16,
-                    pl.UInt8,
-                ]
-            elif props["type"] == "number":
-                if props.get("format") == "time-delta":
-                    valid_dtypes[column] = [
-                        pl.Duration,
-                    ]  # pyright: reportPrivateImportUsage=false
-                else:
-                    valid_dtypes[column] = [pl.Float64, pl.Float32]
-            elif props["type"] == "boolean":
-                valid_dtypes[column] = [
-                    pl.Boolean,
-                ]
-            elif props["type"] == "string":
-                string_format = props.get("format")
-                if string_format is None:
-                    valid_dtypes[column] = [
-                        pl.Utf8,
-                    ]
-                elif string_format == "date":
-                    valid_dtypes[column] = [
-                        pl.Date,
-                    ]
-                # TODO: Find out why this branch is not being hit
-                elif string_format == "date-time":  # pragma: no cover
-                    valid_dtypes[column] = [
-                        pl.Datetime,
-                    ]
-            elif props["type"] == "null":
-                valid_dtypes[column] = [
-                    pl.Null,
-                ]
-            else:  # pragma: no cover
-                raise NotImplementedError(
-                    f"No valid dtype mapping found for column '{column}'"
-                )
+            valid_dtypes[column] = column_dtypes
 
         return valid_dtypes
+
+    @staticmethod
+    def _valid_dtypes(  # noqa: C901
+        props: Dict,
+    ) -> Optional[List[pl.PolarsDataType]]:
+        """
+        Map schema property to list of valid polars data types.
+
+        Args:
+            props: Dictionary value retrieved from BaseModel._schema_properties().
+
+        Returns:
+            List of valid dtypes. None if no mapping exists.
+        """
+        if "dtype" in props:
+            return [
+                props["dtype"],
+            ]
+        elif "enum" in props and props["type"] == "string":
+            return [pl.Categorical, pl.Utf8]
+        elif "type" not in props:
+            return None
+        elif props["type"] == "integer":
+            return [
+                pl.Int64,
+                pl.Int32,
+                pl.Int16,
+                pl.Int8,
+                pl.UInt64,
+                pl.UInt32,
+                pl.UInt16,
+                pl.UInt8,
+            ]
+        elif props["type"] == "number":
+            if props.get("format") == "time-delta":
+                return [
+                    pl.Duration,
+                ]  # pyright: reportPrivateImportUsage=false
+            else:
+                return [pl.Float64, pl.Float32]
+        elif props["type"] == "boolean":
+            return [pl.Boolean]
+        elif props["type"] == "string":
+            string_format = props.get("format")
+            if string_format is None:
+                return [pl.Utf8]
+            elif string_format == "date":
+                return [pl.Date]
+            # TODO: Find out why this branch is not being hit
+            elif string_format == "date-time":  # pragma: no cover
+                return [pl.Datetime]
+            else:
+                return None  # pragma: no cover
+        elif props["type"] == "null":
+            return [pl.Null]
+        else:  # pragma: no cover
+            return None
 
     @property
     def valid_sql_types(  # type: ignore  # noqa: C901

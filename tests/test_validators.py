@@ -2,7 +2,7 @@
 import enum
 import sys
 from datetime import date, datetime
-from typing import Optional
+from typing import List, Optional, Union
 
 import polars as pl
 import pytest
@@ -10,7 +10,41 @@ from typing_extensions import Literal
 
 import patito as pt
 from patito.exceptions import ValidationError
-from patito.validators import validate
+from patito.validators import _dewrap_optional, _is_optional, validate
+
+
+def test_is_optional():
+    """It should return True for optional types."""
+    assert _is_optional(Optional[int])
+    assert _is_optional(Union[int, None])
+    assert not _is_optional(int)
+
+
+@pytest.mark.skipif(
+    sys.version_info <= (3, 10),
+    reason="Using | as a type union operator is only supported from python 3.10.",
+)
+def test_is_optional_with_pipe_operator():
+    """It should return True for optional types."""
+    assert _is_optional(int | None)  # typing: ignore  # pragma: noqa  # pyright: ignore
+
+
+def test_dewrap_optional():
+    """It should return the inner type of Optional types."""
+    assert _dewrap_optional(Optional[int]) is int
+    assert _dewrap_optional(Union[int, None]) is int
+    assert _dewrap_optional(int) is int
+
+
+@pytest.mark.skipif(
+    sys.version_info <= (3, 10),
+    reason="Using | as a type union operator is only supported from python 3.10.",
+)
+def test_dewrap_optional_with_pipe_operator():
+    """It should return the inner type of Optional types."""
+    assert (  # typing: ignore  # pragma: noqa  # pyright: ignore
+        _dewrap_optional(int | None) is int
+    )
 
 
 def test_missing_column_validation():
@@ -175,6 +209,16 @@ def test_validate_dtype_checks():
         match="No valid dtype mapping found for column 'my_field'.",
     ):
         NonCompatibleModel.valid_dtypes
+
+    # The same goes for list-annotated fields
+    class NonCompatibleListModel(pt.Model):
+        my_field: List[object]
+
+    with pytest.raises(
+        NotImplementedError,
+        match="No valid dtype mapping found for column 'my_field'.",
+    ):
+        NonCompatibleListModel.valid_dtypes
 
     # It should also work with pandas data frames
     class PandasCompatibleModel(CompleteModel):
@@ -510,3 +554,45 @@ def test_optional_pipe_operator():
         }
     )
     OptionalEnumModel.validate(df)
+
+
+@pytest.mark.xfail(
+    condition=sys.version_info < (3, 8),
+    reason="Polars bug: list series can not be constructed with None values.",
+    raises=TypeError,
+    strict=True,
+)
+def test_validation_of_list_dtypes():
+    """It should be able to validate dtypes organized in lists."""
+
+    class ListModel(pt.Model):
+        int_list: List[int]
+        int_or_null_list: List[Optional[int]]
+        nullable_int_list: Optional[List[int]]
+        nullable_int_or_null_list: Optional[List[Optional[int]]]
+
+    valid_df = pl.DataFrame(
+        {
+            "int_list": [[1, 2], [3, 4]],
+            "int_or_null_list": [[1, 2], [3, None]],
+            "nullable_int_list": [[1, 2], None],
+            "nullable_int_or_null_list": [[1, None], None],
+        }
+    )
+    ListModel.validate(valid_df)
+
+    for old, new in [
+        # List items are not nullable
+        ("int_or_null_list", "int_list"),
+        ("int_or_null_list", "nullable_int_list"),
+        # List is not nullable
+        ("nullable_int_list", "int_list"),
+        ("nullable_int_list", "int_or_null_list"),
+        # Combination of both
+        ("nullable_int_or_null_list", "int_list"),
+        ("nullable_int_or_null_list", "int_or_null_list"),
+        ("nullable_int_or_null_list", "nullable_int_list"),
+    ]:
+        # print(old, new)
+        with pytest.raises(ValidationError):
+            ListModel.validate(valid_df.with_column(pl.col(old).alias(new)))

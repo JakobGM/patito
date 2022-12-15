@@ -73,7 +73,7 @@ def coverage(session):
     session.run("codecov", *session.posargs)
 
 
-@nox.session(python=["3.9"])
+@nox.session(python=["3.11"])
 def type_check(session):
     """Run type-checking on project using pyright."""
     args = session.posargs or locations

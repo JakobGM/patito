@@ -1,9 +1,11 @@
 """Module for validating datastructures with respect to model specifications."""
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, Type, Union, cast
 
 import polars as pl
+from typing_extensions import get_args, get_origin
 
 from patito.exceptions import (
     ColumnDTypeError,
@@ -14,6 +16,13 @@ from patito.exceptions import (
     SuperflousColumnsError,
     ValidationError,
 )
+
+if sys.version_info >= (3, 10):  # pragma: no cover
+    from types import UnionType  # pyright: ignore
+
+    UNION_TYPES = (Union, UnionType)
+else:
+    UNION_TYPES = (Union,)
 
 try:
     import pandas as pd
@@ -42,6 +51,44 @@ VALID_POLARS_TYPES = {
         pl.UInt64,
     },
 }
+
+
+def _is_optional(type_annotation: Type) -> bool:
+    """
+    Return True if the given type annotation is an Optional annotation.
+
+    Args:
+        type_annotation: The type annotation to be checked.
+
+    Returns:
+        True if the outermost type is Optional.
+    """
+    return (get_origin(type_annotation) in UNION_TYPES) and (
+        type(None) in get_args(type_annotation)
+    )
+
+
+def _dewrap_optional(type_annotation: Type) -> Type:
+    """
+    Return the inner, wrapped type of an Optional.
+
+    Is a no-op for non-Optional types.
+
+    Args:
+        type_annotation: The type annotation to be dewrapped.
+
+    Returns:
+        The input type, but with the outermost Optional removed.
+    """
+    return (
+        next(  # pragma: no cover
+            valid_type
+            for valid_type in get_args(type_annotation)
+            if valid_type is not type(None)  # noqa: E721
+        )
+        if _is_optional(type_annotation)
+        else type_annotation
+    )
 
 
 def _find_errors(  # noqa: C901
@@ -94,6 +141,45 @@ def _find_errors(  # noqa: C901
                     MissingValuesError(
                         f"{num_missing_values} missing "
                         f"{'value' if num_missing_values == 1 else 'values'}"
+                    ),
+                    loc=column,
+                )
+            )
+
+    for column, dtype in schema.dtypes.items():
+        if not isinstance(dtype, pl.List):
+            continue
+
+        annotation = schema.__annotations__[column]  # type: ignore[unreachable]
+
+        # Retrieve the annotation of the list itself,
+        # dewrapping any potential Optional[...]
+        list_type = _dewrap_optional(annotation)
+
+        # Check if the list items themselves should be considered nullable
+        item_type = get_args(list_type)[0]
+        if _is_optional(item_type):
+            continue
+
+        num_missing_values = (
+            dataframe.lazy()
+            .select(column)
+            # Remove those rows that do not contain lists at all
+            .filter(pl.col(column).is_not_null())
+            # Convert lists of N items to N individual rows
+            .explode(column)
+            # Calculate how many nulls are present in lists
+            .filter(pl.col(column).is_null())
+            .collect()
+            .height
+        )
+        if num_missing_values != 0:
+            errors.append(
+                ErrorWrapper(
+                    MissingValuesError(
+                        f"{num_missing_values} missing "
+                        f"{'value' if num_missing_values == 1 else 'values'} "
+                        f"in lists"
                     ),
                     loc=column,
                 )
