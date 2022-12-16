@@ -22,7 +22,7 @@ if sys.version_info >= (3, 10):  # pragma: no cover
 
     UNION_TYPES = (Union, UnionType)
 else:
-    UNION_TYPES = (Union,)
+    UNION_TYPES = (Union,)  # pragma: no cover
 
 try:
     import pandas as pd

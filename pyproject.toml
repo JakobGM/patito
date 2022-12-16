@@ -28,6 +28,8 @@ sphinx-autodoc-typehints = {version = "*", optional = true}
 sphinxcontrib-mermaid = {version = "*", optional = true}
 
 [tool.poetry.extras]
+# The pyarrow.parquet module is required for writing parquet caches to disk
+caching = ["pyarrow"]
 duckdb = ["duckdb", "pyarrow"]
 pandas = ["pandas"]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-autobuild", "sphinx-autodoc-typehints", "sphinxcontrib-mermaid"]

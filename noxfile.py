@@ -51,8 +51,8 @@ def test(session):
         "install",
         "--only=main",
         "--extras",
-        # Pandas requires python version >= 3.8
-        "duckdb" if session.python == "3.7" else "duckdb pandas",
+        # Pandas/pyarrow requires python version >= 3.8
+        "duckdb" if session.python == "3.7" else "caching duckdb pandas",
         external=True,
     )
     install_with_constraints(
@@ -82,7 +82,7 @@ def type_check(session):
         "install",
         "--only=main",
         "--extras",
-        "duckdb pandas",
+        "caching duckdb pandas",
         external=True,
     )
     install_with_constraints(
@@ -127,7 +127,7 @@ def docs(session) -> None:
         "install",
         "--only=main",
         "--extras",
-        "duckdb pandas",
+        "caching duckdb pandas",
         external=True,
     )
     install_with_constraints(
