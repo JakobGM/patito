@@ -288,7 +288,7 @@ class WrappedQueryFunc(Generic[P, DF]):
                 continue
 
 
-class QueryCacher:
+class QueryCache:
     """Class responsible for executing and caching the result of SQL query producers."""
 
     def __init__(

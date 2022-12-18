@@ -12,16 +12,16 @@ import patito as pt
 pa = pytest.importorskip("pyarrow")
 
 
-class LoggingQueryCacher(pt.caching.QueryCacher):
-    """A dummy query cacher with an associated query execution log."""
+class LoggingQueryCache(pt.caching.QueryCache):
+    """A dummy query cache with an associated query execution log."""
 
     executed_queries: List[str]
 
 
 @pytest.fixture()
-def cacher(tmp_path) -> LoggingQueryCacher:
+def query_cache(tmp_path) -> LoggingQueryCache:
     """
-    Return dummy query cacher with query exection logger.
+    Return dummy query cache with query execution logger.
 
     Args:
         tmp_path: Test-specific temporary directory provided by pytest.
@@ -40,63 +40,63 @@ def cacher(tmp_path) -> LoggingQueryCacher:
         data = {"column": [1, 2, 3]} if mock_data is None else mock_data
         return pa.Table.from_pydict(data)
 
-    query_cacher = LoggingQueryCacher(
+    query_cache = LoggingQueryCache(
         sql_to_arrow=sql_to_arrow,
         cache_directory=tmp_path,
         default_ttl=timedelta(weeks=52),
     )
 
     # Attach the query execution log as an attribute of the cacher
-    query_cacher.executed_queries = executed_queries
-    return query_cacher
+    query_cache.executed_queries = executed_queries
+    return query_cache
 
 
-def test_uncached_query(cacher: LoggingQueryCacher):
+def test_uncached_query(query_cache: LoggingQueryCache):
     """It should not cache queries by default."""
 
-    @cacher.cache()
+    @query_cache.cache()
     def products():
         return "query"
 
     # First time it is called we should execute the query
     products()
-    assert cacher.executed_queries == ["query"]
+    assert query_cache.executed_queries == ["query"]
     # And no cache file is created
-    assert not any(cacher.cache_directory.iterdir())
+    assert not any(query_cache.cache_directory.iterdir())
 
     # The next time the query is executed again
     products()
-    assert cacher.executed_queries == ["query", "query"]
+    assert query_cache.executed_queries == ["query", "query"]
     # And still no cache file
-    assert not any(cacher.cache_directory.iterdir())
+    assert not any(query_cache.cache_directory.iterdir())
 
 
-def test_cached_query(cacher: LoggingQueryCacher):
+def test_cached_query(query_cache: LoggingQueryCache):
     """It should cache queries if so parametrized."""
 
     # We enable cache for the given query
-    @cacher.cache(cache=True)
+    @query_cache.cache(cache=True)
     def products(version: int):
         return f"query {version}"
 
     # The cache is stored in the "products" sub-folder
-    cache_dir = cacher.cache_directory / "products"
+    cache_dir = query_cache.cache_directory / "products"
 
     # First time the query is executed
     products(version=1)
-    assert cacher.executed_queries == ["query 1"]
+    assert query_cache.executed_queries == ["query 1"]
     # And the result is stored in a cache file
     assert len(list(cache_dir.iterdir())) == 1
 
     # The next time the query is *not* executed
     products(version=1)
-    assert cacher.executed_queries == ["query 1"]
+    assert query_cache.executed_queries == ["query 1"]
     # And the cache file persists
     assert len(list(cache_dir.iterdir())) == 1
 
     # But if we change the query itself, it is executed
     products(version=2)
-    assert cacher.executed_queries == ["query 1", "query 2"]
+    assert query_cache.executed_queries == ["query 1", "query 2"]
     # And it is cached in a separate file
     assert len(list(cache_dir.iterdir())) == 2
 
@@ -104,27 +104,27 @@ def test_cached_query(cacher: LoggingQueryCacher):
     for cache_file in cache_dir.iterdir():
         cache_file.unlink()
     products(version=1)
-    assert cacher.executed_queries == ["query 1", "query 2", "query 1"]
+    assert query_cache.executed_queries == ["query 1", "query 2", "query 1"]
     # And the cache file is rewritten
     assert len(list(cache_dir.iterdir())) == 1
 
     # We clear the cache with .clear_cache()
     products.refresh_cache(version=1)
-    assert cacher.executed_queries == ["query 1", "query 2", "query 1", "query 1"]
+    assert query_cache.executed_queries == ["query 1", "query 2", "query 1", "query 1"]
     # We can also clear caches that have never existed
     products.refresh_cache(version=3)
-    assert cacher.executed_queries[-1] == "query 3"
+    assert query_cache.executed_queries[-1] == "query 3"
 
 
 def test_cached_query_with_explicit_path(
-    cacher: LoggingQueryCacher,
+    query_cache: LoggingQueryCache,
     tmpdir: Path,
 ) -> None:
     """It should cache queries in the provided path."""
     cache_path = Path(tmpdir / "name.parquet")
 
     # This time we specify an explicit path
-    @cacher.cache(cache=cache_path)
+    @query_cache.cache(cache=cache_path)
     def products(version):
         return f"query {version}"
 
@@ -134,16 +134,16 @@ def test_cached_query_with_explicit_path(
     # We then execute and cache the query
     products(version=1)
     assert cache_path.exists()
-    assert cacher.executed_queries == ["query 1"]
+    assert query_cache.executed_queries == ["query 1"]
 
     # And the next time it is reused
     products(version=1)
-    assert cacher.executed_queries == ["query 1"]
+    assert query_cache.executed_queries == ["query 1"]
     assert cache_path.exists()
 
     # If the query changes, it is re-executed
     products(version=2)
-    assert cacher.executed_queries == ["query 1", "query 2"]
+    assert query_cache.executed_queries == ["query 1", "query 2"]
 
     # If a non-parquet file is specified, it will raise
     with pytest.raises(
@@ -151,54 +151,54 @@ def test_cached_query_with_explicit_path(
         match=r"Cache paths must have the '\.parquet' file extension\!",
     ):
 
-        @cacher.cache(cache=tmpdir / "name.csv")
+        @query_cache.cache(cache=tmpdir / "name.csv")
         def products(version):
             return f"query {version}"
 
 
-def test_cached_query_with_relative_path(cacher: LoggingQueryCacher) -> None:
+def test_cached_query_with_relative_path(query_cache: LoggingQueryCache) -> None:
     """Relative paths should be interpreted relative to the cache directory."""
     relative_path = Path("foo/bar.parquet")
 
-    @cacher.cache(cache=relative_path)
+    @query_cache.cache(cache=relative_path)
     def products():
         return "query"
 
     products()
-    assert (cacher.cache_directory / "foo" / "bar.parquet").exists()
+    assert (query_cache.cache_directory / "foo" / "bar.parquet").exists()
 
 
-def test_cached_query_with_format_string(cacher: LoggingQueryCacher) -> None:
+def test_cached_query_with_format_string(query_cache: LoggingQueryCache) -> None:
     """Strings with placeholders should be interpolated."""
 
-    @cacher.cache(cache="version-{version}.parquet")
+    @query_cache.cache(cache="version-{version}.parquet")
     def products(version: int):
         return f"query {version}"
 
     # It should work for both positional arguments...
     products(1)
-    assert (cacher.cache_directory / "version-1.parquet").exists()
+    assert (query_cache.cache_directory / "version-1.parquet").exists()
     # ... and keywords
     products(version=2)
-    assert (cacher.cache_directory / "version-2.parquet").exists()
+    assert (query_cache.cache_directory / "version-2.parquet").exists()
 
 
-def test_cached_query_with_format_path(cacher: LoggingQueryCacher) -> None:
+def test_cached_query_with_format_path(query_cache: LoggingQueryCache) -> None:
     """Paths with placeholders should be interpolated."""
 
-    @cacher.cache(cache=cacher.cache_directory / "version-{version}.parquet")
+    @query_cache.cache(cache=query_cache.cache_directory / "version-{version}.parquet")
     def products(version: int):
         return f"query {version}"
 
     # It should work for both positional arguments...
     products(1)
-    assert (cacher.cache_directory / "version-1.parquet").exists()
+    assert (query_cache.cache_directory / "version-1.parquet").exists()
     # ... and keywords
     products(version=2)
-    assert (cacher.cache_directory / "version-2.parquet").exists()
+    assert (query_cache.cache_directory / "version-2.parquet").exists()
 
 
-def test_cache_ttl(cacher, monkeypatch):
+def test_cache_ttl(query_cache, monkeypatch):
     """It should automatically refresh the cache according to the TTL."""
 
     # We freeze the time during the execution of this test
@@ -215,44 +215,44 @@ def test_cache_ttl(cacher, monkeypatch):
             return datetime.fromisoformat(*args, **kwargs)
 
     # The cache should be cleared every week
-    @cacher.cache(cache=True, ttl=timedelta(weeks=1))
+    @query_cache.cache(cache=True, ttl=timedelta(weeks=1))
     def users():
         return "query"
 
     # The first time the query should be executed
     FrozenDatetime(year=2000, month=1, day=1)
     users()
-    assert cacher.executed_queries == ["query"]
+    assert query_cache.executed_queries == ["query"]
 
     # The next time it should not be executed
     users()
-    assert cacher.executed_queries == ["query"]
+    assert query_cache.executed_queries == ["query"]
 
     # Even if we advance the time by one day,
     # the cache should still be used.
     FrozenDatetime(year=2000, month=1, day=2)
     users()
-    assert cacher.executed_queries == ["query"]
+    assert query_cache.executed_queries == ["query"]
 
     # Then we let one week pass, and the cache should be cleared
     FrozenDatetime(year=2000, month=1, day=8)
     users()
-    assert cacher.executed_queries == ["query", "query"]
+    assert query_cache.executed_queries == ["query", "query"]
 
     # But then it will be reused for another week
     users()
-    assert cacher.executed_queries == ["query", "query"]
+    assert query_cache.executed_queries == ["query", "query"]
 
 
 @pytest.mark.parametrize("cache", [True, False])
-def test_lazy_query(cacher: LoggingQueryCacher, cache: bool):
+def test_lazy_query(query_cache: LoggingQueryCache, cache: bool):
     """It should return a LazyFrame when specified with lazy=True."""
 
-    @cacher.cache(lazy=True, cache=cache)
+    @query_cache.cache(lazy=True, cache=cache)
     def lazy():
         return "query"
 
-    @cacher.cache(lazy=False, cache=cache)
+    @query_cache.cache(lazy=False, cache=cache)
     def eager():
         return "query"
 
@@ -261,13 +261,13 @@ def test_lazy_query(cacher: LoggingQueryCacher, cache: bool):
     assert lazy().collect().frame_equal(eager())
 
 
-def test_model_query_model_validation(cacher: LoggingQueryCacher):
+def test_model_query_model_validation(query_cache: LoggingQueryCache):
     """It should validate the data model."""
 
     class CorrectModel(pt.Model):
         column: int
 
-    @cacher.cache(model=CorrectModel)
+    @query_cache.cache(model=CorrectModel)
     def correct_data():
         return ""
 
@@ -276,7 +276,7 @@ def test_model_query_model_validation(cacher: LoggingQueryCacher):
     class IncorrectModel(pt.Model):
         column: str
 
-    @cacher.cache(model=IncorrectModel)
+    @query_cache.cache(model=IncorrectModel)
     def incorrect_data():
         return ""
 
@@ -285,41 +285,41 @@ def test_model_query_model_validation(cacher: LoggingQueryCacher):
 
 
 def test_custom_forwarding_of_parameters_to_query_function(
-    cacher: LoggingQueryCacher,
+    query_cache: LoggingQueryCache,
 ):
     """It should forward all additional parameters to the sql_to_arrow function."""
 
     # The dummy cacher accepts a "data" parameter, specifying the data to be returned
     data = {"actual_data": [10, 20, 30]}
 
-    @cacher.cache(mock_data=data)
+    @query_cache.cache(mock_data=data)
     def custom_data():
         return "select 1, 2, 3 as dummy_column"
 
     assert custom_data().frame_equal(pl.DataFrame(data))
 
     # It should also work without type normalization
-    @cacher.cache(mock_data=data, cast_to_polars_equivalent_types=False)
+    @query_cache.cache(mock_data=data, cast_to_polars_equivalent_types=False)
     def non_normalized_custom_data():
         return "select 1, 2, 3 as dummy_column"
 
     assert non_normalized_custom_data().frame_equal(pl.DataFrame(data))
 
 
-def test_clear_caches(cacher: LoggingQueryCacher):
+def test_clear_caches(query_cache: LoggingQueryCache):
     """It should clear all cache files with .clear_all_caches()."""
 
-    @cacher.cache(cache=True)
+    @query_cache.cache(cache=True)
     def products(version: int):
         return f"query {version}"
 
     # The cache is stored in the "products" sub-directory
-    products_cache_dir = cacher.cache_directory / "products"
+    products_cache_dir = query_cache.cache_directory / "products"
 
     # We produce two cache files
     products(version=1)
     products(version=2)
-    assert cacher.executed_queries == ["query 1", "query 2"]
+    assert query_cache.executed_queries == ["query 1", "query 2"]
     assert len(list(products_cache_dir.iterdir())) == 2
 
     # We also insert another parquet file that should *not* be deleted
@@ -339,25 +339,25 @@ def test_clear_caches(cacher: LoggingQueryCacher):
     # The next time both queries need to be re-executed
     products(version=1)
     products(version=2)
-    assert cacher.executed_queries == ["query 1", "query 2"] * 2
+    assert query_cache.executed_queries == ["query 1", "query 2"] * 2
     assert len(list(products_cache_dir.iterdir())) == 4
 
     # If caching is not enabled, clear_caches should be a NO-OP
-    @cacher.cache(cache=False)
+    @query_cache.cache(cache=False)
     def uncached_products(version: int):
         return f"query {version}"
 
     uncached_products.clear_caches()
 
 
-def test_clear_caches_with_formatted_paths(cacher: LoggingQueryCacher):
+def test_clear_caches_with_formatted_paths(query_cache: LoggingQueryCache):
     """Formatted paths should also be properly cleared."""
     # We specify another temporary cache directory to see if caches can be cleared
     # irregardless of the cache directory's location.
     tmp_dir = TemporaryDirectory()
     cache_dir = Path(tmp_dir.name)
 
-    @cacher.cache(cache=cache_dir / "{a}" / "{b}.parquet")
+    @query_cache.cache(cache=cache_dir / "{a}" / "{b}.parquet")
     def users(a: int, b: int):
         return f"query {a}.{b}"
 
@@ -365,7 +365,7 @@ def test_clear_caches_with_formatted_paths(cacher: LoggingQueryCacher):
     users(1, 2)
     users(2, 1)
 
-    assert cacher.executed_queries == ["query 1.1", "query 1.2", "query 2.1"]
+    assert query_cache.executed_queries == ["query 1.1", "query 1.2", "query 2.1"]
 
     assert {str(path.relative_to(cache_dir)) for path in cache_dir.rglob("*")} == {
         # Both directories have been created
@@ -391,12 +391,12 @@ def test_clear_caches_with_formatted_paths(cacher: LoggingQueryCacher):
     tmp_dir.cleanup()
 
 
-def test_ejection_of_incompatible_caches(cacher: LoggingQueryCacher):
+def test_ejection_of_incompatible_caches(query_cache: LoggingQueryCache):
     """It should clear old, incompatible caches."""
 
-    cache_path = cacher.cache_directory / "my_cache.parquet"
+    cache_path = query_cache.cache_directory / "my_cache.parquet"
 
-    @cacher.cache(cache=cache_path)
+    @query_cache.cache(cache=cache_path)
     def my_query():
         return "my query"
 
@@ -406,7 +406,7 @@ def test_ejection_of_incompatible_caches(cacher: LoggingQueryCacher):
     # The existing parquet file without metadata should be overwritten
     df = my_query()
     assert not df.is_empty()
-    assert cacher.executed_queries == ["my query"]
+    assert query_cache.executed_queries == ["my query"]
 
     # Now we decrement the version number of the cache in order to overwrite it
     arrow_table = pa.parquet.read_table(cache_path)  # noqa
@@ -426,7 +426,7 @@ def test_ejection_of_incompatible_caches(cacher: LoggingQueryCacher):
 
     # The query should now be re-executed
     my_query()
-    assert cacher.executed_queries == ["my query"] * 2
+    assert query_cache.executed_queries == ["my query"] * 2
 
     # Deleting the cache_version alltogether should also retrigger the query
     del metadata[b"cache_version"]
@@ -435,4 +435,4 @@ def test_ejection_of_incompatible_caches(cacher: LoggingQueryCacher):
         where=cache_path,
     )
     my_query()
-    assert cacher.executed_queries == ["my query"] * 3
+    assert query_cache.executed_queries == ["my query"] * 3
