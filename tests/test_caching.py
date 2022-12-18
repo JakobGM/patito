@@ -54,7 +54,7 @@ def query_cache(tmp_path) -> LoggingQueryCache:
 def test_uncached_query(query_cache: LoggingQueryCache):
     """It should not cache queries by default."""
 
-    @query_cache.cache()
+    @query_cache.query()
     def products():
         return "query"
 
@@ -75,7 +75,7 @@ def test_cached_query(query_cache: LoggingQueryCache):
     """It should cache queries if so parametrized."""
 
     # We enable cache for the given query
-    @query_cache.cache(cache=True)
+    @query_cache.query(cache=True)
     def products(version: int):
         return f"query {version}"
 
@@ -124,7 +124,7 @@ def test_cached_query_with_explicit_path(
     cache_path = Path(tmpdir / "name.parquet")
 
     # This time we specify an explicit path
-    @query_cache.cache(cache=cache_path)
+    @query_cache.query(cache=cache_path)
     def products(version):
         return f"query {version}"
 
@@ -151,7 +151,7 @@ def test_cached_query_with_explicit_path(
         match=r"Cache paths must have the '\.parquet' file extension\!",
     ):
 
-        @query_cache.cache(cache=tmpdir / "name.csv")
+        @query_cache.query(cache=tmpdir / "name.csv")
         def products(version):
             return f"query {version}"
 
@@ -160,7 +160,7 @@ def test_cached_query_with_relative_path(query_cache: LoggingQueryCache) -> None
     """Relative paths should be interpreted relative to the cache directory."""
     relative_path = Path("foo/bar.parquet")
 
-    @query_cache.cache(cache=relative_path)
+    @query_cache.query(cache=relative_path)
     def products():
         return "query"
 
@@ -171,7 +171,7 @@ def test_cached_query_with_relative_path(query_cache: LoggingQueryCache) -> None
 def test_cached_query_with_format_string(query_cache: LoggingQueryCache) -> None:
     """Strings with placeholders should be interpolated."""
 
-    @query_cache.cache(cache="version-{version}.parquet")
+    @query_cache.query(cache="version-{version}.parquet")
     def products(version: int):
         return f"query {version}"
 
@@ -186,7 +186,7 @@ def test_cached_query_with_format_string(query_cache: LoggingQueryCache) -> None
 def test_cached_query_with_format_path(query_cache: LoggingQueryCache) -> None:
     """Paths with placeholders should be interpolated."""
 
-    @query_cache.cache(cache=query_cache.cache_directory / "version-{version}.parquet")
+    @query_cache.query(cache=query_cache.cache_directory / "version-{version}.parquet")
     def products(version: int):
         return f"query {version}"
 
@@ -198,7 +198,7 @@ def test_cached_query_with_format_path(query_cache: LoggingQueryCache) -> None:
     assert (query_cache.cache_directory / "version-2.parquet").exists()
 
 
-def test_cache_ttl(query_cache, monkeypatch):
+def test_cache_ttl(query_cache: LoggingQueryCache, monkeypatch):
     """It should automatically refresh the cache according to the TTL."""
 
     # We freeze the time during the execution of this test
@@ -215,7 +215,7 @@ def test_cache_ttl(query_cache, monkeypatch):
             return datetime.fromisoformat(*args, **kwargs)
 
     # The cache should be cleared every week
-    @query_cache.cache(cache=True, ttl=timedelta(weeks=1))
+    @query_cache.query(cache=True, ttl=timedelta(weeks=1))
     def users():
         return "query"
 
@@ -248,11 +248,11 @@ def test_cache_ttl(query_cache, monkeypatch):
 def test_lazy_query(query_cache: LoggingQueryCache, cache: bool):
     """It should return a LazyFrame when specified with lazy=True."""
 
-    @query_cache.cache(lazy=True, cache=cache)
+    @query_cache.query(lazy=True, cache=cache)
     def lazy():
         return "query"
 
-    @query_cache.cache(lazy=False, cache=cache)
+    @query_cache.query(lazy=False, cache=cache)
     def eager():
         return "query"
 
@@ -267,7 +267,7 @@ def test_model_query_model_validation(query_cache: LoggingQueryCache):
     class CorrectModel(pt.Model):
         column: int
 
-    @query_cache.cache(model=CorrectModel)
+    @query_cache.query(model=CorrectModel)
     def correct_data():
         return ""
 
@@ -276,7 +276,7 @@ def test_model_query_model_validation(query_cache: LoggingQueryCache):
     class IncorrectModel(pt.Model):
         column: str
 
-    @query_cache.cache(model=IncorrectModel)
+    @query_cache.query(model=IncorrectModel)
     def incorrect_data():
         return ""
 
@@ -292,14 +292,14 @@ def test_custom_forwarding_of_parameters_to_query_function(
     # The dummy cacher accepts a "data" parameter, specifying the data to be returned
     data = {"actual_data": [10, 20, 30]}
 
-    @query_cache.cache(mock_data=data)
+    @query_cache.query(mock_data=data)
     def custom_data():
         return "select 1, 2, 3 as dummy_column"
 
     assert custom_data().frame_equal(pl.DataFrame(data))
 
     # It should also work without type normalization
-    @query_cache.cache(mock_data=data, cast_to_polars_equivalent_types=False)
+    @query_cache.query(mock_data=data, cast_to_polars_equivalent_types=False)
     def non_normalized_custom_data():
         return "select 1, 2, 3 as dummy_column"
 
@@ -309,7 +309,7 @@ def test_custom_forwarding_of_parameters_to_query_function(
 def test_clear_caches(query_cache: LoggingQueryCache):
     """It should clear all cache files with .clear_all_caches()."""
 
-    @query_cache.cache(cache=True)
+    @query_cache.query(cache=True)
     def products(version: int):
         return f"query {version}"
 
@@ -343,7 +343,7 @@ def test_clear_caches(query_cache: LoggingQueryCache):
     assert len(list(products_cache_dir.iterdir())) == 4
 
     # If caching is not enabled, clear_caches should be a NO-OP
-    @query_cache.cache(cache=False)
+    @query_cache.query(cache=False)
     def uncached_products(version: int):
         return f"query {version}"
 
@@ -357,7 +357,7 @@ def test_clear_caches_with_formatted_paths(query_cache: LoggingQueryCache):
     tmp_dir = TemporaryDirectory()
     cache_dir = Path(tmp_dir.name)
 
-    @query_cache.cache(cache=cache_dir / "{a}" / "{b}.parquet")
+    @query_cache.query(cache=cache_dir / "{a}" / "{b}.parquet")
     def users(a: int, b: int):
         return f"query {a}.{b}"
 
@@ -396,7 +396,7 @@ def test_ejection_of_incompatible_caches(query_cache: LoggingQueryCache):
 
     cache_path = query_cache.cache_directory / "my_cache.parquet"
 
-    @query_cache.cache(cache=cache_path)
+    @query_cache.query(cache=cache_path)
     def my_query():
         return "my query"
 
