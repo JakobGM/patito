@@ -11,6 +11,7 @@ Properties
 ----------
 
 .. toctree::
+   :maxdepth: 1
 
    alias <alias>
    columns <columns>
@@ -21,6 +22,7 @@ Methods
 -------
 
 .. toctree::
+   :maxdepth: 1
 
    add_prefix <add_prefix>
    add_suffix <add_suffix>

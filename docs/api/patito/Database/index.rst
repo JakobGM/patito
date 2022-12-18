@@ -11,6 +11,7 @@ Methods
 -------
 
 .. toctree::
+   :maxdepth: 1
 
    create_enum_types <create_enum_types>
    create_table <create_table>

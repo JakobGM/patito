@@ -2,6 +2,7 @@ API Reference
 =============
 
 .. toctree::
+   :maxdepth: 2
 
    patito/DataFrame/index
    patito/Model/index
@@ -9,6 +10,7 @@ API Reference
 
 .. toctree::
    :caption: DuckDB Functionality
+   :maxdepth: 2
 
    patito/Database/index
    patito/Relation/index

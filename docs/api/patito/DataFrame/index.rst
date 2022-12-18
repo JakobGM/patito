@@ -9,6 +9,8 @@ Methods
 -------
 
 .. toctree::
+   :maxdepth: 1
+
    cast <cast>
    derive <derive>
    drop <drop>

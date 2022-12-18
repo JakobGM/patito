@@ -11,6 +11,8 @@ Class properties
 ----------------
 
 .. toctree::
+   :maxdepth: 1
+
    DataFrame <DataFrame>
    LazyFrame <LazyFrame>
    columns <columns>
@@ -27,6 +29,8 @@ Class methods
 -------------
 
 .. toctree::
+   :maxdepth: 1
+
    drop <drop>
    example <example>
    example_value <example_value>
