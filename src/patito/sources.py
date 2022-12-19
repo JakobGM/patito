@@ -1,4 +1,4 @@
-"""Module containing caching utilities for polars."""
+"""Module containing utilities for retrieving data from external sources."""
 import glob
 import hashlib
 import inspect
@@ -78,10 +78,10 @@ class WrappedQueryFunc(Generic[P, DF]):
             cache_directory: Path to directory to store parquet cache files in.
             sql_to_arrow: Function used to execute SQL queries and return pyarrow
                 Tables.
-            ttl: See QueryCacher.cache for documentation.
-            lazy: See QueryCacher.cache for documentation.
-            cache: See QueryCacher.cache for documentation.
-            model: See QueryCacher.cache for documentation.
+            ttl: See QuerySource.query for documentation.
+            lazy: See QuerySource.query for documentation.
+            cache: See QuerySource.query for documentation.
+            model: See QuerySource.query for documentation.
             query_executor_kwargs: Arbitrary keyword arguments forwarded to the query
                 executor, in this case sql_to_arrow, and thus db_params is the only
                 keyword argument supported so far.
@@ -288,12 +288,12 @@ class WrappedQueryFunc(Generic[P, DF]):
                 continue
 
 
-class QueryCache:
+class QuerySource:
     """
     Construct manager for executing SQL queries and caching the results.
 
     Args:
-        sql_to_arrow: The function that the QueryCache should use for executing SQL
+        sql_to_arrow: The function that the QuerySource should use for executing SQL
             queries. Its first argument should be the SQL query string to execute, and
             it should return the query result as an arrow table, for instance
             pyarrow.Table.
@@ -301,11 +301,10 @@ class QueryCache:
             files.
         default_ttl: The default Time To Live (TTL), or with other words, how long to
             wait until caches are refreshed due to old age. The given default TTL can be
-            overwritten by specifying the ``ttl`` parameter in :func:`QueryCache.query`.
-            The default is 52 weeks.
+            overwritten by specifying the ``ttl`` parameter in
+            :func:`QuerySource.query`. The default is 52 weeks.
 
     Examples:
-
         We start by importing the necessary modules:
 
         >>> from pathlib import Path
@@ -313,7 +312,7 @@ class QueryCache:
         >>> import patito as pt
         >>> import pyarrow as pa
 
-        In order to construct a ``QueryCache``, we need to provide the constructor with
+        In order to construct a ``QuerySource``, we need to provide the constructor with
         a function that can *execute* query strings. How to construct this function will
         depend on your database of choice. For the purposes of demonstration we will use
         SQLite since it is built into Python's standard library, but you can use
@@ -352,16 +351,17 @@ class QueryCache:
         ...     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
         ...     return pa.Table.from_pylist(data)
 
-        We can now construct a ``QueryCache`` object, providing ``query_executor``
+        We can now construct a ``QuerySource`` object, providing ``query_executor``
         as the way to execute SQL queries:
 
-        >>> cache = pt.caching.QueryCache(
+        >>> cache = pt.sources.QuerySource(
         ...     sql_to_arrow=query_executor,
         ...     cache_directory=Path("/tmp/patito_cache"),
         ... )
 
-        The main way to use a ``QueryCache`` object is to use the ``@QueryCache.cache``
-        decarator to wrap functions which return SQL query *strings*.
+        The main way to use a ``QuerySource`` object is to use the
+        ``@QuerySource.query`` decarator to wrap functions which return SQL query
+        *strings*.
 
         >>> @cache.query()
         >>> def movies(newer_than_year: int):
@@ -389,10 +389,10 @@ class QueryCache:
         of a ``LazyFrame`` instead of a ``DataFrame``, ``ttl`` if you want to specify
         another TTL, and any additional keyword arguments are forwarded to
         ``query_executor`` when the SQL query is executed. You can read more about these
-        parameters in the documentation of :ref:`QueryCache.query`.
+        parameters in the documentation of :ref:`QuerySource.query`.
     """
 
-    def __init__(
+    def __init__(  # noqa: D107
         self,
         sql_to_arrow: Callable[..., pa.Table],
         cache_directory: Path,
@@ -454,7 +454,6 @@ class QueryCache:
                 If the parameter is specified as ``True``, a parquet file is
                 created for each unique query string, and is located at:
                 artifacts/query_cache/<function_name>/<query_md5_hash>.parquet
-
                 If the a string or ``pathlib.Path`` object is provided, the given path
                 will be used, but it must have a '.parquet' file extension.
                 Relative paths are interpreted relative to artifacts/query_cache/

@@ -92,7 +92,7 @@ def type_check(session):
     session.run("mypy", *args)
 
 
-@nox.session(python=["3.9"])
+@nox.session(python=["3.11"])
 def lint(session):
     """Run linters an project using flake8++."""
     args = session.posargs or locations
@@ -110,7 +110,7 @@ def lint(session):
     session.run("flake8", *args)
 
 
-@nox.session(python="3.9")
+@nox.session(python="3.11")
 def format(session):
     """Run the black formatter on the entire code base."""
     args = session.posargs or locations

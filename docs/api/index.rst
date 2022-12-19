@@ -10,10 +10,10 @@ API Reference
    patito/Field/index
 
 .. toctree::
-   :caption: Caching Functionality
+   :caption: External Database Integration
    :maxdepth: 1
 
-   patito/caching/index
+   patito/sources/index
 
 .. toctree::
    :caption: DuckDB Functionality

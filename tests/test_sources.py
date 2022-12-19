@@ -12,14 +12,14 @@ import patito as pt
 pa = pytest.importorskip("pyarrow")
 
 
-class LoggingQueryCache(pt.caching.QueryCache):
-    """A dummy query cache with an associated query execution log."""
+class LoggingQuerySource(pt.sources.QuerySource):
+    """A dummy query source with an associated query execution log."""
 
     executed_queries: List[str]
 
 
 @pytest.fixture()
-def query_cache(tmp_path) -> LoggingQueryCache:
+def query_cache(tmp_path) -> LoggingQuerySource:
     """
     Return dummy query cache with query execution logger.
 
@@ -40,7 +40,7 @@ def query_cache(tmp_path) -> LoggingQueryCache:
         data = {"column": [1, 2, 3]} if mock_data is None else mock_data
         return pa.Table.from_pydict(data)
 
-    query_cache = LoggingQueryCache(
+    query_cache = LoggingQuerySource(
         sql_to_arrow=sql_to_arrow,
         cache_directory=tmp_path,
         default_ttl=timedelta(weeks=52),
@@ -51,7 +51,7 @@ def query_cache(tmp_path) -> LoggingQueryCache:
     return query_cache
 
 
-def test_uncached_query(query_cache: LoggingQueryCache):
+def test_uncached_query(query_cache: LoggingQuerySource):
     """It should not cache queries by default."""
 
     @query_cache.query()
@@ -71,7 +71,7 @@ def test_uncached_query(query_cache: LoggingQueryCache):
     assert not any(query_cache.cache_directory.iterdir())
 
 
-def test_cached_query(query_cache: LoggingQueryCache):
+def test_cached_query(query_cache: LoggingQuerySource):
     """It should cache queries if so parametrized."""
 
     # We enable cache for the given query
@@ -117,7 +117,7 @@ def test_cached_query(query_cache: LoggingQueryCache):
 
 
 def test_cached_query_with_explicit_path(
-    query_cache: LoggingQueryCache,
+    query_cache: LoggingQuerySource,
     tmpdir: Path,
 ) -> None:
     """It should cache queries in the provided path."""
@@ -156,7 +156,7 @@ def test_cached_query_with_explicit_path(
             return f"query {version}"
 
 
-def test_cached_query_with_relative_path(query_cache: LoggingQueryCache) -> None:
+def test_cached_query_with_relative_path(query_cache: LoggingQuerySource) -> None:
     """Relative paths should be interpreted relative to the cache directory."""
     relative_path = Path("foo/bar.parquet")
 
@@ -168,7 +168,7 @@ def test_cached_query_with_relative_path(query_cache: LoggingQueryCache) -> None
     assert (query_cache.cache_directory / "foo" / "bar.parquet").exists()
 
 
-def test_cached_query_with_format_string(query_cache: LoggingQueryCache) -> None:
+def test_cached_query_with_format_string(query_cache: LoggingQuerySource) -> None:
     """Strings with placeholders should be interpolated."""
 
     @query_cache.query(cache="version-{version}.parquet")
@@ -183,7 +183,7 @@ def test_cached_query_with_format_string(query_cache: LoggingQueryCache) -> None
     assert (query_cache.cache_directory / "version-2.parquet").exists()
 
 
-def test_cached_query_with_format_path(query_cache: LoggingQueryCache) -> None:
+def test_cached_query_with_format_path(query_cache: LoggingQuerySource) -> None:
     """Paths with placeholders should be interpolated."""
 
     @query_cache.query(cache=query_cache.cache_directory / "version-{version}.parquet")
@@ -198,14 +198,14 @@ def test_cached_query_with_format_path(query_cache: LoggingQueryCache) -> None:
     assert (query_cache.cache_directory / "version-2.parquet").exists()
 
 
-def test_cache_ttl(query_cache: LoggingQueryCache, monkeypatch):
+def test_cache_ttl(query_cache: LoggingQuerySource, monkeypatch):
     """It should automatically refresh the cache according to the TTL."""
 
     # We freeze the time during the execution of this test
     class FrozenDatetime:
         def __init__(self, year: int, month: int, day: int) -> None:
             self.frozen_time = datetime(year=year, month=month, day=day)
-            monkeypatch.setattr(pt.caching, "datetime", self)
+            monkeypatch.setattr(pt.sources, "datetime", self)
 
         def now(self):
             return self.frozen_time
@@ -245,7 +245,7 @@ def test_cache_ttl(query_cache: LoggingQueryCache, monkeypatch):
 
 
 @pytest.mark.parametrize("cache", [True, False])
-def test_lazy_query(query_cache: LoggingQueryCache, cache: bool):
+def test_lazy_query(query_cache: LoggingQuerySource, cache: bool):
     """It should return a LazyFrame when specified with lazy=True."""
 
     @query_cache.query(lazy=True, cache=cache)
@@ -261,7 +261,7 @@ def test_lazy_query(query_cache: LoggingQueryCache, cache: bool):
     assert lazy().collect().frame_equal(eager())
 
 
-def test_model_query_model_validation(query_cache: LoggingQueryCache):
+def test_model_query_model_validation(query_cache: LoggingQuerySource):
     """It should validate the data model."""
 
     class CorrectModel(pt.Model):
@@ -285,7 +285,7 @@ def test_model_query_model_validation(query_cache: LoggingQueryCache):
 
 
 def test_custom_forwarding_of_parameters_to_query_function(
-    query_cache: LoggingQueryCache,
+    query_cache: LoggingQuerySource,
 ):
     """It should forward all additional parameters to the sql_to_arrow function."""
 
@@ -306,7 +306,7 @@ def test_custom_forwarding_of_parameters_to_query_function(
     assert non_normalized_custom_data().frame_equal(pl.DataFrame(data))
 
 
-def test_clear_caches(query_cache: LoggingQueryCache):
+def test_clear_caches(query_cache: LoggingQuerySource):
     """It should clear all cache files with .clear_all_caches()."""
 
     @query_cache.query(cache=True)
@@ -350,7 +350,7 @@ def test_clear_caches(query_cache: LoggingQueryCache):
     uncached_products.clear_caches()
 
 
-def test_clear_caches_with_formatted_paths(query_cache: LoggingQueryCache):
+def test_clear_caches_with_formatted_paths(query_cache: LoggingQuerySource):
     """Formatted paths should also be properly cleared."""
     # We specify another temporary cache directory to see if caches can be cleared
     # irregardless of the cache directory's location.
@@ -391,7 +391,7 @@ def test_clear_caches_with_formatted_paths(query_cache: LoggingQueryCache):
     tmp_dir.cleanup()
 
 
-def test_ejection_of_incompatible_caches(query_cache: LoggingQueryCache):
+def test_ejection_of_incompatible_caches(query_cache: LoggingQuerySource):
     """It should clear old, incompatible caches."""
 
     cache_path = query_cache.cache_directory / "my_cache.parquet"
@@ -412,9 +412,9 @@ def test_ejection_of_incompatible_caches(query_cache: LoggingQueryCache):
     arrow_table = pa.parquet.read_table(cache_path)  # noqa
     metadata = arrow_table.schema.metadata
     assert (
-        int.from_bytes(metadata[b"cache_version"], "little") == pt.caching.CACHE_VERSION
+        int.from_bytes(metadata[b"cache_version"], "little") == pt.sources.CACHE_VERSION
     )
-    metadata[b"cache_version"] = (pt.caching.CACHE_VERSION - 1).to_bytes(
+    metadata[b"cache_version"] = (pt.sources.CACHE_VERSION - 1).to_bytes(
         length=16,
         byteorder="little",
         signed=False,
