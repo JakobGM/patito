@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -33,7 +34,7 @@ def query_cache(tmp_path) -> LoggingQuerySource:
     executed_queries = []
 
     # Unless other is specified, some dummy data is always returned
-    def sql_to_arrow(
+    def query_handler(
         query, mock_data: Optional[dict] = None
     ) -> pa.Table:  # type: ignore
         executed_queries.append(query)
@@ -41,7 +42,7 @@ def query_cache(tmp_path) -> LoggingQuerySource:
         return pa.Table.from_pydict(data)
 
     query_cache = LoggingQuerySource(
-        sql_to_arrow=sql_to_arrow,
+        query_handler=query_handler,
         cache_directory=tmp_path,
         default_ttl=timedelta(weeks=52),
     )
@@ -436,3 +437,15 @@ def test_ejection_of_incompatible_caches(query_cache: LoggingQuerySource):
     )
     my_query()
     assert query_cache.executed_queries == ["my query"] * 3
+
+
+def test_adherence_to_xdg_directory_standard(monkeypatch, tmpdir):
+    """It should use XDG Cache Home when no cache directory is specified."""
+    xdg_cache_home = tmpdir / ".cache"
+    os.environ["XDG_CACHE_HOME"] = str(xdg_cache_home)
+    query_source = pt.sources.QuerySource(query_handler=lambda query: pa.Table())
+    assert query_source.cache_directory == xdg_cache_home / "patito"
+
+    del os.environ["XDG_CACHE_HOME"]
+    query_source = pt.sources.QuerySource(query_handler=lambda query: pa.Table())
+    assert query_source.cache_directory == Path("~/.cache/patito").resolve()

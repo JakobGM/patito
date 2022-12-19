@@ -25,6 +25,8 @@ import pyarrow as pa  # type: ignore[import]
 import pyarrow.parquet as pq  # type: ignore[import]
 from typing_extensions import Literal, ParamSpec, Protocol
 
+from patito import xdg
+
 if TYPE_CHECKING:
     from patito import Model
 
@@ -63,7 +65,7 @@ class WrappedQueryFunc(Generic[P, DF]):
         self,
         wrapped_function: QueryFunc[P],
         cache_directory: Path,
-        sql_to_arrow: Callable[..., pa.Table],
+        query_handler: Callable[..., pa.Table],
         ttl: timedelta,
         lazy: bool = False,
         cache: Union[str, Path, bool] = False,
@@ -76,14 +78,14 @@ class WrappedQueryFunc(Generic[P, DF]):
             wrapped_function: A function that takes arbitrary arguments and returns
                 an SQL query string.
             cache_directory: Path to directory to store parquet cache files in.
-            sql_to_arrow: Function used to execute SQL queries and return pyarrow
-                Tables.
+            query_handler: Function used to execute SQL queries and return arrow
+                tables.
             ttl: See QuerySource.query for documentation.
             lazy: See QuerySource.query for documentation.
             cache: See QuerySource.query for documentation.
             model: See QuerySource.query for documentation.
             query_executor_kwargs: Arbitrary keyword arguments forwarded to the query
-                executor, in this case sql_to_arrow, and thus db_params is the only
+                executor, in this case ``query_handler``, and thus db_params is the only
                 keyword argument supported so far.
 
         Raises:
@@ -143,7 +145,7 @@ class WrappedQueryFunc(Generic[P, DF]):
                     else:
                         return pl.read_parquet(cache_path)  # type: ignore
 
-            arrow_table = sql_to_arrow(sql_query, **self._query_executor_kwargs)
+            arrow_table = query_handler(sql_query, **self._query_executor_kwargs)
             if cache_path:
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
                 # We write the cache *before* any potential model validation since
@@ -293,12 +295,14 @@ class QuerySource:
     Construct manager for executing SQL queries and caching the results.
 
     Args:
-        sql_to_arrow: The function that the QuerySource should use for executing SQL
-            queries. Its first argument should be the SQL query string to execute, and
-            it should return the query result as an arrow table, for instance
+        query_handler: The function that the QuerySource object should use for executing
+            SQL queries. Its first argument should be the SQL query string to execute,
+            and it should return the query result as an arrow table, for instance
             pyarrow.Table.
         cache_directory: Path to the directory where caches should be stored as parquet
-            files.
+            files. If not provided, the `XDG`_ Base Directory Specification will be
+            used to determine the suitable cache directory, by default
+            ``~/.cache/patito`` or ``${XDG_CACHE_HOME}/patito``.
         default_ttl: The default Time To Live (TTL), or with other words, how long to
             wait until caches are refreshed due to old age. The given default TTL can be
             overwritten by specifying the ``ttl`` parameter in
@@ -314,9 +318,10 @@ class QuerySource:
 
         In order to construct a ``QuerySource``, we need to provide the constructor with
         a function that can *execute* query strings. How to construct this function will
-        depend on your database of choice. For the purposes of demonstration we will use
+        depend on what you actually want to run your queries against, for example a
+        local or remote database. For the purposes of demonstration we will use
         SQLite since it is built into Python's standard library, but you can use
-        anything such as for example Snowflake or PostgresQL.
+        anything; for example Snowflake or PostgresQL.
 
         We will use Python's standard library
         `documentation <https://docs.python.org/3/library/sqlite3.html>`_
@@ -344,26 +349,23 @@ class QuerySource:
         SQL queries as its first parameter, executes the query, and returns the query
         result in the form of an Arrow table.
 
-        >>> def query_executor(query: str) -> pa.Table:
+        >>> def query_handler(query: str) -> pa.Table:
         ...     cursor = dummy_database()
         ...     cursor.execute(query)
         ...     columns = [description[0] for description in cursor.description]
         ...     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
         ...     return pa.Table.from_pylist(data)
 
-        We can now construct a ``QuerySource`` object, providing ``query_executor``
+        We can now construct a ``QuerySource`` object, providing ``query_handler``
         as the way to execute SQL queries:
 
-        >>> cache = pt.sources.QuerySource(
-        ...     sql_to_arrow=query_executor,
-        ...     cache_directory=Path("/tmp/patito_cache"),
-        ... )
+        >>> source = pt.sources.QuerySource(query_handler=query_handler)
 
         The main way to use a ``QuerySource`` object is to use the
         ``@QuerySource.query`` decarator to wrap functions which return SQL query
         *strings*.
 
-        >>> @cache.query()
+        >>> @source.query()
         >>> def movies(newer_than_year: int):
         ...     return f"select * from movies where year > {newer_than_year}"
 
@@ -390,16 +392,18 @@ class QuerySource:
         another TTL, and any additional keyword arguments are forwarded to
         ``query_executor`` when the SQL query is executed. You can read more about these
         parameters in the documentation of :ref:`QuerySource.query`.
+
+    .. _XDG: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
     """
 
     def __init__(  # noqa: D107
         self,
-        sql_to_arrow: Callable[..., pa.Table],
-        cache_directory: Path,
+        query_handler: Callable[..., pa.Table],
+        cache_directory: Optional[Path] = None,
         default_ttl: timedelta = timedelta(weeks=52),  # noqa: B008
     ) -> None:
-        self.sql_to_arrow = sql_to_arrow
-        self.cache_directory = cache_directory
+        self.query_handler = query_handler
+        self.cache_directory = cache_directory or xdg.cache_home(application="patito")
         self.default_ttl = default_ttl
 
         self.cache_directory.mkdir(exist_ok=True, parents=True)
@@ -482,19 +486,19 @@ class QuerySource:
                 ttl=ttl if ttl is not None else self.default_ttl,
                 cache_directory=self.cache_directory,
                 model=model,
-                sql_to_arrow=_with_query_metadata(self.sql_to_arrow),
+                query_handler=_with_query_metadata(self.query_handler),
                 query_executor_kwargs=kwargs,
             )
 
         return wrapper
 
 
-def _with_query_metadata(sql_to_arrow: Callable[P, pa.Table]) -> Callable[P, pa.Table]:
+def _with_query_metadata(query_handler: Callable[P, pa.Table]) -> Callable[P, pa.Table]:
     """
-    Wrap SQL-query executor with additional logic.
+    Wrap SQL-query handler with additional logic.
 
     Args:
-        sql_to_arrow: Function accepting an SQL query as its first argument and
+        query_handler: Function accepting an SQL query as its first argument and
             returning an Arrow table.
 
     Returns:
@@ -503,8 +507,8 @@ def _with_query_metadata(sql_to_arrow: Callable[P, pa.Table]) -> Callable[P, pa.
         compatible ones where applicable.
     """
 
-    @wraps(sql_to_arrow)
-    def wrapped_sql_to_arrow(
+    @wraps(query_handler)
+    def wrapped_query_handler(
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> pa.Table:
@@ -512,7 +516,7 @@ def _with_query_metadata(sql_to_arrow: Callable[P, pa.Table]) -> Callable[P, pa.
             "cast_to_polars_equivalent_types", True
         )
         start_time = datetime.now()
-        arrow_table = sql_to_arrow(*args, **kwargs)
+        arrow_table = query_handler(*args, **kwargs)
         finish_time = datetime.now()
         metadata: dict = arrow_table.schema.metadata or {}
         if cast_to_polars_equivalent_types:
@@ -531,4 +535,9 @@ def _with_query_metadata(sql_to_arrow: Callable[P, pa.Table]) -> Callable[P, pa.
         )
         return arrow_table.replace_schema_metadata(metadata)
 
-    return wrapped_sql_to_arrow
+    return wrapped_query_handler
+
+
+__all__ = [
+    "QuerySource",
+]
