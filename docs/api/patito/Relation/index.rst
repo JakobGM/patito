@@ -7,30 +7,19 @@ patito.Relation
 
 .. automethod:: Relation.__init__
 
-Properties
-----------
-
 .. toctree::
-   :maxdepth: 1
-
-   alias <alias>
-   columns <columns>
-   model <model>
-   types <types>
-
-Methods
--------
-
-.. toctree::
+   :caption: Methods & Properties
    :maxdepth: 1
 
    add_prefix <add_prefix>
    add_suffix <add_suffix>
    aggregate <aggregate>
+   alias <alias>
    all <all>
    case <case>
    cast <cast>
    coalesce <coalesce>
+   columns <columns>
    count <count>
    create_table <create_table>
    create_view <create_view>
@@ -46,14 +35,16 @@ Methods
    join <join>
    left_join <left_join>
    limit <limit>
+   model <model>
    order <order>
-   select <select>
    rename <rename>
+   select <select>
    set_alias <set_alias>
    set_model <set_model>
    to_df <to_df>
    to_pandas <to_pandas>
    to_series <to_series>
+   types <types>
    union <union>
    with_columns <with_columns>
    with_missing_defaultable_columns <with_missing_defaultable_columns>

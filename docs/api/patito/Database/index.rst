@@ -7,10 +7,8 @@ patito.Database
 
 .. automethod:: Database.__init__
 
-Methods
--------
-
 .. toctree::
+   :caption: Methods
    :maxdepth: 1
 
    create_enum_types <create_enum_types>

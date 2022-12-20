@@ -5,10 +5,8 @@
 
 .. autoclass:: DataFrame
 
-Methods
--------
-
 .. toctree::
+   :caption: Methods
    :maxdepth: 1
 
    cast <cast>

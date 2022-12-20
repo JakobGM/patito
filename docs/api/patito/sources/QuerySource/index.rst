@@ -5,10 +5,8 @@ patito.sources.QuerySource
 
 .. autoclass:: QuerySource
 
-Methods
--------
-
 .. toctree::
+   :caption: Methods
    :maxdepth: 1
 
    as_query <as_query>

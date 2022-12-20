@@ -3,6 +3,7 @@ Overview
 
 .. toctree::
    :hidden:
+   :titlesonly:
 
    Tutorials - User Guide <tutorial/index>
    api/index
