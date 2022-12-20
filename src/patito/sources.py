@@ -357,15 +357,28 @@ class QuerySource:
         ...     return pa.Table.from_pylist(data)
 
         We can now construct a ``QuerySource`` object, providing ``query_handler``
-        as the way to execute SQL queries:
+        as the way to execute SQL queries.
 
         >>> source = pt.sources.QuerySource(query_handler=query_handler)
 
-        The main way to use a ``QuerySource`` object is to use the
-        ``@QuerySource.query`` decarator to wrap functions which return SQL query
-        *strings*.
+        The resulting object can now be used to execute SQL queries against the database
+        and return the result in the form of a polars ``DataFrame`` object.
 
-        >>> @source.query()
+        >>> source.query("select * from movies order by year limit 1")
+        shape: (1, 3)
+        ┌──────────────────────────────┬──────┬───────┐
+        │ title                        ┆ year ┆ score │
+        │ ---                          ┆ ---  ┆ ---   │
+        │ str                          ┆ i64  ┆ f64   │
+        ╞══════════════════════════════╪══════╪═══════╡
+        │ Monty Python's Life of Brian ┆ 1979 ┆ 8.0   │
+        └──────────────────────────────┴──────┴───────┘
+
+        But the main way to use a ``QuerySource`` object is to use the
+        ``@QuerySource.as_query`` decarator to wrap functions which return SQL
+        query *strings*.
+
+        >>> @source.as_query()
         >>> def movies(newer_than_year: int):
         ...     return f"select * from movies where year > {newer_than_year}"
 
@@ -386,10 +399,10 @@ class QuerySource:
         └─────────────────────────────────────┴──────┴───────┘
 
         Caching is not enabled by default, but it can be enabled by specifying
-        ``cache=True`` to the ``@cache.query(...)`` decorator. Other arguments are also
-        accepted, such as ``lazy=True`` if you want to retrieve the results in the form
-        of a ``LazyFrame`` instead of a ``DataFrame``, ``ttl`` if you want to specify
-        another TTL, and any additional keyword arguments are forwarded to
+        ``cache=True`` to the ``@cache.as_query(...)`` decorator. Other arguments are
+        also accepted, such as ``lazy=True`` if you want to retrieve the results in the
+        form of a ``LazyFrame`` instead of a ``DataFrame``, ``ttl`` if you want to
+        specify another TTL, and any additional keyword arguments are forwarded to
         ``query_executor`` when the SQL query is executed. You can read more about these
         parameters in the documentation of :ref:`QuerySource.query`.
 
@@ -410,7 +423,7 @@ class QuerySource:
 
     # With lazy = False a DataFrame-producing wrapper is returned
     @overload
-    def query(
+    def as_query(
         self,
         *,
         lazy: Literal[False] = False,
@@ -423,7 +436,7 @@ class QuerySource:
 
     # With lazy = True a LazyFrame-producing wrapper is returned
     @overload
-    def query(
+    def as_query(
         self,
         *,
         lazy: Literal[True],
@@ -434,7 +447,7 @@ class QuerySource:
     ) -> Callable[[QueryConstructor[P]], QueryHandler[P, pl.LazyFrame]]:
         ...  # pragma: no cover
 
-    def query(
+    def as_query(
         self,
         *,
         lazy: bool = False,
@@ -491,6 +504,109 @@ class QuerySource:
             )
 
         return wrapper
+
+    # With lazy=False, a DataFrame is returned
+    @overload
+    def query(
+        self,
+        query: str,
+        *,
+        lazy: Literal[False] = False,
+        cache: Union[str, Path, bool] = False,
+        ttl: Optional[timedelta] = None,
+        model: Union[Type["Model"], None] = None,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> pl.DataFrame:
+        ...  # pragma: no cover
+
+    # With lazy=True, a LazyFrame is returned
+    @overload
+    def query(
+        self,
+        query: str,
+        *,
+        lazy: Literal[True],
+        cache: Union[str, Path, bool] = False,
+        ttl: Optional[timedelta] = None,
+        model: Union[Type["Model"], None] = None,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> pl.LazyFrame:
+        ...  # pragma: no cover
+
+    def query(
+        self,
+        query: str,
+        *,
+        lazy: bool = False,
+        cache: Union[str, Path, bool] = False,
+        ttl: Optional[timedelta] = None,
+        model: Union[Type["Model"], None] = None,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> Union[pl.DataFrame, pl.LazyFrame]:
+        """
+        Execute the given query and return the query result as a DataFrame or LazyFrame.
+
+        See :ref:`QuerySource.as_query` for a more powerful way to build and execute
+        queries.
+
+        Args:
+            query: The query string to be executed, for instance an SQL query.
+            lazy: If the query  result should be returned in the form of a LazyFrame
+                instead of a DataFrame.
+            cache: If the query result should be saved and re-used the next time the
+                same query is executed. Can also be provided as a path. See
+                :func:`QuerySource.as_query` for full documentation.
+            ttl: How long to use cached results until the query is re-executed anyway.
+            model: A :ref:`Model` to optionally validate the query result.
+            **kwargs: All additional keyword arguments are forwarded to the query
+                handler which executes the given query.
+
+        Returns:
+            The result of the query in the form of a ``DataFrame`` if ``lazy=False``, or
+            a ``LazyFrame`` otherwise.
+
+        Examples:
+            We will use DuckDB as our example database.
+
+            >>> import duckdb
+            >>> import patito as pt
+
+            We will construct a really simple query source from an in-memory database.
+
+            >>> db = duckdb.connect(":memory:")
+            >>> query_handler = lambda query: db.cursor().query(query).arrow()
+            >>> query_source = pt.sources.QuerySource(query_handler=query_handler)
+
+            We can now use :func:`QuerySource.query` in order to execute queries against
+            the in-memory database.
+
+            >>> query_source.query("select 1 as a, 2 as b, 3 as c")
+            shape: (1, 3)
+            ┌─────┬─────┬─────┐
+            │ a   ┆ b   ┆ c   │
+            │ --- ┆ --- ┆ --- │
+            │ i32 ┆ i32 ┆ i32 │
+            ╞═════╪═════╪═════╡
+            │ 1   ┆ 2   ┆ 3   │
+            └─────┴─────┴─────┘
+        """
+
+        def __direct_query() -> str:
+            """
+            A regular named function in order to store parquet files correctly.
+
+            Returns:
+                The user-provided query string.
+            """
+            return query
+
+        return self.as_query(
+            lazy=lazy,  # type: ignore
+            cache=cache,
+            ttl=ttl,
+            model=model,
+            **kwargs,
+        )(__direct_query)()
 
 
 def _with_query_metadata(query_handler: Callable[P, pa.Table]) -> Callable[P, pa.Table]:

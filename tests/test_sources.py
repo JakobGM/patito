@@ -1,16 +1,20 @@
 import os
+import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import polars as pl
 import pytest
 
 import patito as pt
 
-# Python 3.7 does not support pyarrow
-pa = pytest.importorskip("pyarrow")
+if TYPE_CHECKING:
+    import pyarrow as pa  # type: ignore
+else:
+    # Python 3.7 does not support pyarrow
+    pa = pytest.importorskip("pyarrow")
 
 
 class LoggingQuerySource(pt.sources.QuerySource):
@@ -34,9 +38,7 @@ def query_cache(tmp_path) -> LoggingQuerySource:
     executed_queries = []
 
     # Unless other is specified, some dummy data is always returned
-    def query_handler(
-        query, mock_data: Optional[dict] = None
-    ) -> pa.Table:  # type: ignore
+    def query_handler(query, mock_data: Optional[dict] = None) -> pa.Table:
         executed_queries.append(query)
         data = {"column": [1, 2, 3]} if mock_data is None else mock_data
         return pa.Table.from_pydict(data)
@@ -47,7 +49,52 @@ def query_cache(tmp_path) -> LoggingQuerySource:
         default_ttl=timedelta(weeks=52),
     )
 
-    # Attach the query execution log as an attribute of the cacher
+    # Attach the query execution log as an attribute of the query source
+    query_cache.executed_queries = executed_queries
+    return query_cache
+
+
+@pytest.fixture
+def query_source(tmpdir) -> LoggingQuerySource:
+    """
+    A QuerySource connected to an in-memory SQLite3 database with dummy data.
+
+    Args:
+        tmpdir: Test-specific temporary directory provided by pytest.
+
+    Returns:
+        A query source which also keeps track of the executed queries.
+    """
+    # Keep track of the executed queries in a mutable list
+    executed_queries = []
+
+    def dummy_database() -> sqlite3.Cursor:
+        connection = sqlite3.connect(":memory:")
+        cursor = connection.cursor()
+        cursor.execute("CREATE TABLE movies(title, year, score)")
+        data = [
+            ("Monty Python Live at the Hollywood Bowl", 1982, 7.9),
+            ("Monty Python's The Meaning of Life", 1983, 7.5),
+            ("Monty Python's Life of Brian", 1979, 8.0),
+        ]
+        cursor.executemany("INSERT INTO movies VALUES(?, ?, ?)", data)
+        connection.commit()
+        return cursor
+
+    def query_handler(query: str) -> pa.Table:
+        cursor = dummy_database()
+        cursor.execute(query)
+        executed_queries.append(query)
+        columns = [description[0] for description in cursor.description]
+        data = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return pa.Table.from_pylist(data)
+
+    # Attach the query execution log as an attribute of the query source
+    tmp_dir = Path(tmpdir)
+    query_cache = LoggingQuerySource(
+        query_handler=query_handler,
+        cache_directory=tmp_dir,
+    )
     query_cache.executed_queries = executed_queries
     return query_cache
 
@@ -55,7 +102,7 @@ def query_cache(tmp_path) -> LoggingQuerySource:
 def test_uncached_query(query_cache: LoggingQuerySource):
     """It should not cache queries by default."""
 
-    @query_cache.query()
+    @query_cache.as_query()
     def products():
         return "query"
 
@@ -76,7 +123,7 @@ def test_cached_query(query_cache: LoggingQuerySource):
     """It should cache queries if so parametrized."""
 
     # We enable cache for the given query
-    @query_cache.query(cache=True)
+    @query_cache.as_query(cache=True)
     def products(version: int):
         return f"query {version}"
 
@@ -125,7 +172,7 @@ def test_cached_query_with_explicit_path(
     cache_path = Path(tmpdir / "name.parquet")
 
     # This time we specify an explicit path
-    @query_cache.query(cache=cache_path)
+    @query_cache.as_query(cache=cache_path)
     def products(version):
         return f"query {version}"
 
@@ -152,7 +199,7 @@ def test_cached_query_with_explicit_path(
         match=r"Cache paths must have the '\.parquet' file extension\!",
     ):
 
-        @query_cache.query(cache=tmpdir / "name.csv")
+        @query_cache.as_query(cache=tmpdir / "name.csv")
         def products(version):
             return f"query {version}"
 
@@ -161,7 +208,7 @@ def test_cached_query_with_relative_path(query_cache: LoggingQuerySource) -> Non
     """Relative paths should be interpreted relative to the cache directory."""
     relative_path = Path("foo/bar.parquet")
 
-    @query_cache.query(cache=relative_path)
+    @query_cache.as_query(cache=relative_path)
     def products():
         return "query"
 
@@ -172,7 +219,7 @@ def test_cached_query_with_relative_path(query_cache: LoggingQuerySource) -> Non
 def test_cached_query_with_format_string(query_cache: LoggingQuerySource) -> None:
     """Strings with placeholders should be interpolated."""
 
-    @query_cache.query(cache="version-{version}.parquet")
+    @query_cache.as_query(cache="version-{version}.parquet")
     def products(version: int):
         return f"query {version}"
 
@@ -187,7 +234,9 @@ def test_cached_query_with_format_string(query_cache: LoggingQuerySource) -> Non
 def test_cached_query_with_format_path(query_cache: LoggingQuerySource) -> None:
     """Paths with placeholders should be interpolated."""
 
-    @query_cache.query(cache=query_cache.cache_directory / "version-{version}.parquet")
+    @query_cache.as_query(
+        cache=query_cache.cache_directory / "version-{version}.parquet"
+    )
     def products(version: int):
         return f"query {version}"
 
@@ -216,7 +265,7 @@ def test_cache_ttl(query_cache: LoggingQuerySource, monkeypatch):
             return datetime.fromisoformat(*args, **kwargs)
 
     # The cache should be cleared every week
-    @query_cache.query(cache=True, ttl=timedelta(weeks=1))
+    @query_cache.as_query(cache=True, ttl=timedelta(weeks=1))
     def users():
         return "query"
 
@@ -249,11 +298,11 @@ def test_cache_ttl(query_cache: LoggingQuerySource, monkeypatch):
 def test_lazy_query(query_cache: LoggingQuerySource, cache: bool):
     """It should return a LazyFrame when specified with lazy=True."""
 
-    @query_cache.query(lazy=True, cache=cache)
+    @query_cache.as_query(lazy=True, cache=cache)
     def lazy():
         return "query"
 
-    @query_cache.query(lazy=False, cache=cache)
+    @query_cache.as_query(lazy=False, cache=cache)
     def eager():
         return "query"
 
@@ -268,7 +317,7 @@ def test_model_query_model_validation(query_cache: LoggingQuerySource):
     class CorrectModel(pt.Model):
         column: int
 
-    @query_cache.query(model=CorrectModel)
+    @query_cache.as_query(model=CorrectModel)
     def correct_data():
         return ""
 
@@ -277,7 +326,7 @@ def test_model_query_model_validation(query_cache: LoggingQuerySource):
     class IncorrectModel(pt.Model):
         column: str
 
-    @query_cache.query(model=IncorrectModel)
+    @query_cache.as_query(model=IncorrectModel)
     def incorrect_data():
         return ""
 
@@ -293,14 +342,14 @@ def test_custom_forwarding_of_parameters_to_query_function(
     # The dummy cacher accepts a "data" parameter, specifying the data to be returned
     data = {"actual_data": [10, 20, 30]}
 
-    @query_cache.query(mock_data=data)
+    @query_cache.as_query(mock_data=data)
     def custom_data():
         return "select 1, 2, 3 as dummy_column"
 
     assert custom_data().frame_equal(pl.DataFrame(data))
 
     # It should also work without type normalization
-    @query_cache.query(mock_data=data, cast_to_polars_equivalent_types=False)
+    @query_cache.as_query(mock_data=data, cast_to_polars_equivalent_types=False)
     def non_normalized_custom_data():
         return "select 1, 2, 3 as dummy_column"
 
@@ -310,7 +359,7 @@ def test_custom_forwarding_of_parameters_to_query_function(
 def test_clear_caches(query_cache: LoggingQuerySource):
     """It should clear all cache files with .clear_all_caches()."""
 
-    @query_cache.query(cache=True)
+    @query_cache.as_query(cache=True)
     def products(version: int):
         return f"query {version}"
 
@@ -344,7 +393,7 @@ def test_clear_caches(query_cache: LoggingQuerySource):
     assert len(list(products_cache_dir.iterdir())) == 4
 
     # If caching is not enabled, clear_caches should be a NO-OP
-    @query_cache.query(cache=False)
+    @query_cache.as_query(cache=False)
     def uncached_products(version: int):
         return f"query {version}"
 
@@ -358,7 +407,7 @@ def test_clear_caches_with_formatted_paths(query_cache: LoggingQuerySource):
     tmp_dir = TemporaryDirectory()
     cache_dir = Path(tmp_dir.name)
 
-    @query_cache.query(cache=cache_dir / "{a}" / "{b}.parquet")
+    @query_cache.as_query(cache=cache_dir / "{a}" / "{b}.parquet")
     def users(a: int, b: int):
         return f"query {a}.{b}"
 
@@ -397,7 +446,7 @@ def test_ejection_of_incompatible_caches(query_cache: LoggingQuerySource):
 
     cache_path = query_cache.cache_directory / "my_cache.parquet"
 
-    @query_cache.query(cache=cache_path)
+    @query_cache.as_query(cache=cache_path)
     def my_query():
         return "my query"
 
@@ -449,3 +498,23 @@ def test_adherence_to_xdg_directory_standard(monkeypatch, tmpdir):
     del os.environ["XDG_CACHE_HOME"]
     query_source = pt.sources.QuerySource(query_handler=lambda query: pa.Table())
     assert query_source.cache_directory == Path("~/.cache/patito").resolve()
+
+
+def test_invoking_query_source_directly_with_query_string(
+    query_source: LoggingQuerySource,
+):
+    """It should accept SQL queries directly, not ony query constructors."""
+    sql = "select * from movies"
+    movies = query_source.query(sql)
+    assert query_source.executed_queries == [sql]
+    assert len(list(query_source.cache_directory.iterdir())) == 0
+    assert movies.height == 3
+
+    for _ in range(2):
+        query_source.query(sql, cache=True)
+        assert query_source.executed_queries == [sql] * 2
+        assert (
+            len(list((query_source.cache_directory / "__direct_query").iterdir())) == 1
+        )
+
+    assert query_source.query(sql, lazy=True).collect().frame_equal(movies)

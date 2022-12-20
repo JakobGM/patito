@@ -7,6 +7,6 @@ Classes
 -------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 3
 
    QuerySource/index.rst

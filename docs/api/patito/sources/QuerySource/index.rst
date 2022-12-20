@@ -11,4 +11,5 @@ Methods
 .. toctree::
    :maxdepth: 1
 
+   as_query <as_query>
    query <query>
