@@ -518,3 +518,49 @@ def test_invoking_query_source_directly_with_query_string(
         )
 
     assert query_source.query(sql, lazy=True).collect().frame_equal(movies)
+
+
+@pytest.mark.skip(reason="TODO: Future feature to implement")
+def test_custom_kwarg_hashing(tmp_path):
+    """You should be able to hash the keyword arguments passed to the query handler."""
+
+    executed_queries = []
+
+    def query_handler(query: str, prod=False) -> pa.Table:
+        executed_queries.append(query)
+        return pa.Table.from_pydict({"column": [1, 2, 3]})
+
+    def query_handler_hasher(query: str, prod: bool) -> bytes:
+        return bytes(prod)
+
+    dummy_source = pt.sources.QuerySource(
+        query_handler=query_handler,
+        query_handler_hasher=query_handler_hasher,  # pyright: ignore
+        cache_directory=tmp_path,
+    )
+
+    # The first time the query should be executed
+    sql_query = "select * from my_table"
+    dummy_source.query(sql_query, cache=True)
+    assert executed_queries == [sql_query]
+    assert len(list(dummy_source.cache_directory.rglob("*.parquet"))) == 1
+
+    # The second time the dev query has been cached
+    dummy_source.query(sql_query, cache=True)
+    assert executed_queries == [sql_query]
+    assert len(list(dummy_source.cache_directory.rglob("*.parquet"))) == 1
+
+    # The production query has never executed, so a new query is executed
+    dummy_source.query(sql_query, cache=True, prod=True)
+    assert executed_queries == [sql_query] * 2
+    assert len(list(dummy_source.cache_directory.rglob("*.parquet"))) == 2
+
+    # Then the production query cache is used
+    dummy_source.query(sql_query, cache=True, prod=True)
+    assert executed_queries == [sql_query] * 2
+    assert len(list(dummy_source.cache_directory.rglob("*.parquet"))) == 2
+
+    # And the dev query cache still remains
+    dummy_source.query(sql_query, cache=True)
+    assert executed_queries == [sql_query] * 2
+    assert len(list(dummy_source.cache_directory.rglob("*.parquet"))) == 2
