@@ -3,6 +3,6 @@
 patito.QuerySource.query
 =========================
 
-.. currentmodule:: patito.sources
+.. currentmodule:: patito
 
 .. automethod:: QuerySource.query

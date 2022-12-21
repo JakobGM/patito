@@ -359,7 +359,7 @@ class QuerySource:
         We can now construct a ``QuerySource`` object, providing ``query_handler``
         as the way to execute SQL queries.
 
-        >>> source = pt.sources.QuerySource(query_handler=query_handler)
+        >>> source = pt.QuerySource(query_handler=query_handler)
 
         The resulting object can now be used to execute SQL queries against the database
         and return the result in the form of a polars ``DataFrame`` object.
@@ -575,7 +575,7 @@ class QuerySource:
 
             >>> db = duckdb.connect(":memory:")
             >>> query_handler = lambda query: db.cursor().query(query).arrow()
-            >>> query_source = pt.sources.QuerySource(query_handler=query_handler)
+            >>> query_source = pt.QuerySource(query_handler=query_handler)
 
             We can now use :func:`QuerySource.query` in order to execute queries against
             the in-memory database.

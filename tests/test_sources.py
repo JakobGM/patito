@@ -17,7 +17,7 @@ else:
     pa = pytest.importorskip("pyarrow")
 
 
-class LoggingQuerySource(pt.sources.QuerySource):
+class LoggingQuerySource(pt.QuerySource):
     """A dummy query source with an associated query execution log."""
 
     executed_queries: List[str]
@@ -492,7 +492,7 @@ def test_adherence_to_xdg_directory_standard(monkeypatch, tmpdir):
     """It should use XDG Cache Home when no cache directory is specified."""
     xdg_cache_home = tmpdir / ".cache"
     os.environ["XDG_CACHE_HOME"] = str(xdg_cache_home)
-    query_source = pt.sources.QuerySource(query_handler=lambda query: pa.Table())
+    query_source = pt.QuerySource(query_handler=lambda query: pa.Table())
     assert query_source.cache_directory == xdg_cache_home / "patito"
 
     del os.environ["XDG_CACHE_HOME"]
@@ -533,7 +533,7 @@ def test_custom_kwarg_hashing(tmp_path):
     def query_handler_hasher(query: str, prod: bool) -> bytes:
         return bytes(prod)
 
-    dummy_source = pt.sources.QuerySource(
+    dummy_source = pt.QuerySource(
         query_handler=query_handler,
         query_handler_hasher=query_handler_hasher,  # pyright: ignore
         cache_directory=tmp_path,

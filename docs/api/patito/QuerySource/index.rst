@@ -1,7 +1,7 @@
-patito.sources.QuerySource
-===========================
+patito.QuerySource
+===================
 
-.. currentmodule:: patito.sources
+.. currentmodule:: patito
 
 .. autoclass:: QuerySource
 
