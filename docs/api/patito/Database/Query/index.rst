@@ -5,6 +5,8 @@ patito.Database.Query
 
 .. autoclass:: patito.database::DatabaseQuery
 
+.. _QueryMethods:
+
 .. toctree::
    :caption: Methods
    :maxdepth: 1

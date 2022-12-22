@@ -1,9 +1,47 @@
 Integrating Polars With an SQL Database Using Efficient Caching
 ===============================================================
 
-Many data-driven projects will involve some data stored in a remote data warehouse solution.
-The following tutorial will explain how you should write code that fetches and validates data in such remote databases.
-This is such a common problem to be solved that the tutorial encourages you to follow a set of best practice conventions.
+.. mermaid::
+   :align: center
+
+    %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#FFF5E6', 'secondaryColor': '#FFF5E6' }}}%%
+    graph LR;
+        source[Source system]
+        dw[Data Warehouse]
+        csv[Local .csv]
+        ds[Data application]
+        source-->|data pipeline|dw-->|SQL query|csv-->|read_csv|ds
+        dw-->|cached Patito<br>integration|ds
+
+Many data-driven applications involve data that must be retrieved from a database, either a remote data warehouse solution such as Databricks or Snowflake, or a local database such as DuckDB or SQLite3.
+Patito offers a database-agnostic API to query such sources in an efficient way by utilizing intelligent caching.
+
+By the end of this tutorial you will be able to write data ingestion logic that looks like this:
+
+.. code::
+
+   from typing import Optional
+
+   from db import my_database
+
+   @my_database.as_query(cache=True)
+   def users(country: Optional[str] = None):
+      query = "select * from users"
+      if country:
+         query += f" where country = '{country}'"
+      return query
+
+The wrapped ``users`` function will now construct, execute, cache, and return the results of the SQL query in the form of a ``polars.DataFrame`` object.
+The cache for ``users(country="NO")`` will be stored independently from ``users(country="US")``, and so on.
+This, among with other functionality that will be explained later, allows you to integrate your local data pipeline with your remote database in an effortless way.
+
+The following tutorial will explain how to construct a :class:`patito.Database` object which provides Patito with the required context to execute SQL queries on your database of choice.
+In turn :func:`patito.Database.query` can be used to execute SQL query strings directly and :func:`patito.Database.as_query` can be used to wrap functions that *produce* SQL query strings.
+The latter decorator turns functions into :class:`patito.Database.Query <patito.database.DatabaseQuery>` objects which act very much like the original functions, only that it actually executes and returns the result as a DataFrame when invoked.
+The ``Query`` object also has :ref:`additional methods <QueryMethods>` for managing the query caches and more.
+
+This tutorial will take a relatively opinionated approach to how to organize your code.
+For less opinionated documentation, see the referenced classes and methods above.
 
 .. contents:: Table of Contents
    :local:
