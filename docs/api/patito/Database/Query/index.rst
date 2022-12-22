@@ -3,7 +3,7 @@ patito.Database.Query
 
 .. currentmodule:: patito
 
-.. autoclass:: patito::Database.Query
+.. autoclass:: patito.database::DatabaseQuery
 
 .. toctree::
    :caption: Methods
@@ -11,6 +11,6 @@ patito.Database.Query
 
    cache_path <cache_path>
    clear_caches <clear_caches>
+   query_string <query_string>
    refresh_cache <refresh_cache>
-   sql_query <sql_query>
    __call__ <__call__>

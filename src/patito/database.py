@@ -1,4 +1,4 @@
-"""Module containing utilities for retrieving data from external sources."""
+"""Module containing utilities for retrieving data from external databases."""
 import glob
 import hashlib
 import inspect
@@ -212,7 +212,7 @@ class DatabaseQuery(Generic[P, DF]):
         elif self._cache is True:
             directory: Path = self.cache_directory / self._query_constructor.__name__
             directory.mkdir(exist_ok=True, parents=True)
-            sql_query = self.sql_query(*args, **kwargs)
+            sql_query = self.query_string(*args, **kwargs)
             sql_query_hash = hashlib.sha1(  # noqa: S324,S303
                 sql_query.encode("utf-8")
             ).hexdigest()
@@ -223,16 +223,16 @@ class DatabaseQuery(Generic[P, DF]):
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> DF:  # noqa: D102
         return self._cached_func(*args, **kwargs)
 
-    def sql_query(self, *args: P.args, **kwargs: P.kwargs) -> str:
+    def query_string(self, *args: P.args, **kwargs: P.kwargs) -> str:
         """
-        Return SQL query to be executed for the given parameters.
+        Return the query to be executed for the given parameters.
 
         Args:
-            *args: Positional arguments used to construct the SQL query string.
-            *kwargs: Keyword arguments used to construct the SQL query string.
+            *args: Positional arguments used to construct the query string.
+            *kwargs: Keyword arguments used to construct the query string.
 
         Returns:
-            The SQL query string produced for the given input parameters.
+            The query string produced for the given input parameters.
         """
         return self._query_constructor(*args, **kwargs)
 
@@ -359,12 +359,12 @@ class Database:
         We can now construct a ``Database`` object, providing ``query_handler``
         as the way to execute SQL queries.
 
-        >>> source = pt.Database(query_handler=query_handler)
+        >>> db = pt.Database(query_handler=query_handler)
 
         The resulting object can now be used to execute SQL queries against the database
         and return the result in the form of a polars ``DataFrame`` object.
 
-        >>> source.query("select * from movies order by year limit 1")
+        >>> db.query("select * from movies order by year limit 1")
         shape: (1, 3)
         ┌──────────────────────────────┬──────┬───────┐
         │ title                        ┆ year ┆ score │
@@ -378,7 +378,7 @@ class Database:
         ``@Database.as_query`` decarator to wrap functions which return SQL
         query *strings*.
 
-        >>> @source.as_query()
+        >>> @db.as_query()
         >>> def movies(newer_than_year: int):
         ...     return f"select * from movies where year > {newer_than_year}"
 
@@ -399,12 +399,12 @@ class Database:
         └─────────────────────────────────────┴──────┴───────┘
 
         Caching is not enabled by default, but it can be enabled by specifying
-        ``cache=True`` to the ``@cache.as_query(...)`` decorator. Other arguments are
+        ``cache=True`` to the ``@db.as_query(...)`` decorator. Other arguments are
         also accepted, such as ``lazy=True`` if you want to retrieve the results in the
         form of a ``LazyFrame`` instead of a ``DataFrame``, ``ttl`` if you want to
         specify another TTL, and any additional keyword arguments are forwarded to
         ``query_executor`` when the SQL query is executed. You can read more about these
-        parameters in the documentation of :ref:`Database.query`.
+        parameters in the documentation of :func:`Database.query`.
 
     .. _XDG: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
     """

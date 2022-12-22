@@ -255,7 +255,7 @@ def test_cache_ttl(query_cache: LoggingQuerySource, monkeypatch):
     class FrozenDatetime:
         def __init__(self, year: int, month: int, day: int) -> None:
             self.frozen_time = datetime(year=year, month=month, day=day)
-            monkeypatch.setattr(pt.sources, "datetime", self)  # pyright: ignore
+            monkeypatch.setattr(pt.database, "datetime", self)  # pyright: ignore
 
         def now(self):
             return self.frozen_time
@@ -463,10 +463,10 @@ def test_ejection_of_incompatible_caches(query_cache: LoggingQuerySource):
     metadata = arrow_table.schema.metadata
     assert (
         int.from_bytes(metadata[b"cache_version"], "little")
-        == pt.sources.CACHE_VERSION  # pyright: ignore
+        == pt.database.CACHE_VERSION  # pyright: ignore
     )
     metadata[b"cache_version"] = (
-        pt.sources.CACHE_VERSION - 1  # pyright: ignore
+        pt.database.CACHE_VERSION - 1  # pyright: ignore
     ).to_bytes(
         length=16,
         byteorder="little",

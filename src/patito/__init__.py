@@ -34,7 +34,7 @@ except ImportError:  # pragma: no cover
     pass
 
 try:
-    from patito.sources import Database
+    from patito.database import Database
 
     _CACHING_AVAILABLE = True
     __all__ += ["Database"]

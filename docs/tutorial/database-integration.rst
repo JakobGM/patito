@@ -74,7 +74,7 @@ We can also add parameters to the ``users`` function, if needed, let's say we wa
            return "select * from d_users"
 
 You can now construct a DataFrame of all Finish users by writing ``fetch.users(country="FI")``.
-If you want to access the SQL query rather than executing it, you can retrieve it with ``fetch.users.sql_query(country="FI")``.
+If you want to access the SQL query rather than executing it, you can retrieve it with ``fetch.users.query_string(country="FI")``.
 
 Specifying custom database parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -177,7 +177,7 @@ The ``.refresh_cache()`` and ``.clear_caches()`` methods are in fact part of sev
 * ``.clear_caches()`` - Delete all cache files of the given query function such that new data will be fetched the _next_ time the query is invoked.
 * ``.refresh_cache(*args, **kwargs)`` - Force the resulting SQL query produced by the given parameters to be executed in the remote database and repopulate the parameter-specific cache.
 * ``.cache_path(*args, **kwargs)`` - Return a ``pathlib.Path`` object pointing to the parquet file that is used to store the cache for the given parameters.
-* ``.sql_query(*args, **kwargs)`` - Return the SQL query string to be executed.
+* ``.query_string(*args, **kwargs)`` - Return the SQL query string to be executed.
 
 Automatically refreshing old caches
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
