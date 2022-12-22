@@ -1,3 +1,5 @@
+.. _Database.__init__:
+
 patito.Database
 ===============
 

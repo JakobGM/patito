@@ -46,6 +46,101 @@ For less opinionated documentation, see the referenced classes and methods above
 .. contents:: Table of Contents
    :local:
 
+Construct a ``patito.Database`` Object
+--------------------------------------
+
+To begin, we need to provide Patito with the tools required query your database of choice.
+First we must implement a *query handler*, a function that takes a query string as its first argument, executes the query, and returns the result of the query in the form an Arrow table.
+
+We are going to use DuckDB as our example in this tutorial.
+Another example using SQLite3 is provided in the example section of the reference documentation for :class:`patito.Database`.
+We start by creating a ``db.py`` module in the root of our application, and implement ``db.connection`` as a way to connect to a DuckDB instance.
+
+.. code-block::
+   :caption: **db.py** -- connection
+
+   import duckdb
+
+   def connection(name: str) -> duckdb.DuckDBPyConnection:
+      return duckdb.connect(name)
+
+Here ``db.connection()`` must be provided with a name, either ``:memory:`` to store the data in-memory, or a file name to persist the data on-disk.
+We can use this new function in order to implement our query handler.
+
+.. code-block::
+   :caption: **db.py** - query_handler
+   :emphasize-lines: 2,7-9
+
+   import duckdb
+   import pyarrow as pa
+
+   def connection(name: str) -> duckdb.DuckDBPyConnection:
+      return duckdb.connect(name)
+
+   def query_handler(query: str, *, name: str = ":memory:") -> pa.Table:
+       connection = connection(name=name)
+       return connection.cursor().query(query).arrow()
+
+Notice how the first argument of ``query_handler`` is the query string to be executed, as required by Patito, but the ``name`` keyword is specific to our database of choice.
+It is now simple for us to create a :class:`patito.Database` object by providing ``db.query_handler`` to its constructor.
+
+.. code-block::
+   :caption: **db.py** -- pt.Database
+   :emphasize-lines: 4,14
+
+   from pathlib import Path
+
+   import duckdb
+   import patito as pt
+   import pyarrow as pa
+
+   def connection(name: str) -> duckdb.DuckDBPyConnection:
+      return duckdb.connect(name)
+
+   def query_handler(query: str, name: str = ":memory:") -> pa.Table:
+       cursor = connection(name).cursor()
+       return cursor.query(query).arrow()
+
+   my_database = pt.Database(query_handler=query_handler)
+
+Additional arguments can be provided to the ``Database`` constructor, for example a custom cache directory, and are documented :ref:`here <Database.__init__>`.
+
+Querying the Database Directly
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``db`` module is now complete and we should be able to use it in order to execute queries directly against our in-memory database.
+
+.. code-block::
+
+   >>> from db import my_database
+   >>> my_database.query("select 1 as a, 2 as b")
+   shape: (1, 2)
+   ┌─────┬─────┐
+   │ a   ┆ b   │
+   │ --- ┆ --- │
+   │ i32 ┆ i32 │
+   ╞═════╪═════╡
+   │ 1   ┆ 2   │
+   └─────┴─────┘
+   <polars.LazyFrame object at 0x13571D310>
+
+The query result is provided in the form of a polars ``DataFrame`` object.
+Additional parameters can be provided to :func:`patito.Database.query` as described :ref:`here <Database.query>`.
+An example for how to cache the result of a specific query and return it as a ``polars.LazyFrame`` goes as follow:
+
+.. code-block::
+
+   >>> from db import my_database
+   >>> my_database.query("select 1 as a, 2 as b", lazy=True, cache=True)
+   <polars.LazyFrame object at 0x13571D310>
+
+Any *additional* keyword arguments provided to :func:`patito.Database.query` are forwarded to the original query handler, so the following will execute the query against a hypothetical DuckDB database stored at ``./my.db``:
+
+.. code-block::
+
+   >>> my_database.query("select * from my_table", name="my.db")
+
+
 Query Data from Database as a DataFrame
 ---------------------------------------
 
