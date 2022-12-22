@@ -18,7 +18,7 @@ if not pt._DUCKDB_AVAILABLE:
 def test_relation():
     """Test functionality of Relation class."""
     # Create a new in-memory database with dummy data
-    db = pt.Database()
+    db = pt.duckdb.Database()
     table_df = pl.DataFrame(
         {
             "column_1": [1, 2, 3],
@@ -183,15 +183,15 @@ def test_relation():
 def test_star_select():
     """It should select all columns with star."""
     df = pt.DataFrame({"a": [1, 2], "b": [3, 4]})
-    relation = pt.Relation(df)
+    relation = pt.duckdb.Relation(df)
     assert relation.select("*") == relation
 
 
 def test_casting_relations_between_database_connections():
     """It should raise when you try to mix databases."""
-    db_1 = pt.Database()
+    db_1 = pt.duckdb.Database()
     relation_1 = db_1.query("select 1 as a")
-    db_2 = pt.Database()
+    db_2 = pt.duckdb.Database()
     relation_2 = db_2.query("select 1 as a")
     with pytest.raises(
         ValueError,
@@ -204,7 +204,7 @@ def test_creating_relation_from_pandas_df():
     """It should be able to create a relation from a pandas dataframe."""
     pd = pytest.importorskip("pandas")
     pandas_df = pd.DataFrame({"a": [1, 2]})
-    relation = pt.Relation(pandas_df)
+    relation = pt.duckdb.Relation(pandas_df)
     pd.testing.assert_frame_equal(relation.to_pandas(), pandas_df)
 
 
@@ -213,7 +213,7 @@ def test_creating_relation_from_a_csv_file(tmp_path):
     df = pl.DataFrame({"a": [1, 2]})
     csv_path = tmp_path / "test.csv"
     df.write_csv(csv_path)
-    relation = pt.Relation(csv_path)
+    relation = pt.duckdb.Relation(csv_path)
     assert relation.to_df().frame_equal(df)
 
 
@@ -222,7 +222,7 @@ def test_creating_relation_from_a_parquet_file(tmp_path):
     df = pl.DataFrame({"a": [1, 2]})
     parquet_path = tmp_path / "test.parquet"
     df.write_parquet(parquet_path, compression="uncompressed")
-    relation = pt.Relation(parquet_path)
+    relation = pt.duckdb.Relation(parquet_path)
     assert relation.to_df().frame_equal(df)
 
 
@@ -232,30 +232,30 @@ def test_creating_relation_from_a_unknown_file_format(tmp_path):
         ValueError,
         match="Unsupported file suffix '.unknown' for data import!",
     ):
-        pt.Relation(Path("test.unknown"))
+        pt.duckdb.Relation(Path("test.unknown"))
 
     with pytest.raises(
         ValueError,
         match="Unsupported file suffix '' for data import!",
     ):
-        pt.Relation(Path("test"))
+        pt.duckdb.Relation(Path("test"))
 
 
 def test_relation_with_default_database():
     """It should be constructable with the default DuckDB cursor."""
     import duckdb
 
-    relation_a = pt.Relation("select 1 as a")
+    relation_a = pt.duckdb.Relation("select 1 as a")
     assert relation_a.database.connection is duckdb.default_connection
 
     relation_a.create_view("table_a")
     del relation_a
 
-    relation_b = pt.Relation("select 1 as b")
+    relation_b = pt.duckdb.Relation("select 1 as b")
     relation_b.create_view("table_b")
     del relation_b
 
-    default_database = pt.Database.default()
+    default_database = pt.duckdb.Database.default()
     joined_relation = default_database.query(
         """
         select *
@@ -269,7 +269,7 @@ def test_relation_with_default_database():
 
 def test_with_columns():
     """It should be able to crate new additional columns."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation("select 1 as a, 2 as b")
 
     # We can define a new column
@@ -285,7 +285,7 @@ def test_with_columns():
 
 def test_rename_to_existing_column():
     """Renaming a column to overwrite another should work."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation("select 1 as a, 2 as b")
     renamed_relation = relation.rename(b="a")
     assert renamed_relation.columns == ["a"]
@@ -294,7 +294,7 @@ def test_rename_to_existing_column():
 
 def test_add_suffix():
     """It should be able to add suffixes to all column names."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation("select 1 as a, 2 as b")
     assert relation.add_suffix("x").columns == ["ax", "bx"]
     assert relation.add_suffix("x", exclude=["a"]).columns == ["a", "bx"]
@@ -309,7 +309,7 @@ def test_add_suffix():
 
 def test_add_prefix():
     """It should be able to add prefixes to all column names."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation("select 1 as a, 2 as b")
     assert relation.add_prefix("x").columns == ["xa", "xb"]
     assert relation.add_prefix("x", exclude=["a"]).columns == ["a", "xb"]
@@ -324,7 +324,7 @@ def test_add_prefix():
 
 def test_relation_aggregate_method():
     """Test for Relation.aggregate()."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation(
         pl.DataFrame(
             {
@@ -359,7 +359,7 @@ def test_relation_aggregate_method():
 
 def test_relation_all_method():
     """Test for Relation.all()."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation(
         pl.DataFrame(
             {
@@ -375,7 +375,7 @@ def test_relation_all_method():
 
 
 def test_relation_case_method():
-    db = pt.Database()
+    db = pt.duckdb.Database()
 
     df = pl.DataFrame(
         {
@@ -409,7 +409,7 @@ def test_relation_case_method():
 
 def test_relation_coalesce_method():
     """Test for Relation.coalesce()."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     df = pl.DataFrame(
         {"column_1": [1.0, None], "column_2": [None, "2"], "column_3": [3.0, None]}
     )
@@ -427,7 +427,7 @@ def test_relation_coalesce_method():
 
 def test_relation_union_method():
     """Test for Relation.union and Relation.__add__."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     left = db.to_relation("select 1 as a, 2 as b")
     right = db.to_relation("select 200 as b, 100 as a")
     correct_union = pl.DataFrame(
@@ -457,7 +457,7 @@ def test_relation_union_method():
 
 def test_relation_model_functionality():
     """The end-user should be able to specify the constructor for row values."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
 
     # We have two rows in our relation
     first_row_relation = db.to_relation("select 1 as a, 2 as b")
@@ -502,7 +502,7 @@ def test_relation_model_functionality():
     )
 
     # A custom relation class which specifies this as the default model
-    class MyRelation(pt.Relation):
+    class MyRelation(pt.duckdb.Relation):
         model = MyModel
 
     assert isinstance(
@@ -562,7 +562,7 @@ def test_fill_missing_columns():
     # We check if defaults are easily retrievable from the model
     assert MyRow.defaults == {"b": "default_value"}
 
-    db = pt.Database()
+    db = pt.duckdb.Database()
     df = pl.DataFrame({"a": ["mandatory"], "d": [10.5]})
     relation = db.to_relation(df).set_model(MyRow)
 
@@ -647,7 +647,7 @@ def test_with_missing_nullable_enum_columns():
         enum_column: Optional[Literal["a", "b", "c"]]
         other_column: int
 
-    db = pt.Database()
+    db = pt.duckdb.Database()
 
     # We insert data into a properly typed table in order to get the correct enum type
     db.create_table(name="enum_table", model=EnumModel)
@@ -688,7 +688,7 @@ def test_with_missing_nullable_enum_columns_without_table():
         other_column: int
 
     # We should be able to create the correct type without a table
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation("select 1 as other_column")
     with pytest.raises(
         TypeError, match=r".*You should invoke Relation.set_model\(\) first!"
@@ -719,7 +719,7 @@ def test_with_missing_defualtable_enum_columns():
         enum_column: Optional[Literal["a", "b", "c"]] = "a"
         other_column: int
 
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation("select 1 as other_column")
     with pytest.raises(
         TypeError,
@@ -733,7 +733,7 @@ def test_with_missing_defualtable_enum_columns():
 
 def test_relation_insert_into():
     """Relation.insert_into() should automatically order columnns correctly."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     db.execute(
         """
         create table foo (
@@ -762,7 +762,7 @@ def test_polars_support():
     df = pl.DataFrame(data={"column_1": ["a", "b", None], "column_2": [1, 2, None]})
     correct_dtypes = [pl.Utf8, pl.Int64]
     assert df.dtypes == correct_dtypes
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation(df)
     assert relation.get(column_1="a").column_2 == 1
 
@@ -818,7 +818,7 @@ def test_polars_support():
 
 def test_series_vs_dataframe_behavior():
     """Test Relation.to_series()."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation("select 1 as column_1, 2 as column_2")
 
     # Selecting multiple columns should yield a DataFrame
@@ -852,7 +852,7 @@ def test_converting_enum_column_to_polars():
     class EnumModel(pt.Model):
         enum_column: Literal["a", "b", "c"]
 
-    db = pt.Database()
+    db = pt.duckdb.Database()
     db.create_table(name="enum_table", model=EnumModel)
     db.execute(
         """
@@ -875,7 +875,7 @@ def test_non_string_enum():
     class EnumModel(pt.Model):
         enum_column: Literal[10, 11, 12]
 
-    db = pt.Database()
+    db = pt.duckdb.Database()
     db.create_table(name="enum_table", model=EnumModel)
 
     db.execute(
@@ -895,7 +895,7 @@ def test_non_string_enum():
 
 def test_multiple_filters():
     """The filter method should AND multiple filters properly."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation("select 1 as a, 2 as b")
     # The logical or should not make the filter valid for our row
     assert relation.filter("(1 = 2) or b = 2", a=0).count() == 0
@@ -904,7 +904,7 @@ def test_multiple_filters():
 
 def test_no_filter():
     """No filters should return all rows."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     relation = db.to_relation("select 1 as a, 2 as b")
     # The logical or should not make the filter valid for our row
     assert relation.filter().count()
@@ -912,7 +912,7 @@ def test_no_filter():
 
 def test_string_representation_of_relation():
     """It should have a string representation."""
-    relation = pt.Relation("select 1 as my_column")
+    relation = pt.duckdb.Relation("select 1 as my_column")
     relation_str = str(relation)
     assert "my_column" in relation_str
 
@@ -923,7 +923,7 @@ def test_cast():
     class Schema(pt.Model):
         float_column: float
 
-    relation = pt.Relation("select 1 as float_column, 2 as other_column")
+    relation = pt.duckdb.Relation("select 1 as float_column, 2 as other_column")
     with pytest.raises(
         TypeError,
         match=(
@@ -954,7 +954,7 @@ def test_cast():
     )
 
     # Other types that should be considered compatible should be kept as-is
-    compatible_relation = pt.Relation("select 1::FLOAT as float_column")
+    compatible_relation = pt.duckdb.Relation("select 1::FLOAT as float_column")
     assert compatible_relation.cast(Schema).types["float_column"] == "FLOAT"
 
     # Unless the strict parameter is specified
@@ -977,7 +977,7 @@ def test_cast():
         NotImplementedError,
         match=r"No valid sql_type mapping found for column 'object_column'\.",
     ):
-        pt.Relation("select 1 as object_column").set_model(ObjectModel).cast()
+        pt.duckdb.Relation("select 1 as object_column").set_model(ObjectModel).cast()
 
     # Check for more specific type annotations
     class TotalModel(pt.Model):
@@ -992,7 +992,7 @@ def test_cast():
             "null_column": [None],
         }
     )
-    casted_relation = pt.Relation(df, model=TotalModel).cast()
+    casted_relation = pt.duckdb.Relation(df, model=TotalModel).cast()
     assert casted_relation.types == {
         "timedelta_column": "INTERVAL",
         "date_column": "DATE",
@@ -1005,7 +1005,9 @@ def test_cast():
         column_1: float
         column_2: float
 
-    relation = pt.Relation("select 1 as column_1, 2 as column_2").set_model(MyModel)
+    relation = pt.duckdb.Relation("select 1 as column_1, 2 as column_2").set_model(
+        MyModel
+    )
     assert relation.cast(include=[]).types == {
         "column_1": "INTEGER",
         "column_2": "INTEGER",

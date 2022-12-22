@@ -20,5 +20,4 @@ API Reference
    :caption: DuckDB Functionality
    :maxdepth: 1
 
-   patito/Database/index
-   patito/Relation/index
+   patito/duckdb/index

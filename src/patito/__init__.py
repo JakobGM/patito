@@ -26,14 +26,10 @@ __all__ = [
 ]
 
 try:
-    from patito.duckdb import Database, Relation, RelationSource
+    from patito import duckdb
 
     _DUCKDB_AVAILABLE = True
-    __all__ += [
-        "Database",
-        "Relation",
-        "RelationSource",
-    ]
+    __all__ += ["duckdb"]
 except ImportError:  # pragma: no cover
     pass
 

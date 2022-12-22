@@ -45,7 +45,7 @@ class Case:
 
         Examples:
             >>> import patito as pt
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> relation = db.to_relation("select 1 as a union select 2 as a")
             >>> case_statement = pt.sql.Case(
             ...     on_column="a",
