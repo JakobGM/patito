@@ -1,9 +1,9 @@
-patito.QueryHandler
-====================
+patito.Database.Query
+=====================
 
 .. currentmodule:: patito
 
-.. autoclass:: QueryHandler
+.. autoclass:: patito::Database.Query
 
 .. toctree::
    :caption: Methods

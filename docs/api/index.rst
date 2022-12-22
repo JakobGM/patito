@@ -13,8 +13,7 @@ API Reference
    :caption: External Database Integration
    :maxdepth: 1
 
-   patito/QueryHandler/index
-   patito/QuerySource/index
+   patito/Database/index
 
 .. toctree::
    :caption: DuckDB Functionality

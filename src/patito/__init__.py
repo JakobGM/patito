@@ -34,10 +34,10 @@ except ImportError:  # pragma: no cover
     pass
 
 try:
-    from patito.sources import QueryHandler, QuerySource
+    from patito.sources import Database
 
     _CACHING_AVAILABLE = True
-    __all__ += ["QueryHandler", "QuerySource"]
+    __all__ += ["Database"]
 except ImportError:
     pass
 

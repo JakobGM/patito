@@ -56,7 +56,7 @@ class QueryConstructor(Protocol[P]):
         ...  # pragma: no cover
 
 
-class QueryHandler(Generic[P, DF]):
+class DatabaseQuery(Generic[P, DF]):
     """A class acting as a function that returns a polars.DataFrame when called."""
 
     _cache: Union[bool, Path]
@@ -81,10 +81,10 @@ class QueryHandler(Generic[P, DF]):
             cache_directory: Path to directory to store parquet cache files in.
             query_handler: Function used to execute SQL queries and return arrow
                 tables.
-            ttl: See QuerySource.query for documentation.
-            lazy: See QuerySource.query for documentation.
-            cache: See QuerySource.query for documentation.
-            model: See QuerySource.query for documentation.
+            ttl: See Database.query for documentation.
+            lazy: See Database.query for documentation.
+            cache: See Database.query for documentation.
+            model: See Database.query for documentation.
             query_handler_kwargs: Arbitrary keyword arguments forwarded to the provided
                 query handler.
 
@@ -290,12 +290,12 @@ class QueryHandler(Generic[P, DF]):
                 continue
 
 
-class QuerySource:
+class Database:
     """
     Construct manager for executing SQL queries and caching the results.
 
     Args:
-        query_handler: The function that the QuerySource object should use for executing
+        query_handler: The function that the Database object should use for executing
             SQL queries. Its first argument should be the SQL query string to execute,
             and it should return the query result as an arrow table, for instance
             pyarrow.Table.
@@ -306,7 +306,7 @@ class QuerySource:
         default_ttl: The default Time To Live (TTL), or with other words, how long to
             wait until caches are refreshed due to old age. The given default TTL can be
             overwritten by specifying the ``ttl`` parameter in
-            :func:`QuerySource.query`. The default is 52 weeks.
+            :func:`Database.query`. The default is 52 weeks.
 
     Examples:
         We start by importing the necessary modules:
@@ -316,7 +316,7 @@ class QuerySource:
         >>> import patito as pt
         >>> import pyarrow as pa
 
-        In order to construct a ``QuerySource``, we need to provide the constructor with
+        In order to construct a ``Database``, we need to provide the constructor with
         a function that can *execute* query strings. How to construct this function will
         depend on what you actually want to run your queries against, for example a
         local or remote database. For the purposes of demonstration we will use
@@ -356,10 +356,10 @@ class QuerySource:
         ...     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
         ...     return pa.Table.from_pylist(data)
 
-        We can now construct a ``QuerySource`` object, providing ``query_handler``
+        We can now construct a ``Database`` object, providing ``query_handler``
         as the way to execute SQL queries.
 
-        >>> source = pt.QuerySource(query_handler=query_handler)
+        >>> source = pt.Database(query_handler=query_handler)
 
         The resulting object can now be used to execute SQL queries against the database
         and return the result in the form of a polars ``DataFrame`` object.
@@ -374,8 +374,8 @@ class QuerySource:
         │ Monty Python's Life of Brian ┆ 1979 ┆ 8.0   │
         └──────────────────────────────┴──────┴───────┘
 
-        But the main way to use a ``QuerySource`` object is to use the
-        ``@QuerySource.as_query`` decarator to wrap functions which return SQL
+        But the main way to use a ``Database`` object is to use the
+        ``@Database.as_query`` decarator to wrap functions which return SQL
         query *strings*.
 
         >>> @source.as_query()
@@ -404,10 +404,12 @@ class QuerySource:
         form of a ``LazyFrame`` instead of a ``DataFrame``, ``ttl`` if you want to
         specify another TTL, and any additional keyword arguments are forwarded to
         ``query_executor`` when the SQL query is executed. You can read more about these
-        parameters in the documentation of :ref:`QuerySource.query`.
+        parameters in the documentation of :ref:`Database.query`.
 
     .. _XDG: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
     """
+
+    Query = DatabaseQuery
 
     def __init__(  # noqa: D107
         self,
@@ -431,7 +433,7 @@ class QuerySource:
         ttl: Optional[timedelta] = None,
         model: Union[Type["Model"], None] = None,
         **kwargs: Any,  # noqa: ANN401
-    ) -> Callable[[QueryConstructor[P]], QueryHandler[P, pl.DataFrame]]:
+    ) -> Callable[[QueryConstructor[P]], DatabaseQuery[P, pl.DataFrame]]:
         ...  # pragma: no cover
 
     # With lazy = True a LazyFrame-producing wrapper is returned
@@ -444,7 +446,7 @@ class QuerySource:
         ttl: Optional[timedelta] = None,
         model: Union[Type["Model"], None] = None,
         **kwargs: Any,  # noqa: ANN401
-    ) -> Callable[[QueryConstructor[P]], QueryHandler[P, pl.LazyFrame]]:
+    ) -> Callable[[QueryConstructor[P]], DatabaseQuery[P, pl.LazyFrame]]:
         ...  # pragma: no cover
 
     def as_query(
@@ -456,7 +458,7 @@ class QuerySource:
         model: Union[Type["Model"], None] = None,
         **kwargs: Any,  # noqa: ANN401
     ) -> Callable[
-        [QueryConstructor[P]], QueryHandler[P, Union[pl.DataFrame, pl.LazyFrame]]
+        [QueryConstructor[P]], DatabaseQuery[P, Union[pl.DataFrame, pl.LazyFrame]]
     ]:
         """
         Execute the returned query string and return a polars dataframe.
@@ -491,8 +493,8 @@ class QuerySource:
             specified by the original function's return string.
         """
 
-        def wrapper(query_constructor: QueryConstructor) -> QueryHandler:
-            return QueryHandler(
+        def wrapper(query_constructor: QueryConstructor) -> DatabaseQuery:
+            return self.Query(
                 query_constructor=query_constructor,
                 lazy=lazy,
                 cache=cache,
@@ -546,7 +548,7 @@ class QuerySource:
         """
         Execute the given query and return the query result as a DataFrame or LazyFrame.
 
-        See :ref:`QuerySource.as_query` for a more powerful way to build and execute
+        See :ref:`Database.as_query` for a more powerful way to build and execute
         queries.
 
         Args:
@@ -555,7 +557,7 @@ class QuerySource:
                 instead of a DataFrame.
             cache: If the query result should be saved and re-used the next time the
                 same query is executed. Can also be provided as a path. See
-                :func:`QuerySource.as_query` for full documentation.
+                :func:`Database.as_query` for full documentation.
             ttl: How long to use cached results until the query is re-executed anyway.
             model: A :ref:`Model` to optionally validate the query result.
             **kwargs: All additional keyword arguments are forwarded to the query
@@ -575,9 +577,9 @@ class QuerySource:
 
             >>> db = duckdb.connect(":memory:")
             >>> query_handler = lambda query: db.cursor().query(query).arrow()
-            >>> query_source = pt.QuerySource(query_handler=query_handler)
+            >>> query_source = pt.Database(query_handler=query_handler)
 
-            We can now use :func:`QuerySource.query` in order to execute queries against
+            We can now use :func:`Database.query` in order to execute queries against
             the in-memory database.
 
             >>> query_source.query("select 1 as a, 2 as b, 3 as c")
@@ -654,6 +656,4 @@ def _with_query_metadata(query_handler: Callable[P, pa.Table]) -> Callable[P, pa
     return wrapped_query_handler
 
 
-__all__ = [
-    "QuerySource",
-]
+__all__ = ["Database"]
