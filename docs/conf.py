@@ -11,6 +11,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx_autodoc_typehints",
+    "sphinx_toolbox.collapse",
     "sphinxcontrib.mermaid",
 ]
 autodoc_member_order = "bysource"

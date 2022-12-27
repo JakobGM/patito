@@ -14,8 +14,7 @@ Integrating Polars With an SQL Database Using Efficient Caching
         dw-->|cached Patito<br>integration|ds
 
 Many data-driven applications involve data that must be retrieved from a database, either a remote data warehouse solution such as Databricks or Snowflake, or a local database such as DuckDB or SQLite3.
-Patito offers a database-agnostic API to query such sources in an efficient way by utilizing intelligent caching.
-
+Patito offers a database-agnostic API to query such sources, returning the result as a polars DataFrame, while offering intelligent query caching on top.
 By the end of this tutorial you will be able to write data ingestion logic that looks like this:
 
 .. code::
@@ -35,9 +34,9 @@ The wrapped ``users`` function will now construct, execute, cache, and return th
 The cache for ``users(country="NO")`` will be stored independently from ``users(country="US")``, and so on.
 This, among with other functionality that will be explained later, allows you to integrate your local data pipeline with your remote database in an effortless way.
 
-The following tutorial will explain how to construct a :class:`patito.Database` object which provides Patito with the required context to execute SQL queries on your database of choice.
+The following tutorial will explain how to construct a :class:`patito.Database` object which provides Patito with the required context to execute SQL queries against your database of choice.
 In turn :func:`patito.Database.query` can be used to execute SQL query strings directly and :func:`patito.Database.as_query` can be used to wrap functions that *produce* SQL query strings.
-The latter decorator turns functions into :class:`patito.Database.Query <patito.database.DatabaseQuery>` objects which act very much like the original functions, only that it actually executes and returns the result as a DataFrame when invoked.
+The latter decorator turns functions into :class:`patito.Database.Query <patito.database.DatabaseQuery>` objects which act very much like the original functions, only that they actually execute the constructed queries and return the results as DataFrames when invoked.
 The ``Query`` object also has :ref:`additional methods <QueryMethods>` for managing the query caches and more.
 
 This tutorial will take a relatively opinionated approach to how to organize your code.
@@ -46,14 +45,29 @@ For less opinionated documentation, see the referenced classes and methods above
 .. contents:: Table of Contents
    :local:
 
+Setup
+-----
+
+The following tutorial will depend on ``patito`` having been installed with the ``caching`` extension group:
+
+.. code::
+
+   pip install patito[caching]
+
+Code samples in this tutorial will use `DuckDB <https://duckdb.org/>`_, but you should be able to replace it with your database of choice as you follow along:
+
+.. code::
+
+   pip install duckdb
+
+
 Construct a ``patito.Database`` Object
 --------------------------------------
 
-To begin, we need to provide Patito with the tools required query your database of choice.
+To begin we need to provide Patito with the tools required to query your database of choice.
 First we must implement a *query handler*, a function that takes a query string as its first argument, executes the query, and returns the result of the query in the form an Arrow table.
 
-We are going to use DuckDB as our example in this tutorial.
-Another example using SQLite3 is provided in the example section of the reference documentation for :class:`patito.Database`.
+We are going to use DuckDB as our detailed example in this tutorial, but example code for other databases, including SQLite3, is provided at the end of this section.
 We start by creating a ``db.py`` module in the root of our application, and implement ``db.connection`` as a way to connect to a DuckDB instance.
 
 .. code-block::
@@ -82,7 +96,7 @@ We can use this new function in order to implement our query handler.
        return connection.cursor().query(query).arrow()
 
 Notice how the first argument of ``query_handler`` is the query string to be executed, as required by Patito, but the ``name`` keyword is specific to our database of choice.
-It is now simple for us to create a :class:`patito.Database` object by providing ``db.query_handler`` to its constructor.
+It is now simple for us to create a :class:`patito.Database` object by providing ``db.query_handler``:
 
 .. code-block::
    :caption: **db.py** -- pt.Database
@@ -103,8 +117,19 @@ It is now simple for us to create a :class:`patito.Database` object by providing
 
    my_database = pt.Database(query_handler=query_handler)
 
-Additional arguments can be provided to the ``Database`` constructor, for example a custom cache directory, and are documented :ref:`here <Database.__init__>`.
+Additional arguments can be provided to the ``Database`` constructor, for example a custom cache directory.
+These additional parameters are documented :ref:`here <Database.__init__>`.
+Documentation for constructing query handlers and :class:`patito.Database` objects for other databases is provided in the collapsable sections below:
 
+.. collapse:: SQLite3
+
+   See "Examples" section of :class:`patito.Database`.
+
+.. collapse:: Other
+
+   You are welcome to create `a GitHub issue <https://github.com/kolonialno/patito/issues/new>`_ if you need help integrating with you specific database of choice.
+
+|
 Querying the Database Directly
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -122,27 +147,38 @@ The ``db`` module is now complete and we should be able to use it in order to ex
    ╞═════╪═════╡
    │ 1   ┆ 2   │
    └─────┴─────┘
-   <polars.LazyFrame object at 0x13571D310>
 
 The query result is provided in the form of a polars ``DataFrame`` object.
 Additional parameters can be provided to :func:`patito.Database.query` as described :ref:`here <Database.query>`.
-An example for how to cache the result of a specific query and return it as a ``polars.LazyFrame`` goes as follow:
+As an example, the query result can be provided as a ``polars.LazyFrame`` by specifying ``lazy=True``.
 
 .. code-block::
 
    >>> from db import my_database
-   >>> my_database.query("select 1 as a, 2 as b", lazy=True, cache=True)
+   >>> my_database.query("select 1 as a, 2 as b", lazy=True)
    <polars.LazyFrame object at 0x13571D310>
 
-Any *additional* keyword arguments provided to :func:`patito.Database.query` are forwarded to the original query handler, so the following will execute the query against a hypothetical DuckDB database stored at ``./my.db``:
+Any *additional* keyword arguments provided to :func:`patito.Database.query` are forwarded directly to the original query handler, so the following will execute the query against the database stored in ``my.db``:
 
 .. code-block::
 
    >>> my_database.query("select * from my_table", name="my.db")
 
 
-Query Data from Database as a DataFrame
----------------------------------------
+.. mermaid::
+   :caption: Delegation of parameters provided to :func:`patito.Database.query`.
+   :align: center
+
+    %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#FFF5E6', 'secondaryColor': '#FFF5E6' }}}%%
+    graph LR;
+        input["<code>Database.query(query, lazy, cache, ttl, model, **kwargs)</code>"]
+        query[patito.Query]
+        query_handler[Database query handler]
+        input-->|<code>lazy, cache, ttl, model</code>|query
+        input-->|<code>query, **kwargs</code>|query_handler
+
+Wrapping Query-Producing Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Let's assume that you have a project named ``user-analyzer`` which analyzes users.
 The associated python package should therefore be named ``user_analyzer``.
@@ -172,6 +208,7 @@ This is clearly not enough, the ``fetch.users`` function only returns a query st
    @query()
    def users():
        return "select * from d_users"
+
 
 Polars vs. Pandas
 ~~~~~~~~~~~~~~~~~
