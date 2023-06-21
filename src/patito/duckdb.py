@@ -170,24 +170,24 @@ class Relation(Generic[ModelType]):
                   The path must point to an existing file with either a ``.csv``
                   or ``.parquet`` file extension.
                 - A native DuckDB relation object (``duckdb.DuckDBPyRelation``).
-                - A ``patito.Relation`` object.
+                - A ``patito.duckdb.Relation`` object.
 
             database: Which database to load the relation into. If not provided,
                 the default DuckDB database will be used.
 
             model: Sub-class of ``patito.Model`` which specifies how to deserialize rows
-                when fetched with methods such as :ref:`Relation.get()<Relation.get>`
-                and ``__iter__()``.
+                when fetched with methods such as
+                :ref:`Relation.get()<duckdb.Relation.get>` and ``__iter__()``.
 
                 Will also be used to create a strict table schema if
-                :ref:`Relation.create_table()<Relation.create_table>`.
+                :ref:`Relation.create_table()<duckdb.Relation.create_table>`.
                 schema should be constructed.
 
-                If not provided, a dynamic model fitting the relation schema will be created
-                when required.
+                If not provided, a dynamic model fitting the relation schema will be
+                created when required.
 
                 Can also be set later dynamically by invoking
-                :ref:`Relation.set_model()<Relation.set_model>`.
+                :ref:`Relation.set_model()<duckdb.Relation.set_model>`.
 
         Raises:
             ValueError: If any one of the following cases are encountered:
@@ -204,7 +204,7 @@ class Relation(Generic[ModelType]):
 
             >>> import patito as pt
             >>> df = pt.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
-            >>> pt.Relation(df).filter("a > 2").to_df()
+            >>> pt.duckdb.Relation(df).filter("a > 2").to_df()
             shape: (1, 2)
             ┌─────┬─────┐
             │ a   ┆ b   │
@@ -216,7 +216,7 @@ class Relation(Generic[ModelType]):
 
             Instantiated from an SQL query:
 
-            >>> pt.Relation("select 1 as a, 2 as b").to_df()
+            >>> pt.duckdb.Relation("select 1 as a, 2 as b").to_df()
             shape: (1, 2)
             ┌─────┬─────┐
             │ a   ┆ b   │
@@ -296,7 +296,7 @@ class Relation(Generic[ModelType]):
         Examples:
             >>> import patito as pt
             >>> df = pt.DataFrame({"a": [1, 2, 3], "b": ["X", "Y", "X"]})
-            >>> relation = pt.Relation(df)
+            >>> relation = pt.duckdb.Relation(df)
             >>> relation.aggregate(
             ...     "b",
             ...     "sum(a)",
@@ -347,7 +347,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> relation = pt.Relation("select 1 as column_1, 2 as column_2")
+            >>> relation = pt.duckdb.Relation("select 1 as column_1, 2 as column_2")
             >>> relation.add_suffix("_renamed").to_df()
             shape: (1, 2)
             ┌──────────────────┬──────────────────┐
@@ -413,7 +413,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> relation = pt.Relation("select 1 as column_1, 2 as column_2")
+            >>> relation = pt.duckdb.Relation("select 1 as column_1, 2 as column_2")
             >>> relation.add_prefix("renamed_").to_df()
             shape: (1, 2)
             ┌──────────────────┬──────────────────┐
@@ -464,8 +464,8 @@ class Relation(Generic[ModelType]):
         """
         Return ``True`` if the given predicate(s) are true for all rows in the relation.
 
-        See :ref:`Relation.filter()<Relation.filter>` for additional information
-        regarding the parameters.
+        See :func:`Relation.filter()` for additional information regarding the
+        parameters.
 
         Args:
             filters: SQL predicates to satisfy.
@@ -480,7 +480,7 @@ class Relation(Generic[ModelType]):
             ...         "zero": [0, 0, 0],
             ...     }
             ... )
-            >>> relation = pt.Relation(df)
+            >>> relation = pt.duckdb.Relation(df)
             >>> relation.all(zero=0)
             True
             >>> relation.all(
@@ -520,7 +520,7 @@ class Relation(Generic[ModelType]):
             The following case statement...
 
             >>> import patito as pt
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> relation = db.to_relation("select 1 as a union select 2 as a")
             >>> relation.case(
             ...     from_column="a",
@@ -580,15 +580,15 @@ class Relation(Generic[ModelType]):
         Cast the columns of the relation to types compatible with the associated model.
 
         The associated model must either be set by invoking
-        :ref:`Relation.set_model() <Relation.set_model>` or provided with the ``model``
-        parameter.
+        :ref:`Relation.set_model() <duckdb.Relation.set_model>` or provided with the
+        ``model`` parameter.
 
         Any columns of the relation that are not part of the given model schema will be
         left as-is.
 
         Args:
-            model: If :ref:`Relation.set_model() <Relation.set_model>` has not been
-                invoked or is intended to be overwritten.
+            model: If :ref:`Relation.set_model() <duckdb.Relation.set_model>` has not
+                been invoked or is intended to be overwritten.
             strict: If set to ``False``, columns which are technically compliant with
                 the specified field type, will not be casted. For example, a column
                 annotated with ``int`` is technically compliant with ``SMALLINT``, even
@@ -607,13 +607,13 @@ class Relation(Generic[ModelType]):
             >>> class Schema(pt.Model):
             ...     float_column: float
             ...
-            >>> relation = pt.Relation("select 1 as float_column")
+            >>> relation = pt.duckdb.Relation("select 1 as float_column")
             >>> relation.types["float_column"]
             'INTEGER'
             >>> relation.cast(model=Schema).types["float_column"]
             'DOUBLE'
 
-            >>> relation = pt.Relation("select 1::FLOAT as float_column")
+            >>> relation = pt.duckdb.Relation("select 1::FLOAT as float_column")
             >>> relation.cast(model=Schema).types["float_column"]
             'FLOAT'
             >>> relation.cast(model=Schema, strict=True).types["float_column"]
@@ -623,9 +623,9 @@ class Relation(Generic[ModelType]):
             ...     column_1: float
             ...     column_2: float
             ...
-            >>> relation = pt.Relation("select 1 as column_1, 2 as column_2").set_model(
-            ...     Schema
-            ... )
+            >>> relation = pt.duckdb.Relation(
+            ...     "select 1 as column_1, 2 as column_2"
+            ... ).set_model(Schema)
             >>> relation.types
             {'column_1': 'INTEGER', 'column_2': 'INTEGER'}
             >>> relation.cast(include=["column_1"]).types
@@ -650,7 +650,8 @@ class Relation(Generic[ModelType]):
 
         if include is not None and exclude is not None:
             raise ValueError(
-                f"Both include and exclude provided to {self.__class__.__name__}.cast()!"
+                "Both include and exclude provided to "
+                f"{self.__class__.__name__}.cast()!"
             )
         elif include is not None:
             include = set(include)
@@ -701,7 +702,7 @@ class Relation(Generic[ModelType]):
             ...         "c": [None, 8.0, 9.0],
             ...     }
             ... )
-            >>> relation = pt.Relation(df)
+            >>> relation = pt.duckdb.Relation(df)
             >>> relation.coalesce(a=2, b="six").to_df()
             shape: (3, 3)
             ┌─────┬──────┬──────┐
@@ -732,7 +733,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> pt.Relation("select 1 as a, 2 as b").columns
+            >>> pt.duckdb.Relation("select 1 as a, 2 as b").columns
             ['a', 'b']
         """
         # Under certain specific circumstances columns are suffixed with
@@ -748,13 +749,13 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> relation = pt.Relation("select 1 as a")
+            >>> relation = pt.duckdb.Relation("select 1 as a")
             >>> relation.count()
             1
             >>> (relation + relation).count()
             2
 
-            The :ref:`Relation.__len__()<Relation.__len__>` method invokes
+            The :ref:`Relation.__len__()<duckdb.Relation.__len__>` method invokes
             ``Relation.count()`` under the hood, and is equivalent:
 
             >>> len(relation)
@@ -768,9 +769,10 @@ class Relation(Generic[ModelType]):
         """
         Create new database table based on relation.
 
-        If ``self.model`` is set with :ref:`Relation.set_model()<Relation.set_model>`,
-        then the model is used to infer the table schema.
-        Otherwise, a permissive table schema is created based on the relation data.
+        If ``self.model`` is set with
+        :ref:`Relation.set_model()<duckdb.Relation.set_model>`, then the model is used
+        to infer the table schema. Otherwise, a permissive table schema is created based
+        on the relation data.
 
         Returns:
             Relation: A relation pointing to the newly created table.
@@ -780,7 +782,7 @@ class Relation(Generic[ModelType]):
             >>> import patito as pt
 
             >>> df = pt.DataFrame({"enum_column": ["A", "A", "B"]})
-            >>> relation = pt.Relation(df)
+            >>> relation = pt.duckdb.Relation(df)
             >>> relation.create_table("permissive_table").types
             {'enum_column': 'VARCHAR'}
 
@@ -810,7 +812,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> df = pt.DataFrame({"column": ["A", "A", "B"]})
             >>> relation = db.to_relation(df)
             >>> relation.create_view("my_view")
@@ -840,7 +842,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> relation = pt.Relation("select 1 as a, 2 as b, 3 as c")
+            >>> relation = pt.duckdb.Relation("select 1 as a, 2 as b, 3 as c")
             >>> relation.columns
             ['a', 'b', 'c']
             >>> relation.drop("c").columns
@@ -864,7 +866,7 @@ class Relation(Generic[ModelType]):
             ...     columns=["a", "b", "c"],
             ...     orient="row",
             ... )
-            >>> relation = pt.Relation(df)
+            >>> relation = pt.duckdb.Relation(df)
             >>> relation.to_df()
             shape: (3, 3)
             ┌─────┬─────┬─────┐
@@ -904,7 +906,9 @@ class Relation(Generic[ModelType]):
 
         Example:
             >>> import patito as pt
-            >>> relation_123 = pt.Relation("select 1 union select 2 union select 3")
+            >>> relation_123 = pt.duckdb.Relation(
+            ...     "select 1 union select 2 union select 3"
+            ... )
             >>> relation_123.order(by="1").to_df()
             shape: (3, 1)
             ┌─────┐
@@ -918,7 +922,7 @@ class Relation(Generic[ModelType]):
             ├╌╌╌╌╌┤
             │ 3   │
             └─────┘
-            >>> relation_2 = pt.Relation("select 2")
+            >>> relation_2 = pt.duckdb.Relation("select 2")
             >>> relation_2.to_df()
             shape: (1, 1)
             ┌─────┐
@@ -954,7 +958,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> relation = pt.Relation(
+            >>> relation = pt.duckdb.Relation(
             ...     "select 1 as a, 2 as b union select 3 as a, 4 as b"
             ... )
             >>> result = relation.aggregate("sum(a)", group_by="").execute()
@@ -989,7 +993,7 @@ class Relation(Generic[ModelType]):
             >>> import patito as pt
             >>> import polars as pl
             >>> df = pt.DataFrame({"product_id": [1, 2, 3], "price": [10, 10, 20]})
-            >>> relation = pt.Relation(df).set_alias("my_relation")
+            >>> relation = pt.duckdb.Relation(df).set_alias("my_relation")
 
             The ``.get()`` method will by default return a dynamically constructed
             Patito model if no model has been associated with the given relation:
@@ -998,8 +1002,8 @@ class Relation(Generic[ModelType]):
             my_relation(product_id=1, price=10)
 
             If a Patito model has been associated with the relation, by the use of
-            :ref:`Relation.set_model()<Relation.set_model>`, then the given model will
-            be used to represent the return type:
+            :ref:`Relation.set_model()<duckdb.Relation.set_model>`, then the given model
+            will be used to represent the return type:
 
             >>> class Product(pt.Model):
             ...     product_id: int = pt.Field(unique=True)
@@ -1099,7 +1103,7 @@ class Relation(Generic[ModelType]):
             ...         "string": ["A", "A", "B", "B"],
             ...     }
             ... )
-            >>> relation = pt.Relation(df)
+            >>> relation = pt.duckdb.Relation(df)
             >>> relation.filter("number % 2 = 0").to_df()
             shape: (2, 2)
             ┌────────┬────────┐
@@ -1143,8 +1147,8 @@ class Relation(Generic[ModelType]):
         """
         Join relation with other relation source based on condition.
 
-        See :ref:`Relation.inner_join() <Relation.inner_join>` and
-        :ref:`Relation.left_join() <Relation.left_join>` for alternative method
+        See :ref:`duckdb.Relation.inner_join() <duckdb.Relation.inner_join>` and
+        :ref:`Relation.left_join() <duckdb.Relation.left_join>` for alternative method
         shortcuts instead of using ``how``.
 
         Args:
@@ -1165,14 +1169,14 @@ class Relation(Generic[ModelType]):
             ...         "supplier_id": [2, 1, 3],
             ...     }
             ... )
-            >>> products = pt.Relation(products_df)
+            >>> products = pt.duckdb.Relation(products_df)
             >>> supplier_df = pt.DataFrame(
             ...     {
             ...         "id": [1, 2],
             ...         "supplier_name": ["Banana Republic", "Applies Inc."],
             ...     }
             ... )
-            >>> suppliers = pt.Relation(supplier_df)
+            >>> suppliers = pt.duckdb.Relation(supplier_df)
             >>> products.set_alias("p").join(
             ...     suppliers.set_alias("s"),
             ...     on="p.supplier_id = s.id",
@@ -1234,14 +1238,14 @@ class Relation(Generic[ModelType]):
             ...         "supplier_id": [2, 1, 3],
             ...     }
             ... )
-            >>> products = pt.Relation(products_df)
+            >>> products = pt.duckdb.Relation(products_df)
             >>> supplier_df = pt.DataFrame(
             ...     {
             ...         "id": [1, 2],
             ...         "supplier_name": ["Banana Republic", "Applies Inc."],
             ...     }
             ... )
-            >>> suppliers = pt.Relation(supplier_df)
+            >>> suppliers = pt.duckdb.Relation(supplier_df)
             >>> products.set_alias("p").inner_join(
             ...     suppliers.set_alias("s"),
             ...     on="p.supplier_id = s.id",
@@ -1286,14 +1290,14 @@ class Relation(Generic[ModelType]):
             ...         "supplier_id": [2, 1, 3],
             ...     }
             ... )
-            >>> products = pt.Relation(products_df)
+            >>> products = pt.duckdb.Relation(products_df)
             >>> supplier_df = pt.DataFrame(
             ...     {
             ...         "id": [1, 2],
             ...         "supplier_name": ["Banana Republic", "Applies Inc."],
             ...     }
             ... )
-            >>> suppliers = pt.Relation(supplier_df)
+            >>> suppliers = pt.duckdb.Relation(supplier_df)
             >>> products.set_alias("p").left_join(
             ...     suppliers.set_alias("s"),
             ...     on="p.supplier_id = s.id",
@@ -1335,10 +1339,10 @@ class Relation(Generic[ModelType]):
         Example:
             >>> import patito as pt
             >>> relation = (
-            ...     pt.Relation("select 1 as column")
-            ...     + pt.Relation("select 2 as column")
-            ...     + pt.Relation("select 3 as column")
-            ...     + pt.Relation("select 4 as column")
+            ...     pt.duckdb.Relation("select 1 as column")
+            ...     + pt.duckdb.Relation("select 2 as column")
+            ...     + pt.duckdb.Relation("select 3 as column")
+            ...     + pt.duckdb.Relation("select 4 as column")
             ... )
             >>> relation.limit(2).to_df()
             shape: (2, 1)
@@ -1399,7 +1403,7 @@ class Relation(Generic[ModelType]):
             ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
             │ Diana   ┆ 35  │
             └─────────┴─────┘
-            >>> relation = pt.Relation(df)
+            >>> relation = pt.duckdb.Relation(df)
             >>> relation.order(by="age desc").to_df()
             shape: (4, 2)
             ┌─────────┬─────┐
@@ -1456,7 +1460,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> db.to_relation("select 1 as a").create_table("my_table")
             >>> db.table("my_table").to_df()
             shape: (1, 1)
@@ -1509,7 +1513,7 @@ class Relation(Generic[ModelType]):
             >>> import patito as pt
             >>> df1 = pt.DataFrame({"a": [1, 1, 2], "b": [1, 1, 2]})
             >>> df2 = pt.DataFrame({"a": [1, 1, 3], "b": [1, 1, 3]})
-            >>> pt.Relation(df1).intersect(pt.Relation(df2)).to_df()
+            >>> pt.duckdb.Relation(df1).intersect(pt.duckdb.Relation(df2)).to_df()
             shape: (1, 2)
             ┌─────┬─────┐
             │ a   ┆ b   │
@@ -1546,7 +1550,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> relation = db.to_relation(pt.DataFrame({"original_column": [1, 2, 3]}))
             >>> relation.select("*").to_df()
             shape: (3, 1)
@@ -1624,7 +1628,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> relation = pt.Relation("select 1 as a, 2 as b")
+            >>> relation = pt.duckdb.Relation("select 1 as a, 2 as b")
             >>> relation.rename(b="c").to_df().select(["a", "c"])
             shape: (1, 2)
             ┌─────┬─────┐
@@ -1666,8 +1670,8 @@ class Relation(Generic[ModelType]):
 
         Example:
             >>> import patito as pt
-            >>> relation_1 = pt.Relation("select 1 as a, 2 as b")
-            >>> relation_2 = pt.Relation("select 1 as a, 3 as c")
+            >>> relation_1 = pt.duckdb.Relation("select 1 as a, 2 as b")
+            >>> relation_2 = pt.duckdb.Relation("select 1 as a, 3 as c")
             >>> relation_1.set_alias("x").inner_join(
             ...     relation_2.set_alias("y"),
             ...     on="x.a = y.a",
@@ -1691,9 +1695,9 @@ class Relation(Generic[ModelType]):
         Associate a give Patito model with the relation.
 
         The returned relation has an associated ``.model`` attribute which can in turn
-        be used by several methods such as :ref:`Relation.get()<Relation.get>`,
-        :ref:`Relation.create_table()<Relation.create_table>`, and
-        :ref:`Relation.__iter__<Relation.__iter__>`.
+        be used by several methods such as :ref:`Relation.get()<duckdb.Relation.get>`,
+        :ref:`Relation.create_table()<duckdb.Relation.create_table>`, and
+        :ref:`Relation.__iter__<duckdb.Relation.__iter__>`.
 
         Args:
             model: A Patito Model class specifying the intended schema of the relation.
@@ -1708,7 +1712,9 @@ class Relation(Generic[ModelType]):
             ...     float_column: float
             ...     enum_column: Literal["A", "B", "C"]
             ...
-            >>> relation = pt.Relation("select 1 as float_column, 'A' as enum_column")
+            >>> relation = pt.duckdb.Relation(
+            ...     "select 1 as float_column, 'A' as enum_column"
+            ... )
             >>> relation.get()
             query_relation(float_column=1, enum_column='A')
             >>> relation.set_model(MySchema).get()
@@ -1743,7 +1749,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> pt.Relation("select 1 as a, 'my_value' as b").types
+            >>> pt.duckdb.Relation("select 1 as a, 'my_value' as b").types
             {'a': 'INTEGER', 'b': 'VARCHAR'}
         """
         return dict(zip(self.columns, self._relation.types))
@@ -1756,7 +1762,7 @@ class Relation(Generic[ModelType]):
 
         Example:
             >>> import patito as pt
-            >>> pt.Relation("select 1 as column union select 2 as column").order(
+            >>> pt.duckdb.Relation("select 1 as column union select 2 as column").order(
             ...     by="1"
             ... ).to_pandas()
                   column
@@ -1773,7 +1779,7 @@ class Relation(Generic[ModelType]):
 
         Example:
             >>> import patito as pt
-            >>> pt.Relation("select 1 as column union select 2 as column").order(
+            >>> pt.duckdb.Relation("select 1 as column union select 2 as column").order(
             ...     by="1"
             ... ).to_df()
             shape: (2, 1)
@@ -1824,7 +1830,7 @@ class Relation(Generic[ModelType]):
 
         Example:
             >>> import patito as pt
-            >>> relation = pt.Relation("select 1 as a union select 2 as a")
+            >>> relation = pt.duckdb.Relation("select 1 as a union select 2 as a")
             >>> relation.order(by="a").to_series()
             shape: (2,)
             Series: 'a' [i32]
@@ -1854,8 +1860,9 @@ class Relation(Generic[ModelType]):
         Duplicates are `not` dropped.
 
         Args:
-            other: A ``patito.Relation`` object or something that can be `casted` to
-                ``patito.Relation``. See :ref:`Relation<Relation.__init__>`.
+            other: A ``patito.duckdb.Relation`` object or something that can be
+                *casted* to ``patito.duckdb.Relation``.
+                See :ref:`Relation<duckdb.Relation.__init__>`.
 
         Returns:
             New relation containing the rows of both ``self`` and ``other``.
@@ -1865,8 +1872,8 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> relation_1 = pt.Relation("select 1 as a")
-            >>> relation_2 = pt.Relation("select 2 as a")
+            >>> relation_1 = pt.duckdb.Relation("select 1 as a")
+            >>> relation_2 = pt.duckdb.Relation("select 2 as a")
             >>> relation_1.union(relation_2).to_df()
             shape: (2, 1)
             ┌─────┐
@@ -1928,7 +1935,7 @@ class Relation(Generic[ModelType]):
 
         Examples:
             >>> import patito as pt
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> relation = db.to_relation("select 1 as a, 2 as b")
             >>> relation.with_columns(c="a + b").to_df()
             shape: (1, 3)
@@ -1950,8 +1957,8 @@ class Relation(Generic[ModelType]):
         """
         Add missing defaultable columns filled with the default values of correct type.
 
-        Make sure to invoke :ref:`Relation.set_model()<Relation.set_model>` with the
-        correct model schema before executing
+        Make sure to invoke :ref:`Relation.set_model()<duckdb.Relation.set_model>` with
+        the correct model schema before executing
         ``Relation.with_missing_default_columns()``.
 
         Args:
@@ -1972,7 +1979,7 @@ class Relation(Generic[ModelType]):
             ...     default_column: int = 42
             ...     another_default_column: int = 42
             ...
-            >>> relation = pt.Relation(
+            >>> relation = pt.duckdb.Relation(
             ...     "select 1 as non_default_column, 2 as default_column"
             ... )
             >>> relation.to_df()
@@ -2040,8 +2047,8 @@ class Relation(Generic[ModelType]):
         """
         Add missing nullable columns filled with correctly typed nulls.
 
-        Make sure to invoke :ref:`Relation.set_model()<Relation.set_model>` with the
-        correct model schema before executing
+        Make sure to invoke :ref:`Relation.set_model()<duckdb.Relation.set_model>` with
+        the correct model schema before executing
         ``Relation.with_missing_nullable_columns()``.
 
         Args:
@@ -2062,7 +2069,7 @@ class Relation(Generic[ModelType]):
             ...     nullable_column: Optional[int]
             ...     another_nullable_column: Optional[int]
             ...
-            >>> relation = pt.Relation("select 1 as nullable_column")
+            >>> relation = pt.duckdb.Relation("select 1 as nullable_column")
             >>> relation.to_df()
             shape: (1, 1)
             ┌─────────────────┐
@@ -2122,7 +2129,7 @@ class Relation(Generic[ModelType]):
         """
         Execute ``self.union(other)``.
 
-        See :ref:`Relation.union()<Relation.union>` for full documentation.
+        See :ref:`Relation.union()<duckdb.Relation.union>` for full documentation.
         """
         return self.union(other)
 
@@ -2139,7 +2146,7 @@ class Relation(Generic[ModelType]):
         """
         Return Relation with selected columns.
 
-        Uses :ref:`Relation.select()<Relation.select>` under-the-hood in order to
+        Uses :ref:`Relation.select()<duckdb.Relation.select>` under-the-hood in order to
         perform the selection. Can technically be used to rename columns,
         define derived columns, and so on, but prefer the use of Relation.select() for
         such use cases.
@@ -2153,7 +2160,7 @@ class Relation(Generic[ModelType]):
 
         Example:
             >>> import patito as pt
-            >>> relation = pt.Relation("select 1 as a, 2 as b, 3 as c")
+            >>> relation = pt.duckdb.Relation("select 1 as a, 2 as b, 3 as c")
             >>> relation.to_df()
             shape: (1, 3)
             ┌─────┬─────┬─────┐
@@ -2192,9 +2199,9 @@ class Relation(Generic[ModelType]):
         """
         Iterate over rows in relation.
 
-        If :ref:`Relation.set_model()<Relation.set_model>` has been invoked first, the
-        given model will be used to deserialize each row. Otherwise a Patito model
-        is dynamically constructed which fits the schema of the relation.
+        If :ref:`Relation.set_model()<duckdb.Relation.set_model>` has been invoked
+        first, the given model will be used to deserialize each row. Otherwise a Patito
+        model is dynamically constructed which fits the schema of the relation.
 
         Returns:
             Iterator[Model]: An iterator of patito Model objects representing each row.
@@ -2203,7 +2210,7 @@ class Relation(Generic[ModelType]):
             >>> from typing import Literal
             >>> import patito as pt
             >>> df = pt.DataFrame({"float_column": [1, 2], "enum_column": ["A", "B"]})
-            >>> relation = pt.Relation(df).set_alias("my_relation")
+            >>> relation = pt.duckdb.Relation(df).set_alias("my_relation")
             >>> for row in relation:
             ...     print(row)
             ...
@@ -2239,7 +2246,7 @@ class Relation(Generic[ModelType]):
         """
         Return the number of rows in the relation.
 
-        See :ref:`Relation.count()<Relation.count>` for full documentation.
+        See :ref:`Relation.count()<duckdb.Relation.count>` for full documentation.
         """
         return self.count()
 
@@ -2251,7 +2258,7 @@ class Relation(Generic[ModelType]):
 
         Example:
             >>> import patito as pt
-            >>> products = pt.Relation(
+            >>> products = pt.duckdb.Relation(
             ...     pt.DataFrame(
             ...         {
             ...             "product_name": ["apple", "red_apple", "banana", "oranges"],
@@ -2282,7 +2289,7 @@ class Relation(Generic[ModelType]):
             banana  1
             oranges 3
 
-            >>> suppliers = pt.Relation(
+            >>> suppliers = pt.duckdb.Relation(
             ...     pt.DataFrame(
             ...         {
             ...             "id": [1, 2],
@@ -2370,7 +2377,7 @@ class Database:
 
         Examples:
             >>> import patito as pt
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> db.to_relation("select 1 as a, 2 as b").create_table("my_table")
             >>> db.query("select * from my_table").to_df()
             shape: (1, 2)
@@ -2398,12 +2405,12 @@ class Database:
         Return the default DuckDB database.
 
         Returns:
-            A patito :ref:`Database<Database>` object wrapping around the given
+            A patito :ref:`Database<duckdb.Database>` object wrapping around the given
             connection.
 
         Example:
             >>> import patito as pt
-            >>> db = pt.Database.default()
+            >>> db = pt.duckdb.Database.default()
             >>> db.query("select 1 as a, 2 as b").to_df()
             shape: (1, 2)
             ┌─────┬─────┐
@@ -2428,13 +2435,14 @@ class Database:
                 ``duckdb.connect()``.
 
         Returns:
-            A :ref:`Database<Database>` object wrapping around the given connection.
+            A :ref:`Database<duckdb.Database>` object wrapping around the given
+            connection.
 
         Example:
             >>> import duckdb
             >>> import patito as pt
             >>> connection = duckdb.connect()
-            >>> database = pt.Database.from_connection(connection)
+            >>> database = pt.duckdb.Database.from_connection(connection)
         """
         obj = cls.__new__(cls)
         obj.connection = connection
@@ -2459,7 +2467,7 @@ class Database:
 
         Example:
             >>> import patito as pt
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> db.to_relation("select 1 as a, 2 as b").to_df()
             shape: (1, 2)
             ┌─────┬─────┐
@@ -2503,7 +2511,7 @@ class Database:
 
         Example:
             >>> import patito as pt
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> db.execute("create table my_table (x bigint);")
             >>> db.execute("insert into my_table values (1), (2), (3)")
             >>> db.table("my_table").to_df()
@@ -2586,7 +2594,7 @@ class Database:
 
         Example:
             >>> import patito as pt
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> relation = db.query("select 1 as a, 2 as b, 3 as c")
             >>> relation.to_df()
             shape: (1, 3)
@@ -2628,7 +2636,7 @@ class Database:
             ...     string_column: str
             ...     bool_column: bool
             ...
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> empty_relation = db.empty_relation(Schema)
             >>> empty_relation.to_df()
             shape: (0, 2)
@@ -2663,7 +2671,7 @@ class Database:
         Example:
             >>> import patito as pt
             >>> df = pt.DataFrame({"a": [1, 2], "b": [3, 4]})
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> relation = db.to_relation(df)
             >>> relation.create_table(name="my_table")
             >>> db.table("my_table").to_df()
@@ -2693,7 +2701,7 @@ class Database:
         Example:
             >>> import patito as pt
             >>> df = pt.DataFrame({"a": [1, 2], "b": [3, 4]})
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> relation = db.to_relation(df)
             >>> relation.create_view(name="my_view")
             >>> db.view("my_view").to_df()
@@ -2721,11 +2729,11 @@ class Database:
         """
         Create table with schema matching the provided Patito model.
 
-        See :ref:`Relation.insert_into()<Relation.insert_into>` for how to insert data
-        into the table after creation.
-        The :ref:`Relation.create_table()<Relation.create_table>` method can also be
-        used to create a table from a given relation `and` insert the data at the same
-        time.
+        See :ref:`Relation.insert_into()<duckdb.Relation.insert_into>` for how to insert
+        data into the table after creation.
+        The :ref:`Relation.create_table()<duckdb.Relation.create_table>` method can also
+        be used to create a table from a given relation `and` insert the data at the
+        same time.
 
         Args:
             name: Name of new database table.
@@ -2741,7 +2749,7 @@ class Database:
             ...     str_column: str
             ...     nullable_string_column: Optional[str]
             ...
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> db.create_table(name="my_table", model=MyModel)
             >>> db.table("my_table").types
             {'str_column': 'VARCHAR', 'nullable_string_column': 'VARCHAR'}
@@ -2772,7 +2780,7 @@ class Database:
             >>> class EnumModel(pt.Model):
             ...     enum_column: Literal["A", "B", "C"]
             ...
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> db.create_enum_types(EnumModel)
             >>> db.enum_types
             {'enum__7ba49365cc1b0fd57e61088b3bc9aa25'}
@@ -2816,7 +2824,7 @@ class Database:
 
         Examples:
             >>> import patito as pt
-            >>> db = pt.Database()
+            >>> db = pt.duckdb.Database()
             >>> "my_table" in db
             False
             >>> db.to_relation("select 1 as a, 2 as b").create_table(name="my_table")

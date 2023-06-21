@@ -74,7 +74,7 @@ def test_creation_of_empty_relation():
         a: int
         b: Optional[str]
 
-    db = pt.Database()
+    db = pt.duckdb.Database()
     empty_relation = db.empty_relation(schema=MyModel)
     assert empty_relation.columns == ["a", "b"]
     assert empty_relation.types == {"a": "BIGINT", "b": "VARCHAR"}

@@ -11,7 +11,7 @@ documentation = "https://patito.readthedocs.io"
 keywords = ["validation", "dataframe"]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.8"
 pydantic = ">=1.7.0"
 polars = ">=0.15.2"
 # Required for typing.Literal in python3.7
@@ -25,14 +25,24 @@ Sphinx = {version = "*", optional = true}
 sphinx-rtd-theme = {version = "*", optional = true}
 sphinx-autobuild = {version = "*", optional = true}
 sphinx-autodoc-typehints = {version = "*", optional = true}
+sphinx-toolbox = {version = "*", optional = true}
 sphinxcontrib-mermaid = {version = "*", optional = true}
 
 [tool.poetry.extras]
+# The pyarrow.parquet module is required for writing parquet caches to disk
+caching = ["pyarrow"]
 duckdb = ["duckdb", "pyarrow"]
 pandas = ["pandas"]
-docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-autobuild", "sphinx-autodoc-typehints", "sphinxcontrib-mermaid"]
+docs = [
+  "Sphinx",
+  "sphinx-autobuild",
+  "sphinx-autodoc-typehints",
+  "sphinx-rtd-theme",
+  "sphinx-toolbox",
+  "sphinxcontrib-mermaid",
+]
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 black = ">=22.3.0"
 coverage = {version = "*", extras = ["toml"]}
 flake8 = "3.9.2"

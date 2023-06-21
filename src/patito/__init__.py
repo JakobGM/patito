@@ -6,6 +6,7 @@ from patito.exceptions import ValidationError
 from patito.polars import DataFrame, LazyFrame
 from patito.pydantic import Field, Model
 
+_CACHING_AVAILABLE = False
 _DUCKDB_AVAILABLE = False
 field = col("_")
 __all__ = [
@@ -16,6 +17,7 @@ __all__ = [
     "Model",
     "Series",
     "ValidationError",
+    "_CACHING_AVAILABLE",
     "_DUCKDB_AVAILABLE",
     "col",
     "exceptions",
@@ -24,15 +26,19 @@ __all__ = [
 ]
 
 try:
-    from patito.duckdb import Database, Relation, RelationSource
+    from patito import duckdb
 
     _DUCKDB_AVAILABLE = True
-    __all__ += [
-        "Database",
-        "Relation",
-        "RelationSource",
-    ]
+    __all__ += ["duckdb"]
 except ImportError:  # pragma: no cover
+    pass
+
+try:
+    from patito.database import Database
+
+    _CACHING_AVAILABLE = True
+    __all__ += ["Database"]
+except ImportError:
     pass
 
 

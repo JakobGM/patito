@@ -126,3 +126,9 @@ h1 {
 .wy-side-nav-search a:visited {
   color: white !important;
 }
+
+/* Decrease the vertical padding between menu items in the navbar */
+.wy-menu-vertical li.toctree-l3 a {
+  padding-top: 0.2vh !important;
+  padding-bottom: 0.2vh !important;
+}

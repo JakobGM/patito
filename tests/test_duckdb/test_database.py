@@ -16,7 +16,7 @@ if not pt._DUCKDB_AVAILABLE:
 def test_database(tmp_path):
     """Test functionality of Database class."""
     # Create a new in-memory database
-    db = pt.Database()
+    db = pt.duckdb.Database()
 
     # Insert a simple dataframe as a new table
     table_df = pl.DataFrame(
@@ -33,7 +33,7 @@ def test_database(tmp_path):
     assert table_df.frame_equal(db_table)
 
     # Check that new database objects are isolated from previous ones
-    another_db = pt.Database()
+    another_db = pt.duckdb.Database()
     with pytest.raises(Exception, match="Table does not exist!"):
         db_table = another_db.table("table_name_1")
 
@@ -49,7 +49,7 @@ def test_file_database(tmp_path):
     """Check if the Database can be persisted to a file."""
     # Insert some data into a file-backed database
     db_path = tmp_path / "tmp.db"
-    file_db = pt.Database(path=db_path)
+    file_db = pt.duckdb.Database(path=db_path)
     file_db.to_relation("select 1 as a, 2 as b").create_table(name="table")
     before_df = file_db.table("table").to_df()
 
@@ -57,7 +57,7 @@ def test_file_database(tmp_path):
     del file_db
 
     # And restore tha data from the file
-    restored_db = pt.Database(path=db_path)
+    restored_db = pt.duckdb.Database(path=db_path)
     after_df = restored_db.table("table").to_df()
 
     # The data should still be the same
@@ -81,7 +81,7 @@ def test_database_create_table():
         enum_column: Literal["a", "b", "c"]
 
     # We crate the table schema
-    db = pt.Database()
+    db = pt.duckdb.Database()
     table = db.create_table(name="test_table", model=Model)
 
     # We insert some dummy data into the new table
@@ -124,7 +124,7 @@ def test_database_create_table():
 
 def test_create_view():
     """It should be able to create a view from a relation source."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     df = pt.DataFrame({"a": [1, 2], "b": [3.0, 4.0]})
     db.create_view(name="my_view", data=df)
     assert db.view("my_view").to_df().frame_equal(df)
@@ -137,7 +137,7 @@ def test_validate_non_nullable_enum_columns():
         non_nullable_enum_column: Literal["a", "b", "c"]
         nullable_enum_column: Optional[Literal["a", "b", "c"]]
 
-    db = pt.Database()
+    db = pt.duckdb.Database()
     db.create_table(name="enum_table", model=EnumModel)
 
     # We allow null values in nullable_enum_column
@@ -194,7 +194,7 @@ def test_table_existence_check():
         column_2: int
 
     # At first there is no table named "test_table"
-    db = pt.Database()
+    db = pt.duckdb.Database()
     assert "test_table" not in db
 
     # We create the table
@@ -210,7 +210,7 @@ def test_creating_enums_several_tiems():
     class EnumModel(pt.Model):
         enum_column: Literal["a", "b", "c"]
 
-    db = pt.Database()
+    db = pt.duckdb.Database()
     db.create_enum_types(EnumModel)
     db.enum_types = set()
     db.create_enum_types(EnumModel)
@@ -225,7 +225,7 @@ def test_use_of_same_enum_types_from_literal_annotation():
     class Table2(pt.Model):
         column_2: Optional[Literal["b", "a"]]
 
-    db = pt.Database()
+    db = pt.duckdb.Database()
     db.create_table(name="table_1", model=Table1)
     db.create_table(name="table_2", model=Table2)
 
@@ -251,7 +251,7 @@ def test_use_of_same_enum_types_from_enum_annotation():
     class Table2(pt.Model):
         column_2: Optional[BAEnum]
 
-    db = pt.Database()
+    db = pt.duckdb.Database()
     db.create_table(name="table_1", model=Table1)
     db.create_table(name="table_2", model=Table2)
 
@@ -262,7 +262,7 @@ def test_use_of_same_enum_types_from_enum_annotation():
 
 def test_execute():
     """It should be able to execute prepared statements."""
-    db = pt.Database()
+    db = pt.duckdb.Database()
     db.execute("create table my_table (a int, b int, c int)")
     db.execute("insert into my_table select ? as a, ? as b, ? as c", [2, 3, 4])
     assert (
