@@ -183,7 +183,7 @@ class DatabaseQuery(Generic[P, DF]):
                     # parquet file instead. That way we get consistent memory pressure
                     # the first and subsequent times this function is invoked.
                     del polars_df, arrow_table
-                    return pl.scan_parquet(file=cache_path)  # type: ignore
+                    return pl.scan_parquet(source=cache_path)  # type: ignore
                 else:
                     return polars_df.lazy()  # type: ignore
             else:
@@ -388,15 +388,14 @@ class Database:
 
         >>> movies(newer_than_year=1980)
         shape: (2, 3)
-        ┌─────────────────────────────────────┬──────┬───────┐
-        │ title                               ┆ year ┆ score │
-        │ ---                                 ┆ ---  ┆ ---   │
-        │ str                                 ┆ i64  ┆ f64   │
-        ╞═════════════════════════════════════╪══════╪═══════╡
-        │ Monty Python Live at the Hollywo... ┆ 1982 ┆ 7.9   │
-        ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
-        │ Monty Python's The Meaning of Li... ┆ 1983 ┆ 7.5   │
-        └─────────────────────────────────────┴──────┴───────┘
+        ┌───────────────────────────────────┬──────┬───────┐
+        │ title                             ┆ year ┆ score │
+        │ ---                               ┆ ---  ┆ ---   │
+        │ str                               ┆ i64  ┆ f64   │
+        ╞═══════════════════════════════════╪══════╪═══════╡
+        │ Monty Python Live at the Hollywo… ┆ 1982 ┆ 7.9   │
+        │ Monty Python's The Meaning of Li… ┆ 1983 ┆ 7.5   │
+        └───────────────────────────────────┴──────┴───────┘
 
         Caching is not enabled by default, but it can be enabled by specifying
         ``cache=True`` to the ``@db.as_query(...)`` decorator. Other arguments are

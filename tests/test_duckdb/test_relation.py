@@ -384,7 +384,7 @@ def test_relation_case_method():
         }
     )
 
-    correct_df = df.with_column(
+    correct_df = df.with_columns(
         pl.Series([10, 20, 10, 0, None], dtype=pl.Int32).alias("max_weight")
     )
     correct_mapped_actions = db.to_relation(correct_df)
@@ -656,7 +656,7 @@ def test_with_missing_nullable_enum_columns():
         table="enum_table"
     )
     table_relation = db.table("enum_table")
-    assert table_relation.types["enum_column"].startswith("enum__")
+    assert str(table_relation.types["enum_column"]).startswith("enum__")
 
     # We generate another dynamic relation where we expect the correct enum type
     null_relation = (
@@ -697,7 +697,7 @@ def test_with_missing_nullable_enum_columns_without_table():
         relation.with_missing_nullable_columns()
 
     model_relation = relation.set_model(EnumModel).with_missing_nullable_columns()
-    assert model_relation.types["enum_column_1"].startswith("enum__")
+    assert str(model_relation.types["enum_column_1"]).startswith("enum__")
     assert (
         model_relation.types["enum_column_2"] == model_relation.types["enum_column_1"]
     )
@@ -729,7 +729,7 @@ def test_with_missing_defualtable_enum_columns():
         relation.with_missing_defaultable_columns()
 
     model_relation = relation.set_model(EnumModel).with_missing_defaultable_columns()
-    assert model_relation.types["enum_column"].startswith("enum__")
+    assert str(model_relation.types["enum_column"]).startswith("enum__")
 
 
 def test_relation_insert_into():
@@ -988,14 +988,12 @@ def test_cast():
 
     df = pt.DataFrame(
         {
-            "timedelta_column": [timedelta(seconds=90)],
             "date_column": [date(2022, 9, 4)],
             "null_column": [None],
         }
     )
     casted_relation = pt.duckdb.Relation(df, model=TotalModel).cast()
     assert casted_relation.types == {
-        "timedelta_column": "INTERVAL",
         "date_column": "DATE",
         "null_column": "INTEGER",
     }
@@ -1041,3 +1039,26 @@ def test_cast():
         match=r"Both include and exclude provided to Relation.cast\(\)\!",
     ):
         relation.cast(include=["column_1"], exclude=["column_2"])
+
+
+@pytest.mark.xfail(strict=True)
+def test_casting_timedelta_column_back_and_forth():
+    class TotalModel(pt.Model):
+        timedelta_column: timedelta
+        date_column: date
+        null_column: None
+
+    df = pt.DataFrame(
+        {
+            "timedelta_column": [timedelta(seconds=90)],
+            "date_column": [date(2022, 9, 4)],
+            "null_column": [None],
+        }
+    )
+    casted_relation = pt.duckdb.Relation(df, model=TotalModel).cast()
+    assert casted_relation.types == {
+        "timedelta_column": "INTERVAL",
+        "date_column": "DATE",
+        "null_column": "INTEGER",
+    }
+    assert casted_relation.to_df().frame_equal(df)

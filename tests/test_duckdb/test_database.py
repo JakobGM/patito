@@ -34,7 +34,10 @@ def test_database(tmp_path):
 
     # Check that new database objects are isolated from previous ones
     another_db = pt.duckdb.Database()
-    with pytest.raises(Exception, match="Table does not exist!"):
+    with pytest.raises(
+        Exception,
+        match=r"Catalog Error\: Table 'table_name_1' does not exist!",
+    ):
         db_table = another_db.table("table_name_1")
 
     # Check the parquet reading functionality
@@ -92,10 +95,7 @@ def test_database_create_table():
     null_relation = dummy_relation.drop("int_column").select("null as int_column, *")
     with pytest.raises(
         Exception,
-        match=(
-            "Failed to insert into table 'test_table': "
-            "NOT NULL constraint failed: test_table.int_column"
-        ),
+        match=("Constraint Error: NOT NULL constraint failed: test_table.int_column"),
     ):
         null_relation.insert_into(table="test_table")
 
@@ -153,8 +153,9 @@ def test_validate_non_nullable_enum_columns():
     with pytest.raises(
         Exception,
         match=(
-            "Failed to insert into table 'enum_table': "
-            "NOT NULL constraint failed: enum_table.non_nullable_enum_column"
+            "Constraint Error: "
+            "NOT NULL constraint failed: "
+            "enum_table.non_nullable_enum_column"
         ),
     ):
         invalid_relation.insert_into(table="enum_table")
@@ -165,10 +166,7 @@ def test_validate_non_nullable_enum_columns():
     )
     with pytest.raises(
         Exception,
-        match=(
-            ".*Failed to insert into table 'enum_table': "
-            "Could not convert string 'd' to UINT8"
-        ),
+        match="Conversion Error: Could not convert string 'd' to UINT8",
     ):
         invalid_relation.insert_into(table="enum_table")
 
@@ -178,10 +176,7 @@ def test_validate_non_nullable_enum_columns():
     )
     with pytest.raises(
         Exception,
-        match=(
-            ".*Failed to insert into table 'enum_table': "
-            "Could not convert string 'd' to UINT8"
-        ),
+        match="Conversion Error: Could not convert string 'd' to UINT8",
     ):
         invalid_relation.insert_into(table="enum_table")
 

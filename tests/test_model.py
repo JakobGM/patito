@@ -424,7 +424,7 @@ def test_enum_annotated_field():
     class InvalidEnumModel(pt.Model):
         column: MultiTypedEnum
 
-    if pt._DUCKDB_AVAILABLE:
+    if pt._DUCKDB_AVAILABLE:  # pragma: no cover
         assert EnumModel.sql_types["column"].startswith("enum__")
         with pytest.raises(TypeError, match=r".*Encountered types: \['int', 'str'\]\."):
             InvalidEnumModel.sql_types
