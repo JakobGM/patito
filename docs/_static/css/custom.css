@@ -102,7 +102,7 @@ footer a:visited {
   border-color: var(--cream);
 }
 
-/* Make class/function signatures Oda colored */
+/* Make class/function signatures consistently colored */
 .sig {
   background: var(--cream) !important;
   color: var(--aubergine) !important;

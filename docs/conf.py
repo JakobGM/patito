@@ -4,7 +4,7 @@ import patito as pt
 project = "Patito"
 version = pt.__version__
 author = "Jakob Gerhard Martinussen"
-copyright = "2022, Oda Group Holding AS"
+copyright = "2022, Oda Group Holding AS. 2023, Jakob Gerhard Martinussen & contributors"
 html_theme = "sphinx_rtd_theme"
 extensions = [
     "sphinx.ext.autodoc",
