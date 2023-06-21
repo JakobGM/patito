@@ -5,7 +5,7 @@ import nox  # type: ignore
 
 nox.options.sessions = "lint", "test", "type_check"
 locations = "src", "tests", "noxfile.py", "docs/conf.py"
-supported_python_versions = "3.7", "3.8", "3.9", "3.10", "3.11"
+supported_python_versions = "3.8", "3.9", "3.10", "3.11"
 
 
 def install_with_constraints(session, *args, **kwargs):
@@ -51,8 +51,7 @@ def test(session):
         "install",
         "--only=main",
         "--extras",
-        # Pandas/pyarrow requires python version >= 3.8
-        "duckdb" if session.python == "3.7" else "caching duckdb pandas",
+        "caching duckdb pandas",
         external=True,
     )
     install_with_constraints(
