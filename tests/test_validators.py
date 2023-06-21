@@ -188,7 +188,7 @@ def test_validate_dtype_checks():
 
         with pytest.raises(ValidationError) as e_info:
             validate(
-                dataframe=valid_df.with_column(pl.lit(1, dtype=dtype).alias(column)),
+                dataframe=valid_df.with_columns(pl.lit(1, dtype=dtype).alias(column)),
                 schema=CompleteModel,
             )
 
@@ -227,7 +227,7 @@ def test_validate_dtype_checks():
 
     pytest.importorskip("pandas")
     validate(
-        dataframe=valid_df.with_column(pl.col("date_column").cast(str)).to_pandas(),
+        dataframe=valid_df.with_columns(pl.col("date_column").cast(str)).to_pandas(),
         schema=PandasCompatibleModel,
     )
 
@@ -258,9 +258,11 @@ def test_datetime_validation():
     needs to check the "format" property on the field schema.
     """
 
-    string_df = pl.DataFrame().with_column(pl.lit("string", dtype=pl.Utf8).alias("c"))
-    date_df = pl.DataFrame().with_column(pl.lit(date.today(), dtype=pl.Date).alias("c"))
-    datetime_df = pl.DataFrame().with_column(
+    string_df = pl.DataFrame().with_columns(pl.lit("string", dtype=pl.Utf8).alias("c"))
+    date_df = pl.DataFrame().with_columns(
+        pl.lit(date.today(), dtype=pl.Date).alias("c")
+    )
+    datetime_df = pl.DataFrame().with_columns(
         pl.lit(datetime.now(), dtype=pl.Datetime).alias("c")
     )
 
@@ -383,7 +385,7 @@ def test_validation_of_bounds_checks():
     )
 
     valid = [42.5, 42.4, 42.5, 42.6, 42.6, 19.5, 3.1415, "value X", "ab", "ab"]
-    valid_df = pl.DataFrame(data=[valid], columns=BoundModel.columns)
+    valid_df = pl.DataFrame(data=[valid], schema=BoundModel.columns)
     BoundModel.validate(valid_df)
 
     invalid = [42.6, 42.5, 42.4, 42.5, 43.1, 19.75, 3.2, "value x", "a", "abc"]
@@ -393,7 +395,7 @@ def test_validation_of_bounds_checks():
             + invalid[column_index : column_index + 1]
             + valid[column_index + 1 :]
         )
-        invalid_df = pl.DataFrame(data=[data], columns=BoundModel.columns)
+        invalid_df = pl.DataFrame(data=[data], schema=BoundModel.columns)
         with pytest.raises(ValidationError) as e_info:
             BoundModel.validate(invalid_df)
         errors = e_info.value.errors()
@@ -433,7 +435,7 @@ def test_validation_of_dtype_specifiers():
         pl.Series([2]).cast(pl.UInt64),
         pl.Series([2]).cast(pl.UInt8),
     ]
-    valid_df = pl.DataFrame(data=valid, columns=DTypeModel.columns)
+    valid_df = pl.DataFrame(data=valid, schema=DTypeModel.columns)
     DTypeModel.validate(valid_df)
 
     invalid = [
@@ -454,7 +456,7 @@ def test_validation_of_dtype_specifiers():
             + invalid[column_index : column_index + 1]
             + valid[column_index + 1 :]
         )
-        invalid_df = pl.DataFrame(data=data, columns=DTypeModel.columns)
+        invalid_df = pl.DataFrame(data=data, schema=DTypeModel.columns)
         with pytest.raises(ValidationError) as e_info:
             DTypeModel.validate(invalid_df)
         errors = e_info.value.errors()
@@ -596,4 +598,4 @@ def test_validation_of_list_dtypes():
     ]:
         # print(old, new)
         with pytest.raises(ValidationError):
-            ListModel.validate(valid_df.with_column(pl.col(old).alias(new)))
+            ListModel.validate(valid_df.with_columns(pl.col(old).alias(new)))

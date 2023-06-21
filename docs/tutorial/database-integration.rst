@@ -214,7 +214,7 @@ Polars vs. Pandas
 ~~~~~~~~~~~~~~~~~
 
 When ``user_analyzer.fetch.users()`` is invoked it will return a polars DataFrame by default.
-`Polars <https://github.com/pola-rs/polars>`_ is a DataFrame library that is highly recommended over pandas in Oda; it will be familiar to most pandas users and can be easily converted to pandas when needed.
+`Polars <https://github.com/pola-rs/polars>`_ is a DataFrame library that is highly recommended over pandas; it will be familiar to most pandas users and can be easily converted to pandas when needed.
 You can find introductory documentation for polars `here <https://pola-rs.github.io/polars-book/user-guide/>`_.
 If you still prefer to use pandas you can use the ``.to_pandas()`` method like this...
 

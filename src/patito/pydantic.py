@@ -130,9 +130,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             ...     price: float
             ...
             >>> Product.dtypes
-            {'name': <class 'polars.datatypes.Utf8'>, \
-'ideal_temperature': <class 'polars.datatypes.Int64'>, \
-'price': <class 'polars.datatypes.Float64'>}
+            {'name': Utf8, 'ideal_temperature': Int64, 'price': Float64}
         """
         return {
             column: valid_dtypes[0] for column, valid_dtypes in cls.valid_dtypes.items()
@@ -165,18 +163,10 @@ class ModelMetaclass(PydanticModelMetaclass):
             ...     float_column: float
             ...
             >>> pprint(MyModel.valid_dtypes)
-            {'bool_column': [<class 'polars.datatypes.Boolean'>],
-             'float_column': [<class 'polars.datatypes.Float64'>,
-                              <class 'polars.datatypes.Float32'>],
-             'int_column': [<class 'polars.datatypes.Int64'>,
-                            <class 'polars.datatypes.Int32'>,
-                            <class 'polars.datatypes.Int16'>,
-                            <class 'polars.datatypes.Int8'>,
-                            <class 'polars.datatypes.UInt64'>,
-                            <class 'polars.datatypes.UInt32'>,
-                            <class 'polars.datatypes.UInt16'>,
-                            <class 'polars.datatypes.UInt8'>],
-             'str_column': [<class 'polars.datatypes.Utf8'>]}
+            {'bool_column': [Boolean],
+             'float_column': [Float64, Float32],
+             'int_column': [Int64, Int32, Int16, Int8, UInt64, UInt32, UInt16, UInt8],
+             'str_column': [Utf8]}
         """
         valid_dtypes = {}
         for column, props in cls._schema_properties().items():
@@ -592,7 +582,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
             >>> df = pl.DataFrame(
             ...     [["1", "product name", "1.22"]],
-            ...     columns=["product_id", "name", "price"],
+            ...     schema=["product_id", "name", "price"],
             ... )
             >>> Product.from_row(df)
             Product(product_id=1, name='product name', price=1.22)
@@ -644,7 +634,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
             >>> df = pl.DataFrame(
             ...     [["1", "product name", "1.22"]],
-            ...     columns=["product_id", "name", "price"],
+            ...     schema=["product_id", "name", "price"],
             ... )
             >>> Product._from_polars(df)
             Product(product_id=1, name='product name', price=1.22)
@@ -999,7 +989,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             │ str       ┆ cat              ┆ i64        │
             ╞═══════════╪══════════════════╪════════════╡
             │ product A ┆ dry              ┆ 0          │
-            ├╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ product B ┆ dry              ┆ 1          │
             └───────────┴──────────────────┴────────────┘
         """
@@ -1483,8 +1472,8 @@ class FieldDoc:
         product_id
           2 rows with duplicated values. (type=value_error.rowvalue)
         price
-          Polars dtype <class 'polars.datatypes.Int64'> \
-          does not match model field type. (type=type_error.columndtype)
+          Polars dtype Int64 does not match model field type. \
+          (type=type_error.columndtype)
         brand_color
           2 rows with out of bound values. (type=value_error.rowvalue)
     """

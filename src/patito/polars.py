@@ -4,9 +4,10 @@ from __future__ import annotations
 from typing import (
     TYPE_CHECKING,
     Any,
+    Collection,
     Generic,
+    Iterable,
     Optional,
-    Sequence,
     Type,
     TypeVar,
     Union,
@@ -14,6 +15,7 @@ from typing import (
 )
 
 import polars as pl
+from polars.type_aliases import IntoExpr
 from pydantic import create_model
 from typing_extensions import Literal
 
@@ -21,7 +23,6 @@ from patito.exceptions import MultipleRowsReturned, RowDoesNotExist
 
 if TYPE_CHECKING:
     import numpy as np
-    from polars.internals import WhenThen, WhenThenThen
 
     from patito.pydantic import Model
 
@@ -209,11 +210,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             │ i64  ┆ str    │
             ╞══════╪════════╡
             │ 1    ┆ A      │
-            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
             │ 1    ┆ B      │
-            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
             │ 2    ┆ A      │
-            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
             │ 2    ┆ B      │
             └──────┴────────┘
             >>> casted_classes = classes.cast()
@@ -225,11 +223,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             │ u16  ┆ cat    │
             ╞══════╪════════╡
             │ 1    ┆ A      │
-            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
             │ 1    ┆ B      │
-            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
             │ 2    ┆ A      │
-            ├╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
             │ 2    ┆ B      │
             └──────┴────────┘
             >>> casted_classes.validate()
@@ -292,7 +287,11 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 columns.append(pl.col(column).cast(default_dtypes[column]))
         return self.with_columns(columns)
 
-    def drop(self: DF, columns: Optional[Union[str, Sequence[str]]] = None) -> DF:
+    def drop(
+        self: DF,
+        columns: Optional[Union[str, Collection[str]]] = None,
+        *more_columns: str,
+    ) -> DF:
         """
         Drop one or more columns from the dataframe.
 
@@ -304,6 +303,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             columns: A single column string name, or list of strings, indicating
                 which columns to drop. If not specified, all columns *not*
                 specified by the associated dataframe model will be dropped.
+            more_columns: Additional named columns to drop.
 
         Returns:
             DataFrame[Model]: New dataframe without the specified columns.
@@ -321,13 +321,12 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             │ i64      │
             ╞══════════╡
             │ 1        │
-            ├╌╌╌╌╌╌╌╌╌╌┤
             │ 2        │
             └──────────┘
 
         """
         if columns is not None:
-            return super().drop(columns)
+            return self._from_pydf(super().drop(columns)._df)
         else:
             return self.drop(list(set(self.columns) - set(self.model.columns)))
 
@@ -418,7 +417,6 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             │ i64 ┆ i64 ┆ i64        │
             ╞═════╪═════╪════════════╡
             │ 1   ┆ 1   ┆ 2          │
-            ├╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ 2   ┆ 2   ┆ 4          │
             └─────┴─────┴────────────┘
         """
@@ -428,11 +426,11 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 derived_from = props["derived_from"]
                 dtype = self.model.dtypes[column_name]
                 if isinstance(derived_from, str):
-                    df = df.with_column(
+                    df = df.with_columns(
                         pl.col(derived_from).cast(dtype).alias(column_name)
                     )
                 elif isinstance(derived_from, pl.Expr):
-                    df = df.with_column(derived_from.cast(dtype).alias(column_name))
+                    df = df.with_columns(derived_from.cast(dtype).alias(column_name))
                 else:
                     raise TypeError(
                         "Can not derive dataframe column from type "
@@ -488,12 +486,11 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             │ str    ┆ i64   │
             ╞════════╪═══════╡
             │ apple  ┆ 10    │
-            ├╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
             │ banana ┆ 19    │
             └────────┴───────┘
         """
         if strategy != "defaults":  # pragma: no cover
-            return cast(  # type: ignore[redundant-cast]
+            return cast(  # pyright: ignore[redundant-cast]
                 DF,
                 super().fill_null(
                     value=value,
@@ -662,15 +659,17 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             ...     b: str = pt.Field(derived_from="source_of_b")
             ...
             >>> csv_file = io.StringIO("a,source_of_b\n1,1")
-            >>> CSVModel.DataFrame.read_csv(csv_file).drop()
-            shape: (1, 2)
-            ┌─────┬─────┐
-            │ a   ┆ b   │
-            │ --- ┆ --- │
-            │ f64 ┆ str │
-            ╞═════╪═════╡
-            │ 1.0 ┆ 1   │
-            └─────┴─────┘
+
+
+            # >>> CSVModel.DataFrame.read_csv(csv_file).drop()
+            # shape: (1, 2)
+            # ┌─────┬─────┐
+            # │ a   ┆ b   │
+            # │ --- ┆ --- │
+            # │ f64 ┆ str │
+            # ╞═════╪═════╡
+            # │ 1.0 ┆ 1   │
+            # └─────┴─────┘
         """
         kwargs.setdefault("dtypes", cls.model.dtypes)
         if not kwargs.get("has_header", True) and "columns" not in kwargs:
@@ -681,31 +680,24 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
     # --- Type annotation overrides ---
     def filter(  # noqa: D102
         self: DF,
-        predicate: Union[pl.Expr, str, pl.Series, list[bool], np.ndarray[Any, Any]],
+        predicate: Union[
+            pl.Expr, str, pl.Series, list[bool], np.ndarray[Any, Any], bool
+        ],
     ) -> DF:
         return cast(DF, super().filter(predicate=predicate))
 
     def select(  # noqa: D102
         self: DF,
-        exprs: Union[
-            pl.Expr,
-            pl.Series,
-            Sequence[Union[str, pl.Expr, pl.Series, "WhenThen", "WhenThenThen"]],
-        ],
+        *exprs: Union[IntoExpr, Iterable[IntoExpr]],
+        **named_exprs: IntoExpr,
     ) -> DF:
-        return cast(DF, super().select(exprs=exprs))  # type: ignore[redundant-cast]
-
-    def with_column(self: DF, column: Union[pl.Series, pl.Expr]) -> DF:  # noqa: D102
-        return cast(DF, super().with_column(column=column))
+        return cast(  # pyright: ignore[redundant-cast]
+            DF, super().select(*exprs, **named_exprs)
+        )
 
     def with_columns(  # noqa: D102
         self: DF,
-        exprs: Union[
-            pl.Expr,
-            pl.Series,
-            Sequence[Union[pl.Expr, pl.Series]],
-            None,
-        ] = None,
-        **named_exprs: Union[pl.Expr, pl.Series],
+        *exprs: Union[IntoExpr, Iterable[IntoExpr]],
+        **named_exprs: IntoExpr,
     ) -> DF:
-        return cast(DF, super().with_columns(exprs=exprs, **named_exprs))
+        return cast(DF, super().with_columns(*exprs, **named_exprs))

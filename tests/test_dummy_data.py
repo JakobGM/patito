@@ -111,7 +111,7 @@ def test_enum_field_example_values():
         none_default_optional_enum_field: Optional[Literal["a", "b", "c"]] = None
 
     # Workaround for pola-rs/polars#4253
-    example_df = DefaultEnumModel.examples({"row_number": [1]}).with_column(
+    example_df = DefaultEnumModel.examples({"row_number": [1]}).with_columns(
         pl.col("none_default_optional_enum_field").cast(pl.Categorical)
     )
 

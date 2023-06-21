@@ -249,7 +249,7 @@ class Product(pt.Model):
     @property
     def url(self) -> str:
         return (
-            "https://oda.com/no/products/"
+            "https://example.com/no/products/"
             f"{self.product_id}-"
             f"{self.name.lower().replace(' ', '-')}"
         )
@@ -267,7 +267,7 @@ products = pl.DataFrame(
 milk_row = products.filter(pl.col("product_id" == 1))
 milk = Product.from_row(milk_row)
 print(milk.url)
-# https://oda.com/no/products/1-skimmed-milk
+# https://example.com/no/products/1-skimmed-milk
 ```
 
 If you "connect" the `Product` model with the `DataFrame` by the use of `patito.DataFrame.set_model()`, or alternatively by using `Product.DataFrame` directly, you can use the `.get()` method in order to filter the data frame down to a single row _and_ cast it to the respective model class:
@@ -282,5 +282,5 @@ products = Product.DataFrame(
 )
 milk = products.get(pl.col("product_id") == 1)
 print(milk.url)
-# https://oda.com/no/products/1-skimmed-milk
+# https://example.com/no/products/1-skimmed-milk
 ```

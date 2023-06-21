@@ -311,7 +311,6 @@ class Relation(Generic[ModelType]):
             │ str ┆ f64    ┆ str         ┆ i64   │
             ╞═════╪════════╪═════════════╪═══════╡
             │ X   ┆ 4.0    ┆ X           ┆ 3     │
-            ├╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┤
             │ Y   ┆ 2.0    ┆ Y           ┆ 2     │
             └─────┴────────┴─────────────┴───────┘
         """
@@ -535,7 +534,6 @@ class Relation(Generic[ModelType]):
             │ i64 ┆ str │
             ╞═════╪═════╡
             │ 1   ┆ one │
-            ├╌╌╌╌╌┼╌╌╌╌╌┤
             │ 2   ┆ two │
             └─────┴─────┘
 
@@ -555,7 +553,6 @@ class Relation(Generic[ModelType]):
             │ i64 ┆ str │
             ╞═════╪═════╡
             │ 1   ┆ one │
-            ├╌╌╌╌╌┼╌╌╌╌╌┤
             │ 2   ┆ two │
             └─────┴─────┘
         """
@@ -609,15 +606,15 @@ class Relation(Generic[ModelType]):
             ...
             >>> relation = pt.duckdb.Relation("select 1 as float_column")
             >>> relation.types["float_column"]
-            'INTEGER'
+            INTEGER
             >>> relation.cast(model=Schema).types["float_column"]
-            'DOUBLE'
+            DOUBLE
 
             >>> relation = pt.duckdb.Relation("select 1::FLOAT as float_column")
             >>> relation.cast(model=Schema).types["float_column"]
-            'FLOAT'
+            FLOAT
             >>> relation.cast(model=Schema, strict=True).types["float_column"]
-            'DOUBLE'
+            DOUBLE
 
             >>> class Schema(pt.Model):
             ...     column_1: float
@@ -627,11 +624,11 @@ class Relation(Generic[ModelType]):
             ...     "select 1 as column_1, 2 as column_2"
             ... ).set_model(Schema)
             >>> relation.types
-            {'column_1': 'INTEGER', 'column_2': 'INTEGER'}
+            {'column_1': INTEGER, 'column_2': INTEGER}
             >>> relation.cast(include=["column_1"]).types
-            {'column_1': 'DOUBLE', 'column_2': 'INTEGER'}
+            {'column_1': DOUBLE, 'column_2': INTEGER}
             >>> relation.cast(exclude=["column_1"]).types
-            {'column_1': 'INTEGER', 'column_2': 'DOUBLE'}
+            {'column_1': INTEGER, 'column_2': DOUBLE}
         """
         if model is not None:
             relation = self.set_model(model)
@@ -711,9 +708,7 @@ class Relation(Generic[ModelType]):
             │ i64 ┆ str  ┆ f64  │
             ╞═════╪══════╪══════╡
             │ 1   ┆ four ┆ null │
-            ├╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌┤
             │ 2   ┆ five ┆ 8.0  │
-            ├╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌┤
             │ 3   ┆ six  ┆ 9.0  │
             └─────┴──────┴──────┘
         """
@@ -784,13 +779,13 @@ class Relation(Generic[ModelType]):
             >>> df = pt.DataFrame({"enum_column": ["A", "A", "B"]})
             >>> relation = pt.duckdb.Relation(df)
             >>> relation.create_table("permissive_table").types
-            {'enum_column': 'VARCHAR'}
+            {'enum_column': VARCHAR}
 
             >>> class TableSchema(pt.Model):
             ...     enum_column: Literal["A", "B", "C"]
             ...
             >>> relation.set_model(TableSchema).create_table("strict_table").types
-            {'enum_column': 'enum__7ba49365cc1b0fd57e61088b3bc9aa25'}
+            {'enum_column': enum__7ba49365cc1b0fd57e61088b3bc9aa25}
         """
         if self.model is not None:
             self.database.create_table(name=name, model=self.model)
@@ -824,9 +819,7 @@ class Relation(Generic[ModelType]):
             │ str    │
             ╞════════╡
             │ A      │
-            ├╌╌╌╌╌╌╌╌┤
             │ A      │
-            ├╌╌╌╌╌╌╌╌┤
             │ B      │
             └────────┘
         """
@@ -863,7 +856,7 @@ class Relation(Generic[ModelType]):
             >>> import patito as pt
             >>> df = pt.DataFrame(
             ...     [[1, 2, 3], [1, 2, 3], [3, 2, 1]],
-            ...     columns=["a", "b", "c"],
+            ...     schema=["a", "b", "c"],
             ...     orient="row",
             ... )
             >>> relation = pt.duckdb.Relation(df)
@@ -875,9 +868,7 @@ class Relation(Generic[ModelType]):
             │ i64 ┆ i64 ┆ i64 │
             ╞═════╪═════╪═════╡
             │ 1   ┆ 2   ┆ 3   │
-            ├╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌┤
             │ 1   ┆ 2   ┆ 3   │
-            ├╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌┤
             │ 3   ┆ 2   ┆ 1   │
             └─────┴─────┴─────┘
             >>> relation.distinct().to_df()
@@ -888,7 +879,6 @@ class Relation(Generic[ModelType]):
             │ i64 ┆ i64 ┆ i64 │
             ╞═════╪═════╪═════╡
             │ 1   ┆ 2   ┆ 3   │
-            ├╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌┤
             │ 3   ┆ 2   ┆ 1   │
             └─────┴─────┴─────┘
         """
@@ -917,9 +907,7 @@ class Relation(Generic[ModelType]):
             │ i64 │
             ╞═════╡
             │ 1   │
-            ├╌╌╌╌╌┤
             │ 2   │
-            ├╌╌╌╌╌┤
             │ 3   │
             └─────┘
             >>> relation_2 = pt.duckdb.Relation("select 2")
@@ -940,7 +928,6 @@ class Relation(Generic[ModelType]):
             │ i64 │
             ╞═════╡
             │ 1   │
-            ├╌╌╌╌╌┤
             │ 3   │
             └─────┘
         """
@@ -949,7 +936,7 @@ class Relation(Generic[ModelType]):
             schema_change=False,
         )
 
-    def execute(self) -> duckdb.DuckDBPyResult:
+    def execute(self) -> duckdb.DuckDBPyRelation:
         """
         Execute built relation query and return result object.
 
@@ -962,7 +949,7 @@ class Relation(Generic[ModelType]):
             ...     "select 1 as a, 2 as b union select 3 as a, 4 as b"
             ... )
             >>> result = relation.aggregate("sum(a)", group_by="").execute()
-            >>> result.description()
+            >>> result.description
             [('sum(a)', 'NUMBER', None, None, None, None, None)]
             >>> result.fetchall()
             [(4,)]
@@ -1043,7 +1030,7 @@ class Relation(Generic[ModelType]):
         else:
             relation = self
         result = relation.execute()
-        row = cast(tuple, result.fetchone())
+        row = result.fetchone()
         if row is None or result.fetchone() is not None:
             args = [repr(f) for f in filters]
             args.extend(f"{key}={value!r}" for key, value in equalities.items())
@@ -1112,7 +1099,6 @@ class Relation(Generic[ModelType]):
             │ i64    ┆ str    │
             ╞════════╪════════╡
             │ 2      ┆ A      │
-            ├╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
             │ 4      ┆ B      │
             └────────┴────────┘
 
@@ -1189,7 +1175,6 @@ class Relation(Generic[ModelType]):
             │ str          ┆ i64         ┆ i64 ┆ str             │
             ╞══════════════╪═════════════╪═════╪═════════════════╡
             │ apple        ┆ 2           ┆ 2   ┆ Applies Inc.    │
-            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ banana       ┆ 1           ┆ 1   ┆ Banana Republic │
             └──────────────┴─────────────┴─────┴─────────────────┘
 
@@ -1205,9 +1190,7 @@ class Relation(Generic[ModelType]):
             │ str          ┆ i64         ┆ i64  ┆ str             │
             ╞══════════════╪═════════════╪══════╪═════════════════╡
             │ apple        ┆ 2           ┆ 2    ┆ Applies Inc.    │
-            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ banana       ┆ 1           ┆ 1    ┆ Banana Republic │
-            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ oranges      ┆ 3           ┆ null ┆ null            │
             └──────────────┴─────────────┴──────┴─────────────────┘
         """
@@ -1257,7 +1240,6 @@ class Relation(Generic[ModelType]):
             │ str          ┆ i64         ┆ i64 ┆ str             │
             ╞══════════════╪═════════════╪═════╪═════════════════╡
             │ apple        ┆ 2           ┆ 2   ┆ Applies Inc.    │
-            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ banana       ┆ 1           ┆ 1   ┆ Banana Republic │
             └──────────────┴─────────────┴─────┴─────────────────┘
         """
@@ -1309,9 +1291,7 @@ class Relation(Generic[ModelType]):
             │ str          ┆ i64         ┆ i64  ┆ str             │
             ╞══════════════╪═════════════╪══════╪═════════════════╡
             │ apple        ┆ 2           ┆ 2    ┆ Applies Inc.    │
-            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ banana       ┆ 1           ┆ 1    ┆ Banana Republic │
-            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ oranges      ┆ 3           ┆ null ┆ null            │
             └──────────────┴─────────────┴──────┴─────────────────┘
         """
@@ -1352,7 +1332,6 @@ class Relation(Generic[ModelType]):
             │ i64    │
             ╞════════╡
             │ 1      │
-            ├╌╌╌╌╌╌╌╌┤
             │ 2      │
             └────────┘
             >>> relation.limit(2, offset=2).to_df()
@@ -1363,7 +1342,6 @@ class Relation(Generic[ModelType]):
             │ i64    │
             ╞════════╡
             │ 3      │
-            ├╌╌╌╌╌╌╌╌┤
             │ 4      │
             └────────┘
         """
@@ -1396,11 +1374,8 @@ class Relation(Generic[ModelType]):
             │ str     ┆ i64 │
             ╞═════════╪═════╡
             │ Alice   ┆ 20  │
-            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
             │ Bob     ┆ 20  │
-            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
             │ Charles ┆ 30  │
-            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
             │ Diana   ┆ 35  │
             └─────────┴─────┘
             >>> relation = pt.duckdb.Relation(df)
@@ -1412,11 +1387,8 @@ class Relation(Generic[ModelType]):
             │ str     ┆ i64 │
             ╞═════════╪═════╡
             │ Diana   ┆ 35  │
-            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
             │ Charles ┆ 30  │
-            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
             │ Alice   ┆ 20  │
-            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
             │ Bob     ┆ 20  │
             └─────────┴─────┘
             >>> relation.order(by=["age desc", "name desc"]).to_df()
@@ -1427,11 +1399,8 @@ class Relation(Generic[ModelType]):
             │ str     ┆ i64 │
             ╞═════════╪═════╡
             │ Diana   ┆ 35  │
-            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
             │ Charles ┆ 30  │
-            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
             │ Bob     ┆ 20  │
-            ├╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
             │ Alice   ┆ 20  │
             └─────────┴─────┘
         """
@@ -1480,7 +1449,6 @@ class Relation(Generic[ModelType]):
             │ i64 │
             ╞═════╡
             │ 1   │
-            ├╌╌╌╌╌┤
             │ 2   │
             └─────┘
         """
@@ -1560,9 +1528,7 @@ class Relation(Generic[ModelType]):
             │ i64             │
             ╞═════════════════╡
             │ 1               │
-            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ 2               │
-            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ 3               │
             └─────────────────┘
             >>> relation.select("*", multiplied_column="2 * original_column").to_df()
@@ -1573,9 +1539,7 @@ class Relation(Generic[ModelType]):
             │ i64             ┆ i64               │
             ╞═════════════════╪═══════════════════╡
             │ 1               ┆ 2                 │
-            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ 2               ┆ 4                 │
-            ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
             │ 3               ┆ 6                 │
             └─────────────────┴───────────────────┘
         """
@@ -1720,10 +1684,10 @@ class Relation(Generic[ModelType]):
             >>> relation.set_model(MySchema).get()
             MySchema(float_column=1.0, enum_column='A')
             >>> relation.create_table("unmodeled_table").types
-            {'float_column': 'INTEGER', 'enum_column': 'VARCHAR'}
+            {'float_column': INTEGER, 'enum_column': VARCHAR}
             >>> relation.set_model(MySchema).create_table("modeled_table").types
-            {'float_column': 'DOUBLE',
-             'enum_column': 'enum__7ba49365cc1b0fd57e61088b3bc9aa25'}
+            {'float_column': DOUBLE,
+             'enum_column': enum__7ba49365cc1b0fd57e61088b3bc9aa25}
         """
         # We are not able to annotate the generic instance of type(self)[type(model)]
         # due to the lack of higher-kinded generics in python as of this writing.
@@ -1739,7 +1703,7 @@ class Relation(Generic[ModelType]):
         )
 
     @property
-    def types(self) -> Dict[str, DuckDBSQLType]:
+    def types(self):  # type: ignore[no-untyped-def]  # noqa
         """
         Return the SQL types of all the columns of the given relation.
 
@@ -1750,7 +1714,7 @@ class Relation(Generic[ModelType]):
         Examples:
             >>> import patito as pt
             >>> pt.duckdb.Relation("select 1 as a, 'my_value' as b").types
-            {'a': 'INTEGER', 'b': 'VARCHAR'}
+            {'a': INTEGER, 'b': VARCHAR}
         """
         return dict(zip(self.columns, self._relation.types))
 
@@ -1789,7 +1753,6 @@ class Relation(Generic[ModelType]):
             │ i64    │
             ╞════════╡
             │ 1      │
-            ├╌╌╌╌╌╌╌╌┤
             │ 2      │
             └────────┘
         """
@@ -1801,10 +1764,10 @@ class Relation(Generic[ModelType]):
             # because polars is much more eager to store integer Series as 64-bit
             # integers. Otherwise there must be done a lot of manual casting whenever
             # you cross the boundary between DuckDB and polars.
-            return DataFrame._from_arrow(arrow_table).with_column(
+            return DataFrame._from_arrow(arrow_table).with_columns(
                 pl.col(pl.Int32).cast(pl.Int64)
             )
-        except pa.ArrowInvalid:  # pragma: no cover
+        except (pa.ArrowInvalid, pl.ArrowError):  # pragma: no cover
             # Empty relations with enum columns can sometimes produce errors.
             # As a last-ditch effort, we convert such columns to VARCHAR.
             casted_columns = [
@@ -1815,7 +1778,7 @@ class Relation(Generic[ModelType]):
             ]
             non_enum_relation = self._relation.project(", ".join(casted_columns))
             arrow_table = non_enum_relation.to_arrow_table()
-            return DataFrame._from_arrow(arrow_table).with_column(
+            return DataFrame._from_arrow(arrow_table).with_columns(
                 pl.col(pl.Int32).cast(pl.Int64)
             )
 
@@ -1882,7 +1845,6 @@ class Relation(Generic[ModelType]):
             │ i64 │
             ╞═════╡
             │ 1   │
-            ├╌╌╌╌╌┤
             │ 2   │
             └─────┘
 
@@ -1894,7 +1856,6 @@ class Relation(Generic[ModelType]):
             │ i64 │
             ╞═════╡
             │ 1   │
-            ├╌╌╌╌╌┤
             │ 2   │
             └─────┘
         """
@@ -2485,7 +2446,6 @@ class Database:
             │ i64 ┆ str │
             ╞═════╪═════╡
             │ 3   ┆ 5   │
-            ├╌╌╌╌╌┼╌╌╌╌╌┤
             │ 4   ┆ 6   │
             └─────┴─────┘
         """
@@ -2522,9 +2482,7 @@ class Database:
             │ i64 │
             ╞═════╡
             │ 1   │
-            ├╌╌╌╌╌┤
             │ 2   │
-            ├╌╌╌╌╌┤
             │ 3   │
             └─────┘
 
@@ -2539,7 +2497,6 @@ class Database:
             │ i64 │
             ╞═════╡
             │ 1   │
-            ├╌╌╌╌╌┤
             │ 3   │
             └─────┘
 
@@ -2682,7 +2639,6 @@ class Database:
             │ i64 ┆ i64 │
             ╞═════╪═════╡
             │ 1   ┆ 3   │
-            ├╌╌╌╌╌┼╌╌╌╌╌┤
             │ 2   ┆ 4   │
             └─────┴─────┘
         """
@@ -2712,7 +2668,6 @@ class Database:
             │ i64 ┆ i64 │
             ╞═════╪═════╡
             │ 1   ┆ 3   │
-            ├╌╌╌╌╌┼╌╌╌╌╌┤
             │ 2   ┆ 4   │
             └─────┴─────┘
         """
@@ -2752,7 +2707,7 @@ class Database:
             >>> db = pt.duckdb.Database()
             >>> db.create_table(name="my_table", model=MyModel)
             >>> db.table("my_table").types
-            {'str_column': 'VARCHAR', 'nullable_string_column': 'VARCHAR'}
+            {'str_column': VARCHAR, 'nullable_string_column': VARCHAR}
         """
         self.create_enum_types(model=model)
         schema = model.schema()

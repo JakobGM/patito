@@ -275,7 +275,7 @@ def _find_errors(  # noqa: C901
             )
             if "_" in constraints.meta.root_names():
                 # An underscore is an alias for the current field
-                illegal_rows = dataframe.with_column(
+                illegal_rows = dataframe.with_columns(
                     pl.col(column_name).alias("_")
                 ).filter(constraints)
             else:
