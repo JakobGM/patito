@@ -132,6 +132,7 @@ def test_validate_non_nullable_columns():
 
 def test_validate_dtype_checks():
     """Test dtype-checking logic."""
+
     # An integer field may be validated against several different integer dtypes
     class IntModel(pt.Model):
         column: int

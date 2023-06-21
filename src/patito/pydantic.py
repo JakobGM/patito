@@ -111,7 +111,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @property
     def dtypes(  # type: ignore
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # pyright: ignore
     ) -> dict[str, Type[pl.DataType]]:
         """
         Return the polars dtypes of the dataframe.
@@ -140,7 +140,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @property
     def valid_dtypes(  # type: ignore
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # pyright: ignore
     ) -> dict[str, List[Union[pl.PolarsDataType, pl.List]]]:
         """
         Return a list of polars dtypes which Patito considers valid for each field.
@@ -190,7 +190,7 @@ class ModelMetaclass(PydanticModelMetaclass):
                     )
                 column_dtypes = [pl.List(dtype) for dtype in item_dtypes]
             else:
-                column_dtypes = cls._valid_dtypes(props=props)
+                column_dtypes = cls._valid_dtypes(props=props)  # pyright: ignore
 
             if column_dtypes is None:
                 raise NotImplementedError(
@@ -234,9 +234,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             ]
         elif props["type"] == "number":
             if props.get("format") == "time-delta":
-                return [
-                    pl.Duration,
-                ]  # pyright: reportPrivateImportUsage=false
+                return [pl.Duration]
             else:
                 return [pl.Float64, pl.Float32]
         elif props["type"] == "boolean":
@@ -259,7 +257,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @property
     def valid_sql_types(  # type: ignore  # noqa: C901
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # pyright: ignore
     ) -> dict[str, List["DuckDBSQLType"]]:
         """
         Return a list of DuckDB SQL types which Patito considers valid for each field.
@@ -322,7 +320,7 @@ class ModelMetaclass(PydanticModelMetaclass):
                 from patito.duckdb import _enum_type_name
 
                 # fmt: off
-                valid_dtypes[column] = [
+                valid_dtypes[column] = [  # pyright: ignore
                     _enum_type_name(field_properties=props),  # type: ignore
                     "VARCHAR", "CHAR", "BPCHAR", "TEXT", "STRING",
                 ]
@@ -394,7 +392,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @property
     def sql_types(  # type: ignore
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # pyright: ignore
     ) -> dict[str, str]:
         """
         Return compatible DuckDB SQL types for all model fields.
@@ -425,7 +423,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @property
     def defaults(  # type: ignore
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # pyright: ignore
     ) -> dict[str, Any]:
         """
         Return default field values specified on the model.
@@ -452,7 +450,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @property
     def non_nullable_columns(  # type: ignore
-        cls: Type[ModelType],  # pyright: reportGeneralTypeIssues=false
+        cls: Type[ModelType],  # pyright: ignore
     ) -> set[str]:
         """
         Return names of those columns that are non-nullable in the schema.
@@ -476,7 +474,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @property
     def nullable_columns(  # type: ignore
-        cls: Type[ModelType],  # pyright: reportGeneralTypeIssues=false
+        cls: Type[ModelType],  # pyright: ignore
     ) -> set[str]:
         """
         Return names of those columns that are nullable in the schema.
@@ -500,7 +498,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @property
     def unique_columns(  # type: ignore
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # pyright: ignore
     ) -> set[str]:
         """
         Return columns with uniqueness constraint.
@@ -551,12 +549,16 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod  # type: ignore[misc]
     @property
-    def DataFrame(cls: Type[ModelType]) -> Type[DataFrame[ModelType]]:
+    def DataFrame(
+        cls: Type[ModelType],
+    ) -> Type[DataFrame[ModelType]]:  # pyright: ignore  # noqa
         """Return DataFrame class where DataFrame.set_model() is set to self."""
 
     @classmethod  # type: ignore[misc]
     @property
-    def LazyFrame(cls: Type[ModelType]) -> Type[LazyFrame[ModelType]]:
+    def LazyFrame(
+        cls: Type[ModelType],
+    ) -> Type[LazyFrame[ModelType]]:  # pyright: ignore
         """Return DataFrame class where DataFrame.set_model() is set to self."""
 
     @classmethod

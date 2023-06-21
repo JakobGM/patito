@@ -104,7 +104,7 @@ def create_pydantic_model(relation: "duckdb.DuckDBPyRelation") -> Type[Model]:
     return create_model(  # type: ignore
         relation.alias,
         __base__=Model,
-        **pydantic_annotations,
+        **pydantic_annotations,  # pyright: ignore
     )
 
 

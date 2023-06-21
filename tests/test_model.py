@@ -150,7 +150,7 @@ def test_insstantiation_from_pandas_row():
 
     pandas_dataframe = polars_dataframe.to_pandas()
     assert Model.from_row(pandas_dataframe).a == 1
-    assert Model.from_row(pandas_dataframe.loc[0]).a == 1
+    assert Model.from_row(pandas_dataframe.loc[0]).a == 1  # type: ignore
 
 
 def test_model_dataframe_class_creation():

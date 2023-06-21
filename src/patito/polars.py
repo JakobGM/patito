@@ -607,7 +607,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             create_model(  # type: ignore
                 "UntypedRow",
                 __base__=Model,
-                **pydantic_annotations,
+                **pydantic_annotations,  # pyright: ignore
             ),
         )
 

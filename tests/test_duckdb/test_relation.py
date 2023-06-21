@@ -519,6 +519,7 @@ def test_relation_model_functionality():
 
 def test_row_sql_type_functionality():
     """Tests for mapping pydantic types to DuckDB SQL types."""
+
     # Two nullable and two non-nullable columns
     class OptionalRow(pt.Model):
         a: str
