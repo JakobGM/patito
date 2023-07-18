@@ -270,7 +270,7 @@ def _find_errors(  # noqa: C901
             custom_constraints = column_properties["constraints"]
             if isinstance(custom_constraints, pl.Expr):
                 custom_constraints = [custom_constraints]
-            constraints = pl.all(
+            constraints = pl.all_horizontal(
                 [constraint.is_not() for constraint in custom_constraints]
             )
             if "_" in constraints.meta.root_names():
