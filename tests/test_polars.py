@@ -12,7 +12,7 @@ def test_dataframe_get_method():
     """You should be able to retrieve a single row and cast to model."""
 
     class Product(pt.Model):
-        product_id: int = pt.Field(unique=True)
+        product_id: int = pt.Field(json_schema_extra={"unique":True})
         price: float
 
     df = pt.DataFrame({"product_id": [1, 2], "price": [9.99, 19.99]})
@@ -112,7 +112,7 @@ def test_dataframe_model_dtype_casting():
     class DTypeModel(pt.Model):
         implicit_int_1: int
         implicit_int_2: int
-        explicit_uint: int = pt.Field(dtype=pl.UInt64)
+        explicit_uint: int = pt.Field(json_schema_extra={"dtype":pl.UInt64})
         implicit_date: date
         implicit_datetime: datetime
 
@@ -159,8 +159,8 @@ def test_correct_columns_and_dtype_on_read(tmp_path):
     """A model DataFrame should aid CSV reading with column names and dtypes."""
 
     class Foo(pt.Model):
-        a: str = pt.Field(derived_from="column_1")
-        b: int = pt.Field(derived_from="column_2")
+        a: str = pt.Field(json_schema_extra={"derived_from":"column_1"})
+        b: int = pt.Field(json_schema_extra={"derived_from":"column_2"})
 
     csv_path = tmp_path / "foo.csv"
     csv_path.write_text("1,2")
@@ -189,7 +189,7 @@ def test_correct_columns_and_dtype_on_read(tmp_path):
     assert unspecified_column_df.dtypes == [pl.Utf8, pl.Int64, pl.Float64]
 
     class DerivedModel(pt.Model):
-        cents: int = pt.Field(derived_from=100 * pl.col("dollars"))
+        cents: int = pt.Field(json_schema_extra={"derived_from":100 * pl.col("dollars")})
 
     csv_path.write_text("month,dollars\n1,2.99")
     derived_df = DerivedModel.DataFrame.read_csv(csv_path)
@@ -203,10 +203,10 @@ def test_derive_functionality():
 
     class DerivedModel(pt.Model):
         underived: int
-        const_derived: int = pt.Field(derived_from=pl.lit(3))
-        column_derived: int = pt.Field(derived_from="underived")
-        expr_derived: int = pt.Field(derived_from=2 * pl.col("underived"))
-        second_order_derived: int = pt.Field(derived_from=2 * pl.col("expr_derived"))
+        const_derived: int = pt.Field(json_schema_extra={"derived_from":pl.lit(3)})
+        column_derived: int = pt.Field(json_schema_extra={"derived_from":"underived"})
+        expr_derived: int = pt.Field(json_schema_extra={"derived_from":2 * pl.col("underived")})
+        second_order_derived: int = pt.Field(json_schema_extra={"derived_from":2 * pl.col("expr_derived")})
 
     df = DerivedModel.DataFrame({"underived": [1, 2]})
     assert df.columns == ["underived"]
@@ -224,7 +224,7 @@ def test_derive_functionality():
 
     # Non-compatible derive_from arguments should raise TypeError
     class InvalidModel(pt.Model):
-        incompatible: int = pt.Field(derived_from=object)
+        incompatible: int = pt.Field(json_schema_extra={"derived_from":object})
 
     with pytest.raises(
         TypeError,
