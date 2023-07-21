@@ -1,4 +1,4 @@
-# <center><img height="30px" src="https://emojipedia-us.s3.dualstack.us-west-1.amazonaws.com/thumbs/120/samsung/78/duck_1f986.png"> Patito<center>
+# <center><img height="30px" src="https://em-content.zobj.net/thumbs/120/samsung/78/duck_1f986.png"> Patito<center>
 
 <p align="center">
     <em>
