@@ -32,7 +32,4 @@ html_css_files = [
     "css/custom.css",
 ]
 
-html_logo = (
-    "https://em-content.zobj.net"
-    "/thumbs/120/samsung/78/duck_1f986.png"
-)
+html_logo = "https://em-content.zobj.net/thumbs/120/samsung/78/duck_1f986.png"
