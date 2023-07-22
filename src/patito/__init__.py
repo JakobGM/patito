@@ -51,3 +51,10 @@ try:
     __version__ = version(__name__)
 except PackageNotFoundError:  # pragma: no cover
     __version__ = "unknown"
+
+
+def from_pydantic(pydantic_model: pydantic.BaseModel):
+    class PydanticModelMixedWithPatito(pydantic_model, Model):
+        pass
+
+    return PydanticModelMixedWithPatito
