@@ -422,10 +422,10 @@ def test_clear_caches_with_formatted_paths(query_cache: LoggingQuerySource):
         "1",
         "2",
         # Two cache files for a=1
-        "1/1.parquet",
-        "1/2.parquet",
+        str(Path("1") / "1.parquet"),
+        str(Path("1") / "2.parquet"),
         # One cache file for a=2
-        "2/1.parquet",
+        str(Path("2") / "1.parquet"),
     }
 
     # We insert another parquet file that should *not* be cleared
@@ -436,7 +436,7 @@ def test_clear_caches_with_formatted_paths(query_cache: LoggingQuerySource):
     assert {str(path.relative_to(cache_dir)) for path in cache_dir.rglob("*")} == {
         "1",
         "2",
-        "1/3.parquet",
+        str(Path("1") / "3.parquet"),
     }
     tmp_dir.cleanup()
 
