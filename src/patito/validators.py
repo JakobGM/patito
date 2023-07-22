@@ -17,6 +17,7 @@ from patito.exceptions import (
     ValidationError,
 )
 
+
 if sys.version_info >= (3, 10):  # pragma: no cover
     from types import UnionType  # pyright: ignore
 
@@ -91,16 +92,21 @@ def _dewrap_optional(type_annotation: Type) -> Type:
     )
 
 
+# TODO function is duplicated
+def get_model_columns(model: Type[ModelType]) -> List[str]:  # type: ignore
+    return list(model.schema()["properties"].keys())
+
+
 def _find_errors(  # noqa: C901
     dataframe: pl.DataFrame,
-    schema: Type[Model],
+    model: Type[Model],
 ) -> list[ErrorWrapper]:
     """
     Validate the given dataframe.
 
     Args:
         dataframe: Polars DataFrame to be validated.
-        schema: Patito model which specifies how the dataframe should be structured.
+        model: Patito model which specifies how the dataframe should be structured.
 
     Returns:
         A list of patito.exception.ErrorWrapper instances. The specific validation
@@ -114,17 +120,18 @@ def _find_errors(  # noqa: C901
             type.
     """
     errors: list[ErrorWrapper] = []
+
     # Check if any columns are missing
-    for missig_column in set(schema.columns) - set(dataframe.columns):
+    for missing_column in set(model.columns) - set(dataframe.columns):
         errors.append(
             ErrorWrapper(
                 MissingColumnsError("Missing column"),
-                loc=missig_column,
+                loc=missing_column,
             )
         )
 
     # Check if any additional columns are included
-    for superflous_column in set(dataframe.columns) - set(schema.columns):
+    for superflous_column in set(dataframe.columns) - set(model.columns):
         errors.append(
             ErrorWrapper(
                 SuperflousColumnsError("Superflous column"),
@@ -133,7 +140,7 @@ def _find_errors(  # noqa: C901
         )
 
     # Check if any non-optional columns have null values
-    for column in schema.non_nullable_columns.intersection(dataframe.columns):
+    for column in model.non_nullable_columns.intersection(dataframe.columns):
         num_missing_values = dataframe.get_column(name=column).null_count()
         if num_missing_values:
             errors.append(
@@ -146,11 +153,11 @@ def _find_errors(  # noqa: C901
                 )
             )
 
-    for column, dtype in schema.dtypes.items():
+    for column, dtype in model.dtypes.items():
         if not isinstance(dtype, pl.List):
             continue
 
-        annotation = schema.__annotations__[column]  # type: ignore[unreachable]
+        annotation = model.__annotations__[column]  # type: ignore[unreachable]
 
         # Retrieve the annotation of the list itself,
         # dewrapping any potential Optional[...]
@@ -186,9 +193,9 @@ def _find_errors(  # noqa: C901
             )
 
     # Check if any column has a wrong dtype
-    valid_dtypes = schema.valid_dtypes
+    valid_dtypes = model.valid_dtypes
     dataframe_datatypes = dict(zip(dataframe.columns, dataframe.dtypes))
-    for column_name, column_properties in schema._schema_properties().items():
+    for column_name, column_properties in model._schema_properties().items():
         if column_name not in dataframe.columns:
             continue
 
@@ -206,7 +213,7 @@ def _find_errors(  # noqa: C901
         # Test for when only specific values are accepted
         if "enum" in column_properties:
             permissible_values = set(column_properties["enum"])
-            if column_name in schema.nullable_columns:
+            if column_name in model.nullable_columns:
                 permissible_values.add(None)
             actual_values = set(dataframe[column_name].unique())
             impermissible_values = actual_values - permissible_values
@@ -313,6 +320,6 @@ def validate(
     else:
         polars_dataframe = cast(pl.DataFrame, dataframe)
 
-    errors = _find_errors(dataframe=polars_dataframe, schema=schema)
+    errors = _find_errors(dataframe=polars_dataframe, model=schema)
     if errors:
         raise ValidationError(errors=errors, model=schema)

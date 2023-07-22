@@ -61,7 +61,7 @@ PYDANTIC_TO_POLARS_TYPES = {
 
 class ModelMetaclass(PydanticModelMetaclass):
     """
-    Metclass used by patito.Model.
+    Metaclass used by patito.Model.
 
     Responsible for setting any relevant model-dependent class properties.
     """
@@ -107,7 +107,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> Product.columns
             ['name', 'price']
         """
-        return list(cls.schema()["properties"].keys())
+        return get_model_columns(cls)
 
     @property
     def dtypes(  # type: ignore
@@ -132,9 +132,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> Product.dtypes
             {'name': Utf8, 'ideal_temperature': Int64, 'price': Float64}
         """
-        return {
-            column: valid_dtypes[0] for column, valid_dtypes in cls.valid_dtypes.items()
-        }
+        return get_dtypes(cls)
 
     @property
     def valid_dtypes(  # type: ignore
@@ -168,82 +166,7 @@ class ModelMetaclass(PydanticModelMetaclass):
              'int_column': [Int64, Int32, Int16, Int8, UInt64, UInt32, UInt16, UInt8],
              'str_column': [Utf8]}
         """
-        valid_dtypes = {}
-        for column, props in cls._schema_properties().items():
-            column_dtypes: List[Union[PolarsDataType, pl.List]]
-            if props.get("type") == "array":
-                array_props = props["items"]
-                item_dtypes = cls._valid_dtypes(props=array_props)
-                if item_dtypes is None:
-                    raise NotImplementedError(
-                        f"No valid dtype mapping found for column '{column}'."
-                    )
-                column_dtypes = [pl.List(dtype) for dtype in item_dtypes]
-            else:
-                column_dtypes = cls._valid_dtypes(props=props)  # pyright: ignore
-
-            if column_dtypes is None:
-                raise NotImplementedError(
-                    f"No valid dtype mapping found for column '{column}'."
-                )
-            valid_dtypes[column] = column_dtypes
-
-        return valid_dtypes
-
-    @staticmethod
-    def _valid_dtypes(  # noqa: C901
-        props: Dict,
-    ) -> Optional[List[pl.PolarsDataType]]:
-        """
-        Map schema property to list of valid polars data types.
-
-        Args:
-            props: Dictionary value retrieved from BaseModel._schema_properties().
-
-        Returns:
-            List of valid dtypes. None if no mapping exists.
-        """
-        if "dtype" in props:
-            return [
-                props["dtype"],
-            ]
-        elif "enum" in props and props["type"] == "string":
-            return [pl.Categorical, pl.Utf8]
-        elif "type" not in props:
-            return None
-        elif props["type"] == "integer":
-            return [
-                pl.Int64,
-                pl.Int32,
-                pl.Int16,
-                pl.Int8,
-                pl.UInt64,
-                pl.UInt32,
-                pl.UInt16,
-                pl.UInt8,
-            ]
-        elif props["type"] == "number":
-            if props.get("format") == "time-delta":
-                return [pl.Duration]
-            else:
-                return [pl.Float64, pl.Float32]
-        elif props["type"] == "boolean":
-            return [pl.Boolean]
-        elif props["type"] == "string":
-            string_format = props.get("format")
-            if string_format is None:
-                return [pl.Utf8]
-            elif string_format == "date":
-                return [pl.Date]
-            # TODO: Find out why this branch is not being hit
-            elif string_format == "date-time":  # pragma: no cover
-                return [pl.Datetime]
-            else:
-                return None  # pragma: no cover
-        elif props["type"] == "null":
-            return [pl.Null]
-        else:  # pragma: no cover
-            return None
+        return get_valid_dtypes(cls)
 
     @property
     def valid_sql_types(  # type: ignore  # noqa: C901
@@ -300,85 +223,7 @@ class ModelMetaclass(PydanticModelMetaclass):
                                              'UTINYINT'],
               'str_column': ['VARCHAR', 'CHAR', 'BPCHAR', 'TEXT', 'STRING']}
         """
-        valid_dtypes: Dict[str, List["DuckDBSQLType"]] = {}
-        for column, props in cls._schema_properties().items():
-            if "sql_type" in props:
-                valid_dtypes[column] = [
-                    props["sql_type"],
-                ]
-            elif "enum" in props and props["type"] == "string":
-                from patito.duckdb import _enum_type_name
-
-                # fmt: off
-                valid_dtypes[column] = [  # pyright: ignore
-                    _enum_type_name(field_properties=props),  # type: ignore
-                    "VARCHAR", "CHAR", "BPCHAR", "TEXT", "STRING",
-                ]
-                # fmt: on
-            elif "type" not in props:
-                raise NotImplementedError(
-                    f"No valid sql_type mapping found for column '{column}'."
-                )
-            elif props["type"] == "integer":
-                # fmt: off
-                valid_dtypes[column] = [
-                    "INTEGER", "INT4", "INT", "SIGNED",
-                    "BIGINT", "INT8", "LONG",
-                    "HUGEINT",
-                    "SMALLINT", "INT2", "SHORT",
-                    "TINYINT", "INT1",
-                    "UBIGINT",
-                    "UINTEGER",
-                    "USMALLINT",
-                    "UTINYINT",
-                ]
-                # fmt: on
-            elif props["type"] == "number":
-                if props.get("format") == "time-delta":
-                    valid_dtypes[column] = [
-                        "INTERVAL",
-                    ]
-                else:
-                    # fmt: off
-                    valid_dtypes[column] = [
-                        "DOUBLE", "FLOAT8", "NUMERIC", "DECIMAL",
-                        "REAL", "FLOAT4", "FLOAT",
-                    ]
-                    # fmt: on
-            elif props["type"] == "boolean":
-                # fmt: off
-                valid_dtypes[column] = [
-                    "BOOLEAN", "BOOL", "LOGICAL",
-                ]
-                # fmt: on
-            elif props["type"] == "string":
-                string_format = props.get("format")
-                if string_format is None:
-                    # fmt: off
-                    valid_dtypes[column] = [
-                        "VARCHAR", "CHAR", "BPCHAR", "TEXT", "STRING",
-                    ]
-                    # fmt: on
-                elif string_format == "date":
-                    valid_dtypes[column] = ["DATE"]
-                # TODO: Find out why this branch is not being hit
-                elif string_format == "date-time":  # pragma: no cover
-                    # fmt: off
-                    valid_dtypes[column] = [
-                        "TIMESTAMP", "DATETIME",
-                        "TIMESTAMP WITH TIMEZONE", "TIMESTAMPTZ",
-                    ]
-                    # fmt: on
-            elif props["type"] == "null":
-                valid_dtypes[column] = [
-                    "INTEGER",
-                ]
-            else:  # pragma: no cover
-                raise NotImplementedError(
-                    f"No valid sql_type mapping found for column '{column}'"
-                )
-
-        return valid_dtypes
+        return get_valid_sql_types(cls)
 
     @property
     def sql_types(  # type: ignore
@@ -406,10 +251,7 @@ class ModelMetaclass(PydanticModelMetaclass):
              'float_column': 'DOUBLE',
              'literal_column': 'enum__4a496993dde04060df4e15a340651b45'}
         """
-        return {
-            column: valid_types[0]
-            for column, valid_types in cls.valid_sql_types.items()
-        }
+        return get_sql_types(cls)
 
     @property
     def defaults(  # type: ignore
@@ -432,11 +274,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> Product.defaults
             {'price': 0, 'temperature_zone': 'dry'}
         """
-        return {
-            field_name: props["default"]
-            for field_name, props in cls._schema_properties().items()
-            if "default" in props
-        }
+        return get_defaults(cls)
 
     @property
     def non_nullable_columns(  # type: ignore
@@ -460,7 +298,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> sorted(MyModel.non_nullable_columns)
             ['another_non_nullable_field', 'non_nullable_field']
         """
-        return set(cls.schema().get("required", {}))
+        return get_non_nullable_columns(cls)
 
     @property
     def nullable_columns(  # type: ignore
@@ -484,7 +322,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> sorted(MyModel.nullable_columns)
             ['inferred_nullable_field', 'nullable_field']
         """
-        return set(cls.columns) - cls.non_nullable_columns
+        return get_nullable_columns(cls)
 
     @property
     def unique_columns(  # type: ignore
@@ -508,8 +346,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> sorted(Product.unique_columns)
             ['barcode', 'product_id']
         """
-        props = cls._schema_properties()
-        return {column for column in cls.columns if props[column].get("unique", False)}
+        return get_unique_columns(cls)
 
 
 class Model(BaseModel, metaclass=ModelMetaclass):
@@ -1319,7 +1156,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         )
 
     @classmethod
-    def _schema_properties(cls) -> Dict[str, Dict[str, Any]]:
+    def _schema_properties(cls) -> dict[str, dict[str, Any]]:
         """
         Return schema properties where definition references have been resolved.
 
@@ -1332,36 +1169,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             TypeError: if a field is annotated with an enum where the values are of
                 different types.
         """
-        schema = cls.schema(ref_template="{model}")
-        required = schema.get("required", set())
-        fields = {}
-        for field_name, field_info in schema["properties"].items():
-            if "$ref" in field_info:
-                definition = schema["definitions"][field_info["$ref"]]
-                if "enum" in definition and "type" not in definition:
-                    enum_types = set(type(value) for value in definition["enum"])
-                    if len(enum_types) > 1:
-                        raise TypeError(
-                            "All enumerated values of enums used to annotate "
-                            "Patito model fields must have the same type. "
-                            "Encountered types: "
-                            f"{sorted(map(lambda t: t.__name__, enum_types))}."
-                        )
-                    enum_type = enum_types.pop()
-                    # TODO: Support time-delta, date, and date-time.
-                    definition["type"] = {
-                        str: "string",
-                        int: "integer",
-                        float: "number",
-                        bool: "boolean",
-                        type(None): "null",
-                    }[enum_type]
-                fields[field_name] = definition
-            else:
-                fields[field_name] = field_info
-            fields[field_name]["required"] = field_name in required
-
-        return fields
+        return get_schema_properties(cls)
 
     @classmethod
     def _derive_model(
@@ -1480,3 +1288,235 @@ class FieldDoc:
 
 
 Field.__doc__ = FieldDoc.__doc__
+
+
+def get_model_columns(model: Type[ModelType]) -> List[str]:  # type: ignore
+    return list(model.schema()["properties"].keys())
+
+
+def get_dtypes(model: Type[ModelType]) -> dict[str, Type[pl.DataType]]:  # type: ignore
+    return {
+            column: valid_dtypes[0] for column, valid_dtypes in get_valid_dtypes(model).items()
+        }
+
+
+def get_valid_dtypes(model: Type[ModelType]) -> dict[str, List[Union[pl.PolarsDataType, pl.List]]]:  # type: ignore
+    valid_dtypes = {}
+    for column, props in get_schema_properties(model).items():
+        column_dtypes: list[Union[PolarsDataType, pl.List]]
+        if props.get("type") == "array":
+            array_props = props["items"]
+            item_dtypes = _valid_dtypes(props=array_props)
+            if item_dtypes is None:
+                raise NotImplementedError(
+                    f"No valid dtype mapping found for column '{column}'."
+                )
+            column_dtypes = [pl.List(dtype) for dtype in item_dtypes]
+        else:
+            column_dtypes = _valid_dtypes(props=props)  # pyright: ignore
+
+        if column_dtypes is None:
+            raise NotImplementedError(
+                f"No valid dtype mapping found for column '{column}'."
+            )
+        valid_dtypes[column] = column_dtypes
+
+    return valid_dtypes
+
+
+def _valid_dtypes(  # noqa: C901
+    props: Dict,
+) -> Optional[List[pl.PolarsDataType]]:
+    """
+    Map schema property to list of valid polars data types.
+
+    Args:
+        props: Dictionary value retrieved from BaseModel._schema_properties().
+
+    Returns:
+        List of valid dtypes. None if no mapping exists.
+    """
+    if "dtype" in props:
+        return [
+            props["dtype"],
+        ]
+    elif "enum" in props and props["type"] == "string":
+        return [pl.Categorical, pl.Utf8]
+    elif "type" not in props:
+        return None
+    elif props["type"] == "integer":
+        return [
+            pl.Int64,
+            pl.Int32,
+            pl.Int16,
+            pl.Int8,
+            pl.UInt64,
+            pl.UInt32,
+            pl.UInt16,
+            pl.UInt8,
+        ]
+    elif props["type"] == "number":
+        if props.get("format") == "time-delta":
+            return [pl.Duration]
+        else:
+            return [pl.Float64, pl.Float32]
+    elif props["type"] == "boolean":
+        return [pl.Boolean]
+    elif props["type"] == "string":
+        string_format = props.get("format")
+        if string_format is None:
+            return [pl.Utf8]
+        elif string_format == "date":
+            return [pl.Date]
+        # TODO: Find out why this branch is not being hit
+        elif string_format == "date-time":  # pragma: no cover
+            return [pl.Datetime]
+        else:
+            return None  # pragma: no cover
+    elif props["type"] == "null":
+        return [pl.Null]
+    else:  # pragma: no cover
+        return None
+
+
+def get_valid_sql_types(model: Type[ModelType]) -> dict[str, List["DuckDBSQLType"]]:
+    valid_dtypes: Dict[str, List["DuckDBSQLType"]] = {}
+    for column, props in get_schema_properties(model).items():
+        if "sql_type" in props:
+            valid_dtypes[column] = [
+                props["sql_type"],
+            ]
+        elif "enum" in props and props["type"] == "string":
+            from patito.duckdb import _enum_type_name
+
+            # fmt: off
+            valid_dtypes[column] = [  # pyright: ignore
+                _enum_type_name(field_properties=props),  # type: ignore
+                "VARCHAR", "CHAR", "BPCHAR", "TEXT", "STRING",
+            ]
+            # fmt: on
+        elif "type" not in props:
+            raise NotImplementedError(
+                f"No valid sql_type mapping found for column '{column}'."
+            )
+        elif props["type"] == "integer":
+            # fmt: off
+            valid_dtypes[column] = [
+                "INTEGER", "INT4", "INT", "SIGNED",
+                "BIGINT", "INT8", "LONG",
+                "HUGEINT",
+                "SMALLINT", "INT2", "SHORT",
+                "TINYINT", "INT1",
+                "UBIGINT",
+                "UINTEGER",
+                "USMALLINT",
+                "UTINYINT",
+            ]
+            # fmt: on
+        elif props["type"] == "number":
+            if props.get("format") == "time-delta":
+                valid_dtypes[column] = [
+                    "INTERVAL",
+                ]
+            else:
+                # fmt: off
+                valid_dtypes[column] = [
+                    "DOUBLE", "FLOAT8", "NUMERIC", "DECIMAL",
+                    "REAL", "FLOAT4", "FLOAT",
+                ]
+                # fmt: on
+        elif props["type"] == "boolean":
+            # fmt: off
+            valid_dtypes[column] = [
+                "BOOLEAN", "BOOL", "LOGICAL",
+            ]
+            # fmt: on
+        elif props["type"] == "string":
+            string_format = props.get("format")
+            if string_format is None:
+                # fmt: off
+                valid_dtypes[column] = [
+                    "VARCHAR", "CHAR", "BPCHAR", "TEXT", "STRING",
+                ]
+                # fmt: on
+            elif string_format == "date":
+                valid_dtypes[column] = ["DATE"]
+            # TODO: Find out why this branch is not being hit
+            elif string_format == "date-time":  # pragma: no cover
+                # fmt: off
+                valid_dtypes[column] = [
+                    "TIMESTAMP", "DATETIME",
+                    "TIMESTAMP WITH TIMEZONE", "TIMESTAMPTZ",
+                ]
+                # fmt: on
+        elif props["type"] == "null":
+            valid_dtypes[column] = [
+                "INTEGER",
+            ]
+        else:  # pragma: no cover
+            raise NotImplementedError(
+                f"No valid sql_type mapping found for column '{column}'"
+            )
+
+    return valid_dtypes
+
+
+def get_sql_types(model: Type[ModelType]) -> dict[str, str]:
+    return {
+        column: valid_types[0]
+        for column, valid_types in get_valid_sql_types(model).items()
+    }
+
+
+def get_defaults(model: Type[ModelType]) -> dict[str, Any]:
+    return {
+        field_name: props["default"]
+        for field_name, props in get_schema_properties(model).items()
+        if "default" in props
+    }
+
+
+def get_schema_properties(model: Type[ModelType]) -> dict[str, dict[str, Any]]:
+    schema = model.schema(ref_template="{model}")
+    required = schema.get("required", set())
+    fields = {}
+    for field_name, field_info in schema["properties"].items():
+        if "$ref" in field_info:
+            definition = schema["definitions"][field_info["$ref"]]
+            if "enum" in definition and "type" not in definition:
+                enum_types = set(type(value) for value in definition["enum"])
+                if len(enum_types) > 1:
+                    raise TypeError(
+                        "All enumerated values of enums used to annotate "
+                        "Patito model fields must have the same type. "
+                        "Encountered types: "
+                        f"{sorted(map(lambda t: t.__name__, enum_types))}."
+                    )
+                enum_type = enum_types.pop()
+                # TODO: Support time-delta, date, and date-time.
+                definition["type"] = {
+                    str: "string",
+                    int: "integer",
+                    float: "number",
+                    bool: "boolean",
+                    type(None): "null",
+                }[enum_type]
+            fields[field_name] = definition
+        else:
+            fields[field_name] = field_info
+        fields[field_name]["required"] = field_name in required
+
+    return fields
+
+
+def get_non_nullable_columns(model: Type[ModelType]) -> set[str]:
+    return set(model.schema().get("required", {}))
+
+
+def get_nullable_columns(model: Type[ModelType]) -> set[str]:
+    return set(get_model_columns(model)) - get_non_nullable_columns(model)
+
+
+def get_unique_columns(model: Type[ModelType]) -> set[str]:
+    props = get_schema_properties(model)
+    return {column for column in get_model_columns(model) if props[column].get("unique", False)}
