@@ -44,6 +44,7 @@ def test_dataframe_get_method():
 
     df.filter(pl.col("product_id") == 1).get()
 
+
 def test_dataframe_gets_method():
     """You should be able to retrieve a multiple rows and cast to model."""
 

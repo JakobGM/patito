@@ -624,8 +624,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         rows = self if predicate is None else self.filter(predicate)
 
         return [
-            rows[i].get()
-            for i in range(len(rows))
+            rows[i].get() for i in range(len(rows))
         ]
 
     def _pydantic_model(self) -> Type[Model]:
