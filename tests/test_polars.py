@@ -61,12 +61,12 @@ def test_dataframe_gets_method():
     # But if we specify the model, it makes sense
     df.set_model(Product).validate()
 
-    untyped_products = df.gets(pl.col("price") == 9.99)
+    untyped_products = list(df.gets(pl.col("price") == 9.99))
     assert len(untyped_products) == 2
     assert untyped_products[0].price == 9.99
     assert untyped_products[1].price == 9.99
 
-    typed_products = df.set_model(Product).gets(pl.col("price") == 9.99)
+    typed_products = list(df.set_model(Product).gets(pl.col("price") == 9.99))
     assert len(typed_products) == 2
     assert typed_products[0].price == 9.99
     assert typed_products[1].price == 9.99
