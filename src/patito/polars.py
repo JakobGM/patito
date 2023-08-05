@@ -588,6 +588,42 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         else:
             return self._pydantic_model().from_row(row)  # type: ignore
 
+    def gets(self, predicate: Optional[pl.Expr] = None) -> Iterable[ModelType]:
+        """
+        Fetch the multiple rows that matches the given polars predicate.
+
+        Args:
+            predicate: A polars expression defining the criteria of the filter.
+
+        Returns:
+            Model: A pydantic-derived base model representing the given rows.
+
+        Example:
+            >>> import patito as pt
+            >>> import polars as pl
+            >>> df = pt.DataFrame({"product_id": [1, 2, 3], "price": [10, 10, 20]})
+
+            The ``.gets()`` will by default return a dynamically constructed pydantic
+            model if no model has been associated with the given dataframe:
+
+            >>> list(df.gets(pl.col("price") == 10))
+            [UntypedRow(product_id=1, price=10),UntypedRow(product_id=2, price=10)]
+
+            If a Patito model has been associated with the dataframe, by the use of
+            :ref:`DataFrame.set_model()<DataFrame.set_model>`, then the given model will
+            be used to represent the return type:
+
+            >>> class Product(pt.Model):
+            ...     product_id: int = pt.Field(unique=True)
+            ...     price: float
+            ...
+            >>> list(df.set_model(Product).gets(pl.col("product_id") == 1))
+            [Product(product_id=1, price=10.0)]
+        """
+        rows = self if predicate is None else self.filter(predicate)
+        for i in range(len(rows)):
+            yield rows[i].get()
+
     def _pydantic_model(self) -> Type[Model]:
         """
         Dynamically construct patito model compliant with dataframe.
