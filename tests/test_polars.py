@@ -44,6 +44,32 @@ def test_dataframe_get_method():
 
     df.filter(pl.col("product_id") == 1).get()
 
+def test_dataframe_gets_method():
+    """You should be able to retrieve a multiple rows and cast to model."""
+
+    class Product(pt.Model):
+        product_id: int = pt.Field(unique=True)
+        price: float
+
+    df = pt.DataFrame({"product_id": [1, 2, 3], "price": [9.99, 9.99, 19.99]})
+
+    # Validation does nothing, as no model is specified
+    with pytest.raises(TypeError):
+        df.validate()
+
+    # But if we specify the model, it makes sense
+    df.set_model(Product).validate()
+
+    untyped_products = df.gets(pl.col("price") == 9.99)
+    assert len(untyped_products) == 2
+    assert untyped_products[0].price == 9.99
+    assert untyped_products[1].price == 9.99
+
+    typed_products = df.set_model(Product).gets(pl.col("price") == 9.99)
+    assert len(typed_products) == 2
+    assert typed_products[0].price == 9.99
+    assert typed_products[1].price == 9.99
+
 
 def test_dataframe_set_model_method():
     """You should be able to set the associated model of a dataframe."""
