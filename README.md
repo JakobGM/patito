@@ -62,7 +62,7 @@ Patito allows you to specify the type of each column in your dataframe by creati
 # models.py
 from typing import Literal, Optional
 
-import patito as pt
+import patio as pt
 
 
 class Product(pt.Model):
