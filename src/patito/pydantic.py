@@ -1407,10 +1407,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 if not old_field.required:
                     field_type = Optional[field_type]
                 field_default = old_field.default
-                if old_field.required and field_default is None:
-                    # The default None value needs to be replaced with ... in order to
-                    # make the field required in the new model.
-                    field_default = ...
                 new_fields[new_field_name] = (field_type, field_info)
             else:
                 # We have been given a (field_type, field_default) tuple defining the
