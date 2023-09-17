@@ -1383,19 +1383,35 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         Returns:
             A new model class derived from the model type of self.
         """
+
+        from pydantic.types import ConstrainedNumberMeta
+
+        pydantic_field_mapping = {
+            "integer": int,
+            "number": float,
+            "string": str,
+            "array": list,
+        }
         new_fields = {}
         for new_field_name, field_definition in field_mapping.items():
             if isinstance(field_definition, str):
                 # A single string, interpreted as the name of a field on the existing
                 # model.
                 old_field = cls.__fields__[field_definition]
-                field_type = old_field.type_
+                field_info = old_field.field_info
+                old_field_properties = cls._schema_properties()[field_definition]
+                if isinstance(old_field.type_, ConstrainedNumberMeta):
+                    field_type = pydantic_field_mapping[old_field_properties["type"]]
+                else:
+                    field_type = old_field.outer_type_
+                if not old_field.required:
+                    field_type = Optional[field_type]
                 field_default = old_field.default
                 if old_field.required and field_default is None:
                     # The default None value needs to be replaced with ... in order to
                     # make the field required in the new model.
                     field_default = ...
-                new_fields[new_field_name] = (field_type, field_default)
+                new_fields[new_field_name] = (field_type, field_info)
             else:
                 # We have been given a (field_type, field_default) tuple defining the
                 # new field directly.

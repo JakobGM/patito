@@ -429,23 +429,42 @@ def test_enum_annotated_field():
         with pytest.raises(TypeError, match=r".*Encountered types: \['int', 'str'\]\."):
             InvalidEnumModel.sql_types
 
+
 def test_model_properties_after_classmethod():
-    
     class ModelWithConstraints(pt.Model):
-        foo: int = pt.Field(constraints=pt.field.sum()==100, ge=0)
-        bar: int = pt.Field(ge=0, lt=100)
-        baz: str = "default_string"
-        
+        int_col: int = pt.Field(
+            dtype=pl.UInt64, ge=0, lt=100, constraints=pt.field.sum() == 100
+        )
+        float_col: float
+        string_col: str = "default_strings"
+        list_col: list
+        liststr_col: list[str]
+        optlist_col: Optional[list[str]]
+        optint_col: Optional[int]
+        date_col: date = pt.Field(dtype=pl.Date)
+        datetime_col: datetime = pt.Field(dtype=pl.Datetime)
+
     expected_properties = ModelWithConstraints._schema_properties()
     properties_after_drop = ModelWithConstraints.drop("RANDOM")._schema_properties()
-    properties_after_with_fields = ModelWithConstraints.with_fields()._schema_properties()
+    properties_after_with_fields = (
+        ModelWithConstraints.with_fields()._schema_properties()
+    )
     properties_after_rename = ModelWithConstraints.rename({})._schema_properties()
-    properties_after_select = ModelWithConstraints.select(['foo','bar','baz'])._schema_properties()
-    
+    properties_after_select = ModelWithConstraints.select(
+        [
+            "int_col",
+            "float_col",
+            "string_col",
+            "list_col",
+            "liststr_col",
+            "optlist_col",
+            "optint_col",
+            "date_col",
+            "datetime_col",
+        ]
+    )._schema_properties()
+
     assert expected_properties == properties_after_drop
     assert expected_properties == properties_after_with_fields
     assert expected_properties == properties_after_rename
     assert expected_properties == properties_after_select
-    
-    
-    
