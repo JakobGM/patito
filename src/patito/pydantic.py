@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import itertools
+import json
 from collections.abc import Iterable
 from datetime import date, datetime
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     ClassVar,
     Dict,
     List,
@@ -20,8 +22,19 @@ from typing import (
 
 import polars as pl
 from polars.datatypes import PolarsDataType
-from pydantic import BaseConfig, BaseModel, Field, create_model  # noqa: F401
-from pydantic.main import ModelMetaclass as PydanticModelMetaclass
+from pydantic import BaseModel, create_model  # noqa: F401
+from pydantic import Field as PydanticField
+from pydantic._internal._model_construction import (
+    ModelMetaclass as PydanticModelMetaclass,
+)
+from pydantic.fields import (
+    AliasChoices,
+    AliasPath,
+    PydanticUndefined,
+    Unpack,
+    _EmptyKwargs,  # pyright: ignore[reportPrivateUsage]
+    _Unset,  # pyright: ignore[reportPrivateUsage]
+)
 from typing_extensions import Literal, get_args
 
 from patito.polars import DataFrame, LazyFrame
@@ -32,7 +45,7 @@ try:
 
     _PANDAS_AVAILABLE = True
 except ImportError:
-    _PANDAS_AVAILABLE = False
+    _PANDAS_AVAILABLE = False  # pyright: ignore[reportConstantRedefinition]
 
 if TYPE_CHECKING:
     import patito.polars
@@ -58,6 +71,17 @@ PYDANTIC_TO_POLARS_TYPES = {
     "boolean": pl.Boolean,
 }
 
+PATITO_INTEGER_TYPES = [
+    pl.Int64,
+    pl.Int32,
+    pl.Int16,
+    pl.Int8,
+    pl.UInt64,
+    pl.UInt32,
+    pl.UInt16,
+    pl.UInt8,
+]
+
 
 class ModelMetaclass(PydanticModelMetaclass):
     """
@@ -66,7 +90,7 @@ class ModelMetaclass(PydanticModelMetaclass):
     Responsible for setting any relevant model-dependent class properties.
     """
 
-    def __init__(cls, name: str, bases: tuple, clsdict: dict) -> None:
+    def __init__(cls, name: str, bases: tuple, clsdict: dict, **kwargs) -> None:
         """
         Construct new patito model.
 
@@ -75,7 +99,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             bases: Tuple of superclasses.
             clsdict: Dictionary containing class properties.
         """
-        super().__init__(name, bases, clsdict)
+        super().__init__(name, bases, clsdict, **kwargs)
         # Add a custom subclass of patito.DataFrame to the model class,
         # where .set_model() has been implicitly set.
         cls.DataFrame = DataFrame._construct_dataframe_model_class(
@@ -107,7 +131,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> Product.columns
             ['name', 'price']
         """
-        return list(cls.schema()["properties"].keys())
+        return list(cls.model_json_schema()["properties"].keys())
 
     @property
     def dtypes(  # type: ignore
@@ -172,7 +196,12 @@ class ModelMetaclass(PydanticModelMetaclass):
         for column, props in cls._schema_properties().items():
             column_dtypes: List[Union[PolarsDataType, pl.List]]
             if props.get("type") == "array":
-                array_props = props["items"]
+                if "items" in props:
+                    array_props = props["items"]
+                else:
+                    array_props = next(
+                        t["items"] for t in props["anyOf"] if t["type"] != "null"
+                    )
                 item_dtypes = cls._valid_dtypes(props=array_props)
                 if item_dtypes is None:
                     raise NotImplementedError(
@@ -203,6 +232,11 @@ class ModelMetaclass(PydanticModelMetaclass):
         Returns:
             List of valid dtypes. None if no mapping exists.
         """
+        print("Hi", props)
+        if "anyOf" in props:
+            return list(
+                itertools.chain(*(Model._valid_dtypes(p) for p in props["anyOf"]))
+            )
         if "dtype" in props:
             return [
                 props["dtype"],
@@ -210,7 +244,24 @@ class ModelMetaclass(PydanticModelMetaclass):
         elif "enum" in props and props["type"] == "string":
             return [pl.Categorical, pl.Utf8]
         elif "type" not in props:
-            return None
+            if "const" not in props:
+                return None
+            return {
+                int: [
+                    pl.Int64,
+                    pl.Int32,
+                    pl.Int16,
+                    pl.Int8,
+                    pl.UInt64,
+                    pl.UInt32,
+                    pl.UInt16,
+                    pl.UInt8,
+                ],
+                str: [pl.Utf8],
+                float: [pl.Float64, pl.Float32],
+                bool: [pl.Boolean],
+                # TODO: Fix remaining types
+            }[type(props["const"])]
         elif props["type"] == "integer":
             return [
                 pl.Int64,
@@ -223,16 +274,15 @@ class ModelMetaclass(PydanticModelMetaclass):
                 pl.UInt8,
             ]
         elif props["type"] == "number":
-            if props.get("format") == "time-delta":
-                return [pl.Duration]
-            else:
-                return [pl.Float64, pl.Float32]
+            return [pl.Float64, pl.Float32]
         elif props["type"] == "boolean":
             return [pl.Boolean]
         elif props["type"] == "string":
             string_format = props.get("format")
             if string_format is None:
                 return [pl.Utf8]
+            elif string_format == "duration":
+                return [pl.Duration]
             elif string_format == "date":
                 return [pl.Date]
             # TODO: Find out why this branch is not being hit
@@ -460,7 +510,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> sorted(MyModel.non_nullable_columns)
             ['another_non_nullable_field', 'non_nullable_field']
         """
-        return set(cls.schema().get("required", {}))
+        return set(cls.columns) - cls.nullable_columns
 
     @property
     def nullable_columns(  # type: ignore
@@ -484,7 +534,17 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> sorted(MyModel.nullable_columns)
             ['inferred_nullable_field', 'nullable_field']
         """
-        return set(cls.columns) - cls.non_nullable_columns
+        return set(
+            field_name
+            for field_name, field_info in cls._schema_properties().items()
+            if field_info["nullable"]
+        )
+
+    @property
+    def required_columns(  # type: ignore
+        cls: Type[ModelType],  # pyright: ignore
+    ) -> set[str]:
+        return set(cls.model_json_schema()["required"])
 
     @property
     def unique_columns(  # type: ignore
@@ -741,16 +801,16 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """
         field_data = cls._schema_properties()
         properties = field_data[field]
-        field_type = properties["type"]
         if "const" in properties:
             # The default value is the only valid value, provided as const
             return properties["const"]
 
-        elif "default" in properties:
+        field_type = properties["type"]
+        if "default" in properties:
             # A default value has been specified in the model field definition
             return properties["default"]
 
-        elif not properties["required"]:
+        elif properties["nullable"]:
             return None
 
         elif "enum" in properties:
@@ -932,7 +992,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         dummies = []
         for values in zip(*kwargs.values()):
             dummies.append(cls.example(**dict(zip(kwargs.keys(), values))))
-        return pd.DataFrame([dummy.dict() for dummy in dummies])
+        return pd.DataFrame([dummy.model_dump() for dummy in dummies])
 
     @classmethod
     def examples(
@@ -1087,18 +1147,17 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             (cls, {"outer"}),
             (other, {"left", "outer", "asof"}),
         ):
-            for field_name, field in model.__fields__.items():
-                field_type = field.type_
+            for field_name, field in model.model_fields.items():
+                print(type(field))
+                print(dir(field))
+                field_annotation = field.annotation
                 field_default = field.default
-                if how in nullable_methods and type(None) not in get_args(field.type_):
+                if how in nullable_methods and type(None) not in get_args(
+                    field_annotation
+                ):
                     # This originally non-nullable field has become nullable
-                    field_type = Optional[field_type]
-                elif field.required and field_default is None:
-                    # We need to replace Pydantic's None default value with ... in order
-                    # to make it clear that the field is still non-nullable and
-                    # required.
-                    field_default = ...
-                kwargs[field_name] = (field_type, field_default)
+                    field_annotation = Optional[field_annotation]
+                kwargs[field_name] = (field_annotation, field)
 
         return create_model(
             f"{cls.__name__}{how.capitalize()}Join{other.__name__}",
@@ -1332,32 +1391,30 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             TypeError: if a field is annotated with an enum where the values are of
                 different types.
         """
-        schema = cls.schema(ref_template="{model}")
-        required = schema.get("required", set())
-        fields = {}
+        schema = cls.model_json_schema(ref_template="{model}")
+        required = set(schema.get("required", set()))
+        fields: Dict[str, Dict[str, Any]] = {}
         for field_name, field_info in schema["properties"].items():
             if "$ref" in field_info:
-                definition = schema["definitions"][field_info["$ref"]]
-                if "enum" in definition and "type" not in definition:
-                    enum_types = set(type(value) for value in definition["enum"])
-                    if len(enum_types) > 1:
-                        raise TypeError(
-                            "All enumerated values of enums used to annotate "
-                            "Patito model fields must have the same type. "
-                            "Encountered types: "
-                            f"{sorted(map(lambda t: t.__name__, enum_types))}."
-                        )
-                    enum_type = enum_types.pop()
-                    # TODO: Support time-delta, date, and date-time.
-                    definition["type"] = {
-                        str: "string",
-                        int: "integer",
-                        float: "number",
-                        bool: "boolean",
-                        type(None): "null",
-                    }[enum_type]
-                fields[field_name] = definition
+                enum_definition = schema["$defs"][field_info["$ref"]]
+                enum_definition["nullable"] = "anyOf" in field_info and any(
+                    info.get("type") == "null" for info in field_info["anyOf"]
+                )
+                fields[field_name] = enum_definition
             else:
+                if "type" not in field_info and "anyOf" in field_info:
+                    nullable = any(
+                        info.get("type") == "null" for info in field_info["anyOf"]
+                    )
+                else:
+                    nullable = False
+
+                if "type" not in field_info and "anyOf" in field_info:
+                    field_info["type"] = next(
+                        (p["type"] for p in field_info["anyOf"] if p["type"] != "null"),
+                        field_info["anyOf"][0],
+                    )
+                field_info["nullable"] = nullable
                 fields[field_name] = field_info
             fields[field_name]["required"] = field_name in required
 
@@ -1388,27 +1445,61 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             if isinstance(field_definition, str):
                 # A single string, interpreted as the name of a field on the existing
                 # model.
-                old_field = cls.__fields__[field_definition]
-                field_type = old_field.type_
-                field_default = old_field.default
-                if old_field.required and field_default is None:
-                    # The default None value needs to be replaced with ... in order to
-                    # make the field required in the new model.
-                    field_default = ...
-                new_fields[new_field_name] = (field_type, field_default)
+                field_info = cls.model_fields[field_definition]
+                field_annotation = field_info.annotation
+                new_fields[new_field_name] = (field_annotation, field_info)
             else:
                 # We have been given a (field_type, field_default) tuple defining the
                 # new field directly.
                 new_fields[new_field_name] = field_definition
+        print(new_fields)
         return create_model(  # type: ignore
             __model_name=model_name,
-            __validators__={"__validators__": cls.__validators__},
             __base__=Model,
             **new_fields,
         )
 
 
-class FieldDoc:
+def Field(  # noqa: C901
+    default: Any = PydanticUndefined,
+    *,
+    default_factory: Callable[[], Any] | None = _Unset,
+    alias: str | None = _Unset,
+    alias_priority: int | None = _Unset,
+    validation_alias: str | AliasPath | AliasChoices | None = _Unset,
+    serialization_alias: str | None = _Unset,
+    title: str | None = _Unset,
+    description: str | None = _Unset,
+    examples: list[Any] | None = _Unset,
+    exclude: bool | None = _Unset,
+    discriminator: str | None = _Unset,
+    json_schema_extra: (
+        dict[str, Any] | Callable[[dict[str, Any]], None] | None
+    ) = _Unset,
+    frozen: bool | None = _Unset,
+    validate_default: bool | None = _Unset,
+    repr: bool = _Unset,
+    init_var: bool | None = _Unset,
+    kw_only: bool | None = _Unset,
+    pattern: str | None = _Unset,
+    strict: bool | None = _Unset,
+    gt: float | None = _Unset,
+    ge: float | None = _Unset,
+    lt: float | None = _Unset,
+    le: float | None = _Unset,
+    multiple_of: float | None = _Unset,
+    allow_inf_nan: bool | None = _Unset,
+    max_digits: int | None = _Unset,
+    decimal_places: int | None = _Unset,
+    min_length: int | None = _Unset,
+    max_length: int | None = _Unset,
+    # Patito-specific arguments that extends upon Pydantic
+    constraints: Union[pl.Expr, List[pl.Expr]] | None = None,
+    derived_from: str | pl.Expr | None = None,
+    dtype: pl.DataType | None = None,
+    unique: bool = False,
+    **extra: Unpack[_EmptyKwargs],
+) -> Any:
     """
     Annotate model field with additional type and validation information.
 
@@ -1431,8 +1522,6 @@ class FieldDoc:
         lt: All values must be less than ``lt``.
         le: All values must be less than or equal to ``lt``.
         multiple_of: All values must be multiples of the given value.
-        const (bool): If set to ``True`` `all` values must be equal to the provided
-            default value, the first argument provided to the ``Field`` constructor.
         regex (str): UTF-8 string column must match regex pattern for all row values.
         min_length (int): Minimum length of all string values in a UTF-8 column.
         max_length (int): Maximum length of all string values in a UTF-8 column.
@@ -1477,6 +1566,53 @@ class FieldDoc:
         brand_color
           2 rows with out of bound values. (type=value_error.rowvalue)
     """
+    if callable(json_schema_extra):
+        raise NotImplementedError(
+            "Callable json_schema_extra has not yet been implemented. "
+            "Please create an issue on the Patito repository if you need this feature."
+        )
+    if json_schema_extra == _Unset:
+        json_schema_extra = {}
+    else:
+        json_schema_extra = json_schema_extra or {}
 
+    json_schema_extra["unique"] = unique
+    if constraints is not None:
+        json_schema_extra["constraints"] = constraints
+    if dtype is not None:
+        json_schema_extra["dtype"] = dtype
+    if derived_from is not None:
+        json_schema_extra["derived_from"] = derived_from
 
-Field.__doc__ = FieldDoc.__doc__
+    return PydanticField(
+        default=default,
+        default_factory=default_factory,
+        alias=alias,
+        alias_priority=alias_priority,
+        validation_alias=validation_alias,
+        serialization_alias=serialization_alias,
+        title=title,
+        description=description,
+        examples=examples,
+        exclude=exclude,
+        discriminator=discriminator,
+        json_schema_extra=json_schema_extra,
+        frozen=frozen,
+        validate_default=validate_default,
+        repr=repr,
+        init_var=init_var,
+        kw_only=kw_only,
+        pattern=pattern,
+        strict=strict,
+        gt=gt,
+        ge=ge,
+        lt=lt,
+        le=le,
+        multiple_of=multiple_of,
+        allow_inf_nan=allow_inf_nan,
+        max_digits=max_digits,
+        decimal_places=decimal_places,
+        min_length=min_length,
+        max_length=max_length,
+        **extra,
+    )

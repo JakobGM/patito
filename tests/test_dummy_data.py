@@ -2,11 +2,10 @@
 from datetime import date, datetime
 from typing import Optional
 
+import patito as pt
 import polars as pl
 import pytest
 from typing_extensions import Literal
-
-import patito as pt
 
 
 def test_model_example_df():
@@ -66,7 +65,7 @@ def test_examples():
         MyModel.examples([[1, 2]])
 
 
-@pytest.mark.skipif("Database" not in dir(pt), reason="Requires DuckDB")
+@pytest.mark.skipif(not pt._DUCKDB_AVAILABLE, reason="Requires DuckDB")
 def test_creation_of_empty_relation():
     """You should be able to create a zero-row relation with correct types."""
 

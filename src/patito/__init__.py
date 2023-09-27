@@ -28,10 +28,15 @@ __all__ = [
 try:
     from patito import duckdb
 
-    _DUCKDB_AVAILABLE = True
     __all__ += ["duckdb"]
 except ImportError:  # pragma: no cover
     pass
+
+try:
+    import duckdb as _duckdb
+except ImportError:  # pragma: no cover
+    _DUCKDB_AVAILABLE = False
+
 
 try:
     from patito.database import Database

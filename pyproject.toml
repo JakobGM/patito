@@ -12,7 +12,7 @@ keywords = ["validation", "dataframe"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-pydantic = "^1.7.0"
+pydantic = ">=2.0.0"
 polars = ">=0.18.7"
 # Required for typing.Literal in python3.7
 typing-extensions = "*"
@@ -110,6 +110,7 @@ warn_no_return = true
 warn_unreachable = true
 allow_redefinition = true
 show_error_codes = true
+enable_incomplete_feature = ["Unpack"]
 exclude = [
   "noxfile.py",
 ]

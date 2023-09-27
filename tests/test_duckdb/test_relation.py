@@ -4,11 +4,10 @@ from pathlib import Path
 from typing import Optional
 from unittest.mock import MagicMock
 
+import patito as pt
 import polars as pl
 import pytest
 from typing_extensions import Literal
-
-import patito as pt
 
 # Skip test module if DuckDB is not installed
 if not pt._DUCKDB_AVAILABLE:
@@ -587,7 +586,7 @@ def test_fill_missing_columns():
 
     # Now we fill in the b column with "default_value"
     filled_defaults = relation.with_missing_defaultable_columns()
-    assert filled_defaults.set_model(None).get().dict() == {
+    assert filled_defaults.set_model(None).get().model_dump() == {
         "a": "mandatory",
         "b": "default_value",
         "d": 10.5,
@@ -600,14 +599,14 @@ def test_fill_missing_columns():
 
     # We now exclude the b column from being filled with default values
     excluded_default = relation.with_missing_defaultable_columns(exclude=["b"])
-    assert excluded_default.set_model(None).get().dict() == {
+    assert excluded_default.set_model(None).get().model_dump() == {
         "a": "mandatory",
         "d": 10.5,
     }
 
     # We can also specify that we only want to fill a subset
     included_defualts = relation.with_missing_defaultable_columns(include=["b"])
-    assert included_defualts.set_model(None).get().dict() == {
+    assert included_defualts.set_model(None).get().model_dump() == {
         "a": "mandatory",
         "b": "default_value",
         "d": 10.5,
@@ -615,7 +614,7 @@ def test_fill_missing_columns():
 
     # We now exclude column b and c from being filled with null values
     excluded_nulls = relation.with_missing_nullable_columns(exclude=["b", "c"])
-    assert excluded_nulls.set_model(None).get().dict() == {
+    assert excluded_nulls.set_model(None).get().model_dump() == {
         "a": "mandatory",
         "d": 10.5,
         "e": None,
@@ -623,7 +622,7 @@ def test_fill_missing_columns():
 
     # Only specify that we want to fill column e with nulls
     included_nulls = relation.with_missing_nullable_columns(include=["e"])
-    assert included_nulls.set_model(None).get().dict() == {
+    assert included_nulls.set_model(None).get().model_dump() == {
         "a": "mandatory",
         "d": 10.5,
         "e": None,
