@@ -68,14 +68,8 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
 
     def collect(
         self,
-        type_coercion: bool = True,
-        predicate_pushdown: bool = True,
-        projection_pushdown: bool = True,
-        simplify_expression: bool = True,
-        no_optimization: bool = False,
-        slice_pushdown: bool = True,
-        common_subplan_elimination: bool = True,
-        streaming: bool = False,
+        *args,
+        **kwargs,
     ) -> "DataFrame[ModelType]":  # noqa: DAR101, DAR201
         """
         Collect into a DataFrame.
@@ -83,16 +77,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         See documentation of polars.DataFrame.collect for full description of
         parameters.
         """
-        df = super().collect(
-            type_coercion=type_coercion,
-            predicate_pushdown=predicate_pushdown,
-            projection_pushdown=projection_pushdown,
-            simplify_expression=simplify_expression,
-            no_optimization=no_optimization,
-            slice_pushdown=slice_pushdown,
-            common_subplan_elimination=common_subplan_elimination,
-            streaming=streaming,
-        )
+        df = super().collect(*args, **kwargs)
         if getattr(self, "model", False):
             cls = DataFrame._construct_dataframe_model_class(model=self.model)
         else:
