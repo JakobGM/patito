@@ -8,6 +8,9 @@ from typing import (
     Generic,
     Iterable,
     Optional,
+    Mapping,
+    Sequence,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -404,24 +407,59 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             │ 1   ┆ 1   ┆ 2          │
             │ 2   ┆ 2   ┆ 4          │
             └─────┴─────┴────────────┘
+        
+            Execution order will be inferred from the field dependencies (roots), but data frame will be returned in the order given by the model:
+            >>> class Foo(pt.Model):
+            ...     bar: int = pt.Field(derived_from="foo")
+            ...     quad_bar: int = pt.Field(derived_from=2 * pl.col("double_bar"))
+            ...     double_bar: int = pt.Field(derived_from=2 * pl.col("bar"))
+            ...
+            >>> Foo.DataFrame({"foo": [1, 2]}).derive()
+            shape: (2, 4)
+            ┌─────┬─────┬──────────┬────────────┐
+            │ foo ┆ bar ┆ quad_bar ┆ double_bar │
+            │ --- ┆ --- ┆ ---      ┆ ---        │
+            │ i64 ┆ i64 ┆ i64      ┆ i64        │
+            ╞═════╪═════╪══════════╪════════════╡
+            │ 1   ┆ 1   ┆ 4        ┆ 2          │
+            │ 2   ┆ 2   ┆ 8        ┆ 4          │
+            └─────┴─────┴──────────┴────────────┘
+            
         """
         df = self.lazy()
-        for column_name, props in self.model._schema_properties().items():
-            if "derived_from" in props:
-                derived_from = props["derived_from"]
-                dtype = self.model.dtypes[column_name]
-                if isinstance(derived_from, str):
-                    df = df.with_columns(
-                        pl.col(derived_from).cast(dtype).alias(column_name)
-                    )
-                elif isinstance(derived_from, pl.Expr):
-                    df = df.with_columns(derived_from.cast(dtype).alias(column_name))
-                else:
-                    raise TypeError(
-                        "Can not derive dataframe column from type "
-                        f"{type(derived_from)}."
-                    )
-        return cast(DF, df.collect())
+        derived_columns = []
+        props = self.model._schema_properties()
+        for column_name in props.keys():
+            if column_name not in derived_columns:
+                df, _derived_columns = self._derive_column(df, column_name, props)
+                derived_columns.extend(_derived_columns)
+        return cast(DF, df.select(props.keys()).collect())
+
+    def _derive_column(self, df: "LDF", column_name: str, props: Mapping[str, Any]) -> Tuple["DF", Sequence[str]]:
+        props_col = props[column_name]
+        if "derived_from" not in props_col:
+            return df, []
+        derived_from = props_col["derived_from"]
+        dtype = self.model.dtypes[column_name]
+        derived_columns = []
+        if isinstance(derived_from, str):
+            df = df.with_columns(
+                pl.col(derived_from).cast(dtype).alias(column_name)
+            )
+        elif isinstance(derived_from, pl.Expr):
+            root_cols = derived_from.meta.root_names()
+            while root_cols:
+                root_col = root_cols.pop()
+                df, _derived_columns = self._derive_column(df, root_col, props)
+                derived_columns.extend(_derived_columns)
+            df = df.with_columns(derived_from.cast(dtype).alias(column_name))
+        else:
+            raise TypeError(
+                "Can not derive dataframe column from type "
+                f"{type(derived_from)}."
+            )
+        derived_columns.append(column_name)
+        return df, derived_columns
 
     def fill_null(
         self: DF,
