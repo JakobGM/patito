@@ -37,6 +37,7 @@ except ImportError:
 if TYPE_CHECKING:
     import patito.polars
     from patito.duckdb import DuckDBSQLType
+    from pydantic.typing import CallableGenerator
 
 # The generic type of a single row in given Relation.
 # Should be a typed subclass of Model.
@@ -238,10 +239,14 @@ class ModelMetaclass(PydanticModelMetaclass):
             # TODO: Find out why this branch is not being hit
             elif string_format == "date-time":  # pragma: no cover
                 return [pl.Datetime]
+            elif string_format.startswith("uuid"):
+                return [pl.Object]
             else:
                 return None  # pragma: no cover
         elif props["type"] == "null":
             return [pl.Null]
+        elif props["type"] == "object":
+            return [pl.Object]
         else:  # pragma: no cover
             return None
 
@@ -537,6 +542,12 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     defaults: ClassVar[Dict[str, Any]]
 
+    @classmethod
+    def __get_validators__(cls) -> "CallableGenerator":
+        yield super(
+            Model, cls
+        ).validate  # override to ensure this does not call our own df validate method
+
     @classmethod  # type: ignore[misc]
     @property
     def DataFrame(
@@ -809,6 +820,14 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         elif field_type == "boolean":
             return False
 
+        elif field_type == "object":
+            try:
+                return cls.__annotations__[field].example().dict()
+            except AttributeError:
+                raise NotImplementedError(
+                    "Nested example generation only supported for nesed pt.Model classes."
+                )
+
         else:  # pragma: no cover
             raise NotImplementedError
 
@@ -1018,7 +1037,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                     )
                 else:
                     example_value = cls.example_value(field=column_name)
-                    series.append(pl.lit(example_value, dtype=dtype).alias(column_name))
+                    series.append(
+                        pl.lit(
+                            example_value, dtype=dtype, allow_object=dtype == pl.Object
+                        ).alias(column_name)
+                    )
                 continue
 
             value = kwargs.get(column_name)
