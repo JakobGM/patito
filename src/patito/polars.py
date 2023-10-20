@@ -407,7 +407,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             │ 1   ┆ 1   ┆ 2          │
             │ 2   ┆ 2   ┆ 4          │
             └─────┴─────┴────────────┘
-        
+
             Execution order will be inferred from the field dependencies (roots), but data frame will be returned in the order given by the model:
             >>> class Foo(pt.Model):
             ...     bar: int = pt.Field(derived_from="foo")
@@ -424,7 +424,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             │ 1   ┆ 1   ┆ 4        ┆ 2          │
             │ 2   ┆ 2   ┆ 8        ┆ 4          │
             └─────┴─────┴──────────┴────────────┘
-            
+
         """
         df = self.lazy()
         derived_columns = []
@@ -435,7 +435,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 derived_columns.extend(_derived_columns)
         return cast(DF, df.select(props.keys()).collect())
 
-    def _derive_column(self, df: "LDF", column_name: str, props: Mapping[str, Any]) -> Tuple["DF", Sequence[str]]:
+    def _derive_column(
+        self, df: "LDF", column_name: str, props: Mapping[str, Any]
+    ) -> Tuple["DF", Sequence[str]]:
         props_col = props[column_name]
         if "derived_from" not in props_col:
             return df, []
@@ -443,9 +445,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         dtype = self.model.dtypes[column_name]
         derived_columns = []
         if isinstance(derived_from, str):
-            df = df.with_columns(
-                pl.col(derived_from).cast(dtype).alias(column_name)
-            )
+            df = df.with_columns(pl.col(derived_from).cast(dtype).alias(column_name))
         elif isinstance(derived_from, pl.Expr):
             root_cols = derived_from.meta.root_names()
             while root_cols:
@@ -455,8 +455,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             df = df.with_columns(derived_from.cast(dtype).alias(column_name))
         else:
             raise TypeError(
-                "Can not derive dataframe column from type "
-                f"{type(derived_from)}."
+                "Can not derive dataframe column from type " f"{type(derived_from)}."
             )
         derived_columns.append(column_name)
         return df, derived_columns
