@@ -1037,11 +1037,16 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                     )
                 else:
                     example_value = cls.example_value(field=column_name)
-                    series.append(
-                        pl.lit(
-                            example_value, dtype=dtype, allow_object=dtype == pl.Object
-                        ).alias(column_name)
-                    )
+                    if dtype == pl.Object:
+                        series.append(
+                            pl.Series(
+                                column_name, values=[example_value], dtype=pl.Object
+                            )
+                        )
+                    else:
+                        series.append(
+                            pl.lit(example_value, dtype=dtype).alias(column_name)
+                        )
                 continue
 
             value = kwargs.get(column_name)
