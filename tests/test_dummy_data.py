@@ -154,8 +154,9 @@ def test_nested_models():
     example_df = ParentModel.examples()
     ParentModel.validate(example_df)
     assert example_model == ParentModel.from_row(example_df[0])
-    assert isinstance(example_model.nested_model, NestedModel)
-    assert example_model.nested_model.nested_field is not None
+    if example_model.nested_model is not None:
+        assert isinstance(example_model.nested_model, NestedModel)
+        assert example_model.nested_model.nested_field is not None
 
     # inheritance also works
     class ParentModel(NestedModel):
@@ -165,14 +166,30 @@ def test_nested_models():
     assert example_model.nested_field is not None
     assert example_model.parent_field is not None
 
+    # and optional nested models are ok
+    class ParentModel(pt.Model):
+        parent_field: int
+        nested_model: Optional[NestedModel]
+
+    example_model = ParentModel.example()
+    example_df = ParentModel.examples()
+    ParentModel.validate(example_df)
+    assert example_model.nested_model is None
+    assert example_model == ParentModel.from_row(example_df[0])
+
 
 def test_uuid():
-    
     class Model(pt.Model):
         uuid: UUID4
-    
+
     example_model = Model(uuid=uuid.uuid4())
     assert example_model.uuid is not None
-    example_df = example_model.DataFrame({"uuid": [example_model.uuid]}).set_model(Model).cast()
+    example_df = (
+        example_model.DataFrame({"uuid": [example_model.uuid]}).set_model(Model).cast()
+    )
     Model.validate(example_df)
     assert example_model.uuid == Model.from_row(example_df[0]).uuid
+
+
+if __name__ == "__main__":
+    test_nested_models()
