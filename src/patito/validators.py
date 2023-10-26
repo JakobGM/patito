@@ -271,7 +271,7 @@ def _find_errors(  # noqa: C901
             if isinstance(custom_constraints, pl.Expr):
                 custom_constraints = [custom_constraints]
             constraints = pl.all_horizontal(
-                [constraint.is_not() for constraint in custom_constraints]
+                [constraint.not_() for constraint in custom_constraints]
             )
             if "_" in constraints.meta.root_names():
                 # An underscore is an alias for the current field

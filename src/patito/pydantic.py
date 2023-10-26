@@ -17,12 +17,14 @@ from typing import (
     Union,
     cast,
     Literal, 
-    get_args
+    get_args,
+    Sequence,
 )
 
 import polars as pl
 from polars.datatypes import PolarsDataType
-from pydantic import ConfigDict, BaseModel, Field, create_model  # noqa: F401
+from pydantic import fields
+from pydantic import ConfigDict, BaseModel, create_model  # noqa: F401
 from pydantic._internal._model_construction import ModelMetaclass as PydanticModelMetaclass
 
 from patito.polars import DataFrame, LazyFrame
@@ -1375,6 +1377,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             fields[field_name]["required"] = field_name in required
             if 'const' in field_info and 'type' not in field_info:
                 fields[field_name]['type'] = PYTHON_TO_PYDANTIC_TYPES[type(field_info['const'])]
+            for f in get_args(PT_INFO):
+                v = getattr(cls.model_fields[field_name], f, None)
+                if v is not None:
+                    fields[field_name][f] = v
 
         return fields
 
@@ -1425,6 +1431,53 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             __base__=Model,
             **new_fields,
         )
+    
+PT_INFO = Literal["constraints", "derived_from", "dtype", "unique"]
+
+class FieldInfo(fields.FieldInfo):
+    __slots__ = getattr(fields.FieldInfo, '__slots__') + (
+        "constraints",
+        "derived_from",
+        "dtype",
+        "unique",
+    )
+    
+    def __init__(
+        self, 
+        constraints: Optional[Union[pl.Expr, Sequence[pl.Expr]]] = None,
+        derived_from: Optional[Union[str, pl.Expr]] = None,
+        dtype: Optional[pl.DataType] = None,
+        unique: bool = False,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.constraints = constraints
+        self.derived_from = derived_from
+        self.dtype = dtype
+        self.unique = unique
+
+
+def Field(
+    *args,
+    **kwargs,
+):
+    pt_kwargs = {
+        k: kwargs.pop(k, None) for k in get_args(PT_INFO)
+    }
+    meta_kwargs = {
+        k: v for k, v in kwargs.items() if k in fields.FieldInfo.metadata_lookup
+    }
+    base_kwargs = {
+        k: v for k, v in kwargs.items() if k not in {**pt_kwargs, **meta_kwargs}
+    }
+    finfo = fields.Field(
+        *args, **base_kwargs
+    )
+    return FieldInfo(
+        **finfo._attributes_set,
+        **meta_kwargs,
+        **pt_kwargs,
+    )
 
 
 class FieldDoc:

@@ -684,7 +684,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             pl.Expr, str, pl.Series, list[bool], np.ndarray[Any, Any], bool
         ],
     ) -> DF:
-        return cast(DF, super().filter(predicate=predicate))
+        return cast(DF, super().filter(predicate))
 
     def select(  # noqa: D102
         self: DF,

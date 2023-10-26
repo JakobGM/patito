@@ -414,11 +414,11 @@ def test_validation_of_dtype_specifiers():
 
     class DTypeModel(pt.Model):
         int_column: int
-        int_explicit_dtype_column: int = pt.Field(json_schema_extra={"dtype":pl.Int64})
-        smallint_column: int = pt.Field(json_schema_extra={"dtype":pl.Int8})
-        unsigned_int_column: int = pt.Field(json_schema_extra={"dtype":pl.UInt64})
-        unsigned_smallint_column: int = pt.Field(json_schema_extra={"dtype":pl.UInt8})
-
+        int_explicit_dtype_column: int = pt.Field(dtype=pl.Int64)
+        smallint_column: int = pt.Field(dtype=pl.Int8)
+        unsigned_int_column: int = pt.Field(dtype=pl.UInt64)
+        unsigned_smallint_column: int = pt.Field(dtype=pl.UInt8)
+    
     assert DTypeModel.dtypes == {
         "int_column": pl.Int64,
         "int_explicit_dtype_column": pl.Int64,
@@ -475,9 +475,9 @@ def test_custom_constraint_validation():
 
     class CustomConstraintModel(pt.Model):
         even_int: int = pt.Field(
-            json_schema_extra={"constraints": [(pl.col("even_int") % 2 == 0).alias("even_constraint")]}
+            constraints=[(pl.col("even_int") % 2 == 0).alias("even_constraint")]
         )
-        odd_int: int = pt.Field(json_schema_extra={"constraints":pl.col("odd_int") % 2 == 1})
+        odd_int: int = pt.Field(constraints=pl.col("odd_int") % 2 == 1)
 
     df = CustomConstraintModel.DataFrame({"even_int": [2, 3], "odd_int": [1, 2]})
     with pytest.raises(DataFrameValidationError) as e_info:
@@ -498,7 +498,7 @@ def test_custom_constraint_validation():
 
     # We can also validate aggregation queries
     class PizzaSlice(pt.Model):
-        fraction: float = pt.Field(json_schema_extra={"constraints":pl.col("fraction").sum() == 1})
+        fraction: float = pt.Field(constraints=pl.col("fraction").sum() == 1)
 
     whole_pizza = pt.DataFrame({"fraction": [0.25, 0.75]})
     PizzaSlice.validate(whole_pizza)
@@ -513,9 +513,9 @@ def test_anonymous_column_constraints():
 
     class Pair(pt.Model):
         # pl.col("_") refers to the given field column
-        odd_number: int = pt.Field(json_schema_extra={"constraints":pl.col("_") % 2 == 1})
+        odd_number: int = pt.Field(constraints=pl.col("_") % 2 == 1)
         # pt.field is simply an alias for pl.col("_")
-        even_number: int = pt.Field(json_schema_extra={"constraints":pt.field % 2 == 0})
+        even_number: int = pt.Field(constraints=pt.field % 2 == 0)
 
     pairs = pt.DataFrame({"odd_number": [1, 3, 5], "even_number": [2, 4, 6]})
     Pair.validate(pairs)
@@ -604,4 +604,4 @@ def test_validation_of_list_dtypes():
 
 
 if __name__ == "__main__":
-    test_validation_of_list_dtypes()
+    test_custom_constraint_validation()
