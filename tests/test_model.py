@@ -3,12 +3,11 @@
 import enum
 import re
 from datetime import date, datetime, timedelta
-from typing import List, Optional, Type
+from typing import List, Optional, Type, Literal
 
 import polars as pl
 import pytest
 from pydantic import ValidationError
-from typing_extensions import Literal
 
 import patito as pt
 

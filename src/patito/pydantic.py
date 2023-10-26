@@ -16,13 +16,14 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    Literal, 
+    get_args
 )
 
 import polars as pl
 from polars.datatypes import PolarsDataType
 from pydantic import ConfigDict, BaseModel, Field, create_model  # noqa: F401
 from pydantic._internal._model_construction import ModelMetaclass as PydanticModelMetaclass
-from typing_extensions import Literal, get_args
 
 from patito.polars import DataFrame, LazyFrame
 from patito.validators import validate
@@ -56,6 +57,14 @@ PYDANTIC_TO_POLARS_TYPES = {
     "string": pl.Utf8,
     "number": pl.Float64,
     "boolean": pl.Boolean,
+}
+
+PYTHON_TO_PYDANTIC_TYPES = {
+    str: "string",
+    int: "integer",
+    float: "number",
+    bool: "boolean",
+    type(None): "null",
 }
 
 
@@ -171,16 +180,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         valid_dtypes = {}
         for column, props in cls._schema_properties().items():
             column_dtypes: List[Union[PolarsDataType, pl.List]]
-            if props.get("type") == "array":
-                array_props = props["items"]
-                item_dtypes = cls._valid_dtypes(props=array_props)
-                if item_dtypes is None:
-                    raise NotImplementedError(
-                        f"No valid dtype mapping found for column '{column}'."
-                    )
-                column_dtypes = [pl.List(dtype) for dtype in item_dtypes]
-            else:
-                column_dtypes = cls._valid_dtypes(props=props)  # pyright: ignore
+            column_dtypes = cls._valid_dtypes(column, props=props)  # pyright: ignore
 
             if column_dtypes is None:
                 raise NotImplementedError(
@@ -190,8 +190,10 @@ class ModelMetaclass(PydanticModelMetaclass):
 
         return valid_dtypes
 
-    @staticmethod
+    @classmethod
     def _valid_dtypes(  # noqa: C901
+        cls: Type[ModelType],
+        column: str,
         props: Dict,
     ) -> Optional[List[pl.PolarsDataType]]:
         """
@@ -203,6 +205,14 @@ class ModelMetaclass(PydanticModelMetaclass):
         Returns:
             List of valid dtypes. None if no mapping exists.
         """
+        if props.get("type") == "array":
+            array_props = props["items"]
+            item_dtypes = cls._valid_dtypes(column, array_props)
+            if item_dtypes is None:
+                raise NotImplementedError(
+                    f"No valid dtype mapping found for column '{column}'."
+                )
+            return [pl.List(dtype) for dtype in item_dtypes]
         if "dtype" in props:
             return [
                 props["dtype"],
@@ -210,6 +220,11 @@ class ModelMetaclass(PydanticModelMetaclass):
         elif "enum" in props and props["type"] == "string":
             return [pl.Categorical, pl.Utf8]
         elif "type" not in props:
+            if 'anyOf' in props:
+                res = [cls._valid_dtypes(column, sub_props) for sub_props in props['anyOf']]
+                return list(itertools.chain.from_iterable(res))
+            elif 'const' in props:
+                return cls._valid_dtypes(column, {'type': PYTHON_TO_PYDANTIC_TYPES.get(type(props['const']))})
             return None
         elif props["type"] == "integer":
             return [
@@ -460,7 +475,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> sorted(MyModel.non_nullable_columns)
             ['another_non_nullable_field', 'non_nullable_field']
         """
-        return set(cls.model_json_schema().get("required", {}))
+        return set(k for k in cls.valid_dtypes.keys() if pl.Null not in cls.valid_dtypes[k])
 
     @property
     def nullable_columns(  # type: ignore
@@ -1341,7 +1356,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         fields = {}
         for field_name, field_info in schema["properties"].items():
             if "$ref" in field_info:
-                definition = schema["definitions"][field_info["$ref"]]
+                definition = schema["$defs"][field_info["$ref"]]
                 if "enum" in definition and "type" not in definition:
                     enum_types = set(type(value) for value in definition["enum"])
                     if len(enum_types) > 1:
@@ -1353,17 +1368,13 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                         )
                     enum_type = enum_types.pop()
                     # TODO: Support time-delta, date, and date-time.
-                    definition["type"] = {
-                        str: "string",
-                        int: "integer",
-                        float: "number",
-                        bool: "boolean",
-                        type(None): "null",
-                    }[enum_type]
+                    definition["type"] = PYTHON_TO_PYDANTIC_TYPES[enum_type]
                 fields[field_name] = definition
             else:
                 fields[field_name] = field_info
             fields[field_name]["required"] = field_name in required
+            if 'const' in field_info and 'type' not in field_info:
+                fields[field_name]['type'] = PYTHON_TO_PYDANTIC_TYPES[type(field_info['const'])]
 
         return fields
 
