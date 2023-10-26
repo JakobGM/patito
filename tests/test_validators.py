@@ -236,7 +236,7 @@ def test_uniqueness_validation():
     """It should be able to validate uniqueness."""
 
     class MyModel(pt.Model):
-        column: int = pt.Field(unique=True)
+        column: int = pt.Field(json_schema_extra={"unique":True})
 
     non_duplicated_df = pt.DataFrame({"column": [1, 2, 3]})
     MyModel.validate(non_duplicated_df)
@@ -347,7 +347,7 @@ def test_uniqueness_constraint_validation():
     """Uniqueness constraints should be validated."""
 
     class UniqueModel(pt.Model):
-        product_id: int = pt.Field(unique=True)
+        product_id: int = pt.Field(json_schema_extra={"unique":True})
 
     validate(dataframe=pl.DataFrame({"product_id": [1, 2]}), schema=UniqueModel)
 
@@ -373,7 +373,9 @@ def test_validation_of_bounds_checks():
         gt_column: float = pt.Field(gt=42.5)
         combined_column: float = pt.Field(gt=42.5, le=43)
         multiple_column: float = pt.Field(multiple_of=0.5)
-        const_column: float = pt.Field(default=3.1415, const=True)
+        # const fields should now use Literal instead, but pyright
+        # complains about Literal of float values
+        const_column: Literal[3.1415] = pt.Field(default=3.1415) #type: ignore
         regex_column: str = pt.Field(regex=r"value [A-Z]")
         min_length_column: str = pt.Field(min_length=2)
         max_length_column: str = pt.Field(max_length=2)
@@ -412,10 +414,10 @@ def test_validation_of_dtype_specifiers():
 
     class DTypeModel(pt.Model):
         int_column: int
-        int_explicit_dtype_column: int = pt.Field(dtype=pl.Int64)
-        smallint_column: int = pt.Field(dtype=pl.Int8)
-        unsigned_int_column: int = pt.Field(dtype=pl.UInt64)
-        unsigned_smallint_column: int = pt.Field(dtype=pl.UInt8)
+        int_explicit_dtype_column: int = pt.Field(json_schema_extra={"dtype":pl.Int64})
+        smallint_column: int = pt.Field(json_schema_extra={"dtype":pl.Int8})
+        unsigned_int_column: int = pt.Field(json_schema_extra={"dtype":pl.UInt64})
+        unsigned_smallint_column: int = pt.Field(json_schema_extra={"dtype":pl.UInt8})
 
     assert DTypeModel.dtypes == {
         "int_column": pl.Int64,
@@ -475,7 +477,7 @@ def test_custom_constraint_validation():
         even_int: int = pt.Field(
             constraints=[(pl.col("even_int") % 2 == 0).alias("even_constraint")]
         )
-        odd_int: int = pt.Field(constraints=pl.col("odd_int") % 2 == 1)
+        odd_int: int = pt.Field(json_schema_extra={"constraints":pl.col("odd_int") % 2 == 1})
 
     df = CustomConstraintModel.DataFrame({"even_int": [2, 3], "odd_int": [1, 2]})
     with pytest.raises(ValidationError) as e_info:
@@ -496,7 +498,7 @@ def test_custom_constraint_validation():
 
     # We can also validate aggregation queries
     class PizzaSlice(pt.Model):
-        fraction: float = pt.Field(constraints=pl.col("fraction").sum() == 1)
+        fraction: float = pt.Field(json_schema_extra={"constraints":pl.col("fraction").sum() == 1})
 
     whole_pizza = pt.DataFrame({"fraction": [0.25, 0.75]})
     PizzaSlice.validate(whole_pizza)
@@ -511,9 +513,9 @@ def test_anonymous_column_constraints():
 
     class Pair(pt.Model):
         # pl.col("_") refers to the given field column
-        odd_number: int = pt.Field(constraints=pl.col("_") % 2 == 1)
+        odd_number: int = pt.Field(json_schema_extra={"constraints":pl.col("_") % 2 == 1})
         # pt.field is simply an alias for pl.col("_")
-        even_number: int = pt.Field(constraints=pt.field % 2 == 0)
+        even_number: int = pt.Field(json_schema_extra={"constraints":pt.field % 2 == 0})
 
     pairs = pt.DataFrame({"odd_number": [1, 3, 5], "even_number": [2, 4, 6]})
     Pair.validate(pairs)

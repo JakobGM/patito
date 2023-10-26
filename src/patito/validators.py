@@ -316,3 +316,4 @@ def validate(
     errors = _find_errors(dataframe=polars_dataframe, schema=schema)
     if errors:
         raise ValidationError(errors=errors, model=schema)
+    

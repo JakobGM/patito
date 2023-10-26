@@ -86,11 +86,11 @@ def test_generation_of_unique_data():
 
     class UniqueModel(pt.Model):
         bool_column: bool
-        string_column: str = pt.Field(unique=True)
-        int_column: int = pt.Field(unique=True)
-        float_column: int = pt.Field(unique=True)
-        date_column: date = pt.Field(unique=True)
-        datetime_column: datetime = pt.Field(unique=True)
+        string_column: str = pt.Field(json_schema_extra={"unique":True})
+        int_column: int = pt.Field(json_schema_extra={"unique":True})
+        float_column: int = pt.Field(json_schema_extra={"unique":True})
+        date_column: date = pt.Field(json_schema_extra={"unique":True})
+        datetime_column: datetime = pt.Field(json_schema_extra={"unique":True})
 
     example_df = UniqueModel.examples({"bool_column": [True, False]})
     for column in UniqueModel.columns:

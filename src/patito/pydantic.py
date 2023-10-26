@@ -20,8 +20,8 @@ from typing import (
 
 import polars as pl
 from polars.datatypes import PolarsDataType
-from pydantic import BaseConfig, BaseModel, Field, create_model  # noqa: F401
-from pydantic.main import ModelMetaclass as PydanticModelMetaclass
+from pydantic import ConfigDict, BaseModel, Field, create_model  # noqa: F401
+from pydantic._internal._model_construction import ModelMetaclass as PydanticModelMetaclass
 from typing_extensions import Literal, get_args
 
 from patito.polars import DataFrame, LazyFrame
@@ -107,7 +107,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> Product.columns
             ['name', 'price']
         """
-        return list(cls.schema()["properties"].keys())
+        return list(cls.model_json_schema()["properties"].keys())
 
     @property
     def dtypes(  # type: ignore
@@ -460,7 +460,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> sorted(MyModel.non_nullable_columns)
             ['another_non_nullable_field', 'non_nullable_field']
         """
-        return set(cls.schema().get("required", {}))
+        return set(cls.model_json_schema().get("required", {}))
 
     @property
     def nullable_columns(  # type: ignore
@@ -1087,6 +1087,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             (cls, {"outer"}),
             (other, {"left", "outer", "asof"}),
         ):
+            # TODO PYDANTIC V2, not sure how to implement this:
+            # old_field.required no longer exists, maybe this needs to be 
+            # completely rewritten. See fields at 
+            # https://docs.pydantic.dev/latest/api/fields/#pydantic.fields.FieldInfo
             for field_name, field in model.__fields__.items():
                 field_type = field.type_
                 field_default = field.default
@@ -1332,7 +1336,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             TypeError: if a field is annotated with an enum where the values are of
                 different types.
         """
-        schema = cls.schema(ref_template="{model}")
+        schema = cls.model_json_schema(ref_template="{model}")
         required = schema.get("required", set())
         fields = {}
         for field_name, field_info in schema["properties"].items():
@@ -1385,6 +1389,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """
         new_fields = {}
         for new_field_name, field_definition in field_mapping.items():
+            # TODO PYDANTIC V2, not sure how to implement this:
+            # old_field.required no longer exists, maybe this needs to be 
+            # completely rewritten. See fields at 
+            # https://docs.pydantic.dev/latest/api/fields/#pydantic.fields.FieldInfo
             if isinstance(field_definition, str):
                 # A single string, interpreted as the name of a field on the existing
                 # model.

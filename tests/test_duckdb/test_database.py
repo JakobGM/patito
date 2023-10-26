@@ -117,7 +117,7 @@ def test_database_create_table():
         "BOOLEAN",
         "BOOLEAN",
         pt.duckdb._enum_type_name(  # pyright: ignore
-            field_properties=Model.schema()["properties"]["enum_column"]
+            field_properties=Model.model_json_schema()["properties"]["enum_column"]
         ),
     ]
 
