@@ -29,7 +29,7 @@ def test_model_example():
         date_value: date
         datetime_value: datetime
 
-    assert MyModel.example().dict() == {
+    assert MyModel.example().model_dump() == {
         "int_value": -1,
         "float_value": -0.5,
         "str_value": "dummy_string",
@@ -45,7 +45,7 @@ def test_model_example():
         bool_value=True,
         default_value="override",
         optional_value=1,
-    ).dict() == {
+    ).model_dump() == {
         "int_value": -1,
         "float_value": -0.5,
         "str_value": "dummy_string",
@@ -60,7 +60,7 @@ def test_model_example():
 
     # For now, valid regex data is not implemented
     class RegexModel(pt.Model):
-        regex_column: str = pt.Field(regex=r"[0-9a-f]")
+        regex_column: str = pt.Field(pattern=r"[0-9a-f]")
 
     with pytest.raises(
         NotImplementedError,
@@ -274,21 +274,18 @@ def test_model_joins():
 
     class Left(pt.Model):
         left: int = pt.Field(gt=20)
-        opt_left: Optional[int]
+        opt_left: Optional[int] = None
 
     class Right(pt.Model):
         right: int = pt.Field(gt=20)
-        opt_right: Optional[int]
+        opt_right: Optional[int] = None
 
     def test_model_validator(model: Type[pt.Model]) -> None:
         """Test if all field validators have been included correctly."""
-        with pytest.raises(
-            ValidationError,
-            match=re.compile(
-                r".*limit_value=20.*\n.*\n.*limit_value=20.*", re.MULTILINE
-            ),
-        ):
+        with pytest.raises(ValidationError) as e:
             model(left=1, opt_left=1, right=1, opt_right=1)
+        pattern = re.compile(r'Input should be greater than 20')
+        assert len(pattern.findall(str(e.value))) == 2
 
     # An inner join should keep nullability information
     InnerJoinModel = Left.join(Right, how="inner")
@@ -326,13 +323,13 @@ def test_model_selects():
     MySubModel = MyModel.select("b")
     assert MySubModel.columns == ["b"]
     MySubModel(b=11)
-    with pytest.raises(ValidationError, match="limit_value=10"):
+    with pytest.raises(ValidationError, match="Input should be greater than 10"):
         MySubModel(b=1)
 
     MyTotalModel = MyModel.select(["a", "b"])
     assert sorted(MyTotalModel.columns) == ["a", "b"]
     MyTotalModel(a=1, b=11)
-    with pytest.raises(ValidationError, match="limit_value=10"):
+    with pytest.raises(ValidationError, match="Input should be greater than 10"):
         MyTotalModel(a=1, b=1)
     assert MyTotalModel.nullable_columns == {"a"}
 
@@ -391,7 +388,7 @@ def test_with_fields():
 
     ExpandedModel = MyModel.with_fields(
         b=(int, ...),
-        c=(int, None),
+        c=(int, None),  # TODO should this be nullable if not specified as optional?
         d=(int, pt.Field(gt=10)),
         e=(Optional[int], None),
     )
@@ -427,3 +424,29 @@ def test_enum_annotated_field():
         assert EnumModel.sql_types["column"].startswith("enum__")
         with pytest.raises(TypeError, match=r".*Encountered types: \['int', 'str'\]\."):
             InvalidEnumModel.sql_types
+
+def test_pt_fields():
+
+    class Model(pt.Model):
+        a: int
+        b: int = pt.Field(constraints=[(pl.col("b") < 10)])
+        c: int = pt.Field(derived_from=pl.col("a") + pl.col("b"))
+        d: int = pt.Field(dtype=pl.UInt8)
+        e: int = pt.Field(unique=True)
+    
+    schema = Model.model_json_schema()  # no serialization issues
+    props = Model._schema_properties()  # extra fields are stored in modified schema_properties
+    assert 'constraints' in props['b']
+    assert 'derived_from' in props['c']
+    assert 'dtype' in props['d']
+    assert 'unique' in props['e']
+
+    fields = Model.model_fields  # attributes are properly set and catalogued on the `FieldInfo` objects
+    assert 'constraints' in fields['b']._attributes_set
+    assert fields['b'].constraints is not None
+    assert 'derived_from' in fields['c']._attributes_set
+    assert fields['c'].derived_from is not None
+    assert 'dtype' in fields['d']._attributes_set
+    assert fields['d'].dtype is not None
+    assert 'unique' in fields['e']._attributes_set
+    assert fields['e'].unique is not None

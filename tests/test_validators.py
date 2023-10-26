@@ -601,7 +601,3 @@ def test_validation_of_list_dtypes():
         # print(old, new)
         with pytest.raises(DataFrameValidationError):
             ListModel.validate(valid_df.with_columns(pl.col(old).alias(new)))
-
-
-if __name__ == "__main__":
-    test_custom_constraint_validation()

@@ -19,6 +19,7 @@ from typing import (
     Literal, 
     get_args,
     Sequence,
+    Tuple,
 )
 
 import polars as pl
@@ -77,7 +78,7 @@ class ModelMetaclass(PydanticModelMetaclass):
     Responsible for setting any relevant model-dependent class properties.
     """
 
-    def __init__(cls, name: str, bases: tuple, clsdict: dict) -> None:
+    def __init__(cls, name: str, bases: tuple, clsdict: dict, **kwargs) -> None:
         """
         Construct new patito model.
 
@@ -224,6 +225,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         elif "type" not in props:
             if 'anyOf' in props:
                 res = [cls._valid_dtypes(column, sub_props) for sub_props in props['anyOf']]
+                res = [x for x in res if x is not None]
                 return list(itertools.chain.from_iterable(res))
             elif 'const' in props:
                 return cls._valid_dtypes(column, {'type': PYTHON_TO_PYDANTIC_TYPES.get(type(props['const']))})
@@ -255,6 +257,10 @@ class ModelMetaclass(PydanticModelMetaclass):
             # TODO: Find out why this branch is not being hit
             elif string_format == "date-time":  # pragma: no cover
                 return [pl.Datetime]
+            elif string_format == "duration":
+                return [pl.Duration]
+            elif string_format.startswith("uuid"):
+                return [pl.Object]
             else:
                 return None  # pragma: no cover
         elif props["type"] == "null":
@@ -674,7 +680,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         if validate:
             return cls(**dataframe.to_dicts()[0])
         else:
-            return cls.construct(**dataframe.to_dicts()[0])
+            return cls.model_construct(**dataframe.to_dicts()[0])
 
     @classmethod
     def validate(
@@ -758,7 +764,14 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """
         field_data = cls._schema_properties()
         properties = field_data[field]
-        field_type = properties["type"]
+        if "type" in properties:
+            field_type = properties["type"]
+        elif "anyOf" in properties:
+            allowable = [x['type'] for x in properties['anyOf'] if 'type' in x]
+            if 'null' in allowable:
+                field_type = 'null'
+            else:
+                field_type = allowable[0]
         if "const" in properties:
             # The default value is the only valid value, provided as const
             return properties["const"]
@@ -768,6 +781,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             return properties["default"]
 
         elif not properties["required"]:
+            return None
+    
+        elif field_type == 'null':
             return None
 
         elif "enum" in properties:
@@ -1104,22 +1120,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             (cls, {"outer"}),
             (other, {"left", "outer", "asof"}),
         ):
-            # TODO PYDANTIC V2, not sure how to implement this:
-            # old_field.required no longer exists, maybe this needs to be 
-            # completely rewritten. See fields at 
-            # https://docs.pydantic.dev/latest/api/fields/#pydantic.fields.FieldInfo
-            for field_name, field in model.__fields__.items():
-                field_type = field.type_
-                field_default = field.default
-                if how in nullable_methods and type(None) not in get_args(field.type_):
-                    # This originally non-nullable field has become nullable
-                    field_type = Optional[field_type]
-                elif field.required and field_default is None:
-                    # We need to replace Pydantic's None default value with ... in order
-                    # to make it clear that the field is still non-nullable and
-                    # required.
-                    field_default = ...
-                kwargs[field_name] = (field_type, field_default)
+            for field_name, field in model.model_fields.items():
+                make_nullable = how in nullable_methods and type(None) not in get_args(field.annotation)
+                kwargs[field_name] = cls._derive_field(field, make_nullable=make_nullable)
 
         return create_model(
             f"{cls.__name__}{how.capitalize()}Join{other.__name__}",
@@ -1406,31 +1409,40 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """
         new_fields = {}
         for new_field_name, field_definition in field_mapping.items():
-            # TODO PYDANTIC V2, not sure how to implement this:
-            # old_field.required no longer exists, maybe this needs to be 
-            # completely rewritten. See fields at 
-            # https://docs.pydantic.dev/latest/api/fields/#pydantic.fields.FieldInfo
             if isinstance(field_definition, str):
                 # A single string, interpreted as the name of a field on the existing
                 # model.
-                old_field = cls.__fields__[field_definition]
-                field_type = old_field.type_
-                field_default = old_field.default
-                if old_field.required and field_default is None:
-                    # The default None value needs to be replaced with ... in order to
-                    # make the field required in the new model.
-                    field_default = ...
-                new_fields[new_field_name] = (field_type, field_default)
+                old_field = cls.model_fields[field_definition]
+                new_fields[new_field_name] = cls._derive_field(old_field)
             else:
                 # We have been given a (field_type, field_default) tuple defining the
                 # new field directly.
-                new_fields[new_field_name] = field_definition
+                field_type = field_definition[0]
+                if field_definition[1] is None and type(None) not in get_args(field_type):
+                    field_type = Optional[field_type]
+                new_fields[new_field_name] = (field_type, field_definition[1])
         return create_model(  # type: ignore
             __model_name=model_name,
-            __validators__={"__validators__": cls.__validators__},
             __base__=Model,
             **new_fields,
         )
+
+    @staticmethod
+    def _derive_field(field: FieldInfo, make_nullable: bool = False) -> Tuple[Type, FieldInfo]:
+        field_type = field.annotation
+        default = field.default
+        extra_attrs = {x: getattr(field, x) for x in field._attributes_set if x in field.__slots__ and x not in ['annotation', 'default']}
+        if make_nullable:
+            # This originally non-nullable field has become nullable
+            field_type = Optional[field_type]
+        elif field.is_required() and default is None:
+            # We need to replace Pydantic's None default value with ... in order
+            # to make it clear that the field is still non-nullable and
+            # required.
+            default = ...
+        field_new = Field(default=default, **extra_attrs)
+        field_new.metadata = field.metadata
+        return field_type, field_new
     
 PT_INFO = Literal["constraints", "derived_from", "dtype", "unique"]
 
@@ -1451,10 +1463,12 @@ class FieldInfo(fields.FieldInfo):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        
         self.constraints = constraints
         self.derived_from = derived_from
         self.dtype = dtype
         self.unique = unique
+        self._attributes_set.update(**{k: getattr(self, k) for k in get_args(PT_INFO) if getattr(self, k) is not None})
 
 
 def Field(
