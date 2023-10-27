@@ -1,11 +1,10 @@
 """Test of functionality related to the generation of dummy data."""
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Sequence, Literal
 import uuid
 
 import polars as pl
 import pytest
-from typing_extensions import Literal
 
 import patito as pt
 from pydantic import BaseModel, UUID4
@@ -151,12 +150,10 @@ def test_nested_models():
         nested_model: NestedModel
 
     example_model = ParentModel.example()
-    example_df = ParentModel.examples()
-    ParentModel.validate(example_df)
-    assert example_model == ParentModel.from_row(example_df[0])
-    if example_model.nested_model is not None:
-        assert isinstance(example_model.nested_model, NestedModel)
-        assert example_model.nested_model.nested_field is not None
+    with pytest.raises(NotImplementedError):
+        example_df = ParentModel.examples()
+    assert isinstance(example_model.nested_model, NestedModel)
+    assert example_model.nested_model.nested_field is not None
 
     # inheritance also works
     class ParentModel(NestedModel):
@@ -169,13 +166,19 @@ def test_nested_models():
     # and optional nested models are ok
     class ParentModel(pt.Model):
         parent_field: int
-        nested_model: Optional[NestedModel]
+        nested_model: Optional[NestedModel] = None
 
     example_model = ParentModel.example()
-    example_df = ParentModel.examples()
-    ParentModel.validate(example_df)
     assert example_model.nested_model is None
-    assert example_model == ParentModel.from_row(example_df[0])
+
+    # sequences of nested models also work
+    class ParentModel(pt.Model):
+        parent_field: int
+        nested_models: Sequence[NestedModel]
+
+    example_model = ParentModel.example()
+    with pytest.raises(NotImplementedError):
+        example_df = ParentModel.examples()
 
 
 def test_uuid():

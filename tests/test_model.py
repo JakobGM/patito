@@ -454,3 +454,42 @@ def test_pt_fields():
     assert fields["d"].dtype is not None
     assert "unique" in fields["e"]._attributes_set
     assert fields["e"].unique is not None
+
+
+def test_model_schema():
+    class Model(pt.Model):
+        a: int = pt.Field(ge=0, unique=True)
+
+    schema = Model.schema()
+
+    def validate_model_schema(schema):
+        assert set(schema) == {"properties", "required", "type", "title"}
+        assert schema["title"] == "Model"
+        assert schema["type"] == "object"
+        assert "a" in schema["properties"]
+        assert schema["properties"]["a"]["type"] == "integer"
+        assert schema["properties"]["a"]["minimum"] == 0
+        assert schema["properties"]["a"][
+            "unique"
+        ]  # patito-specific properties are recorded
+
+    validate_model_schema(schema)
+
+    # nested models
+    class ParentModel(pt.Model):
+        a: int
+        b: Model
+        c: Optional[float] = None
+
+    schema = ParentModel.schema()
+    validate_model_schema(
+        schema["$defs"]["Model"]
+    )  # ensure that nested model schema is recorded in definitions
+    validate_model_schema(
+        schema["properties"]["b"]
+    )  # and all info is copied into field properties
+    assert set(schema["properties"]) == {"a", "b", "c"}
+    assert schema["properties"]["a"]["required"]
+    assert schema["properties"]["b"]["required"]
+    assert schema["properties"]["a"]["type"] == "integer"
+    assert not schema["properties"]["c"]["required"]

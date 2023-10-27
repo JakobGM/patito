@@ -74,6 +74,17 @@ PYTHON_TO_PYDANTIC_TYPES = {
 }
 
 
+def contains_object(dtype: pl.DataType) -> bool:
+    try:
+        inner = dtype.inner
+        if inner == pl.Object():
+            return True
+        else:
+            return contains_object(inner)
+    except AttributeError:
+        return False
+
+
 class ModelMetaclass(PydanticModelMetaclass):
     """
     Metclass used by patito.Model.
@@ -743,7 +754,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     @classmethod
     def example_value(  # noqa: C901
         cls,
-        field: str,
+        field: Optional[str] = None,
+        properties: Optional[Dict[str, Any]] = None,
     ) -> Union[date, datetime, float, int, str, None]:
         """
         Return a valid example value for the given model field.
@@ -773,8 +785,17 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             >>> Product.example_value("temperature_zone")
             'dry'
         """
-        field_data = cls._schema_properties()
-        properties = field_data[field]
+        if field is None and properties is None:
+            raise ValueError(
+                "Either 'field' or 'properties' must be provided as argument."
+            )
+        if field is not None and properties is not None:
+            raise ValueError(
+                "Only one of 'field' or 'properties' can be provided as argument."
+            )
+        if field:
+            properties = cls._schema_properties()[field]
+
         if "type" in properties:
             field_type = properties["type"]
         elif "anyOf" in properties:
@@ -783,6 +804,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 field_type = "null"
             else:
                 field_type = allowable[0]
+        else:
+            raise NotImplementedError(
+                f"Field type for {properties['title']} not found."
+            )
+
         if "const" in properties:
             # The default value is the only valid value, provided as const
             return properties["const"]
@@ -855,11 +881,15 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
         elif field_type == "object":
             try:
-                return cls.__annotations__[field].example().model_dump()
+                props_o = cls.schema()["$defs"][properties["title"]]["properties"]
+                return {f: cls.example_value(properties=props_o[f]) for f in props_o}
             except AttributeError:
                 raise NotImplementedError(
-                    "Nested example generation only supported for nesed pt.Model classes."
+                    "Nested example generation only supported for nested pt.Model classes."
                 )
+
+        elif field_type == "array":
+            return [cls.example_value(properties=properties["items"])]
 
         else:  # pragma: no cover
             raise NotImplementedError
@@ -1063,6 +1093,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         series: List[Union[pl.Series, pl.Expr]] = []
         unique_series = []
         for column_name, dtype in cls.dtypes.items():
+            if dtype == pl.Object or contains_object(dtype):
+                raise NotImplementedError(
+                    "Example data frame generation not supported for models containing object dtypes."
+                )
             if column_name not in kwargs:
                 if column_name in cls.unique_columns:
                     unique_series.append(
@@ -1070,16 +1104,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                     )
                 else:
                     example_value = cls.example_value(field=column_name)
-                    if dtype == pl.Object:
-                        series.append(
-                            pl.Series(
-                                column_name, values=[example_value], dtype=pl.Object
-                            )
-                        )
-                    else:
-                        series.append(
-                            pl.lit(example_value, dtype=dtype).alias(column_name)
-                        )
+                    series.append(
+                        pl.Series(column_name, values=[example_value], dtype=dtype)
+                    )
                 continue
 
             value = kwargs.get(column_name)
@@ -1375,7 +1402,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         )
 
     @classmethod
-    def _schema_properties(cls) -> Dict[str, Dict[str, Any]]:
+    def schema(cls) -> Dict[str, Dict[str, Any]]:
         """
         Return schema properties where definition references have been resolved.
 
@@ -1389,37 +1416,76 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 different types.
         """
         schema = cls.model_json_schema(ref_template="{model}")
-        required = schema.get("required", set())
         fields = {}
+        for (
+            f
+        ) in cls.model_fields.values():  # first resolve definitions for nested models
+            annotation = f.annotation
+            cls._update_dfn(annotation, schema)
+            for a in get_args(annotation):
+                cls._update_dfn(a, schema)
         for field_name, field_info in schema["properties"].items():
-            if "$ref" in field_info:
-                definition = schema["$defs"][field_info["$ref"]]
-                if "enum" in definition and "type" not in definition:
-                    enum_types = set(type(value) for value in definition["enum"])
-                    if len(enum_types) > 1:
-                        raise TypeError(
-                            "All enumerated values of enums used to annotate "
-                            "Patito model fields must have the same type. "
-                            "Encountered types: "
-                            f"{sorted(map(lambda t: t.__name__, enum_types))}."
-                        )
-                    enum_type = enum_types.pop()
-                    # TODO: Support time-delta, date, and date-time.
-                    definition["type"] = PYTHON_TO_PYDANTIC_TYPES[enum_type]
-                fields[field_name] = definition
-            else:
-                fields[field_name] = field_info
-            fields[field_name]["required"] = field_name in required
-            if "const" in field_info and "type" not in field_info:
-                fields[field_name]["type"] = PYTHON_TO_PYDANTIC_TYPES[
-                    type(field_info["const"])
-                ]
-            for f in get_args(PT_INFO):
-                v = getattr(cls.model_fields[field_name], f, None)
-                if v is not None:
-                    fields[field_name][f] = v
+            fields[field_name] = cls._append_field_info_to_props(
+                field_info=field_info,
+                field_name=field_name,
+                required=field_name in schema.get("required", set()),
+                model_schema=schema,
+            )
+        schema["properties"] = fields
+        return schema
 
-        return fields
+    @staticmethod
+    def _update_dfn(annotation: Any, schema: Dict[str, Any]):
+        try:
+            if issubclass(annotation, Model):
+                schema["$defs"][annotation.__name__] = annotation.schema()
+        except TypeError:
+            pass
+
+    @classmethod
+    def _schema_properties(cls):
+        return cls.schema()["properties"]
+
+    @classmethod
+    def _append_field_info_to_props(
+        cls: Type[ModelType],
+        field_info: Dict[str, Any],
+        field_name: str,
+        required: bool,
+        model_schema: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        if "$ref" in field_info:
+            definition = model_schema["$defs"][field_info["$ref"]]
+            if "enum" in definition and "type" not in definition:
+                enum_types = set(type(value) for value in definition["enum"])
+                if len(enum_types) > 1:
+                    raise TypeError(
+                        "All enumerated values of enums used to annotate "
+                        "Patito model fields must have the same type. "
+                        "Encountered types: "
+                        f"{sorted(map(lambda t: t.__name__, enum_types))}."
+                    )
+                enum_type = enum_types.pop()
+                # TODO: Support time-delta, date, and date-time.
+                definition["type"] = PYTHON_TO_PYDANTIC_TYPES[enum_type]
+            field = definition
+        else:
+            field = field_info
+        if "items" in field_info:
+            field["items"] = cls._append_field_info_to_props(
+                field_info["items"],
+                field_name,
+                required,
+                model_schema,
+            )
+        field["required"] = required
+        if "const" in field_info and "type" not in field_info:
+            field["type"] = PYTHON_TO_PYDANTIC_TYPES[type(field_info["const"])]
+        for f in get_args(PT_INFO):
+            v = getattr(cls.model_fields[field_name], f, None)
+            if v is not None:
+                field[f] = v
+        return field
 
     @classmethod
     def _derive_model(

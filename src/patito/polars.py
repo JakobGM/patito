@@ -15,12 +15,12 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    Literal,
 )
 
 import polars as pl
 from polars.type_aliases import IntoExpr
 from pydantic import create_model
-from typing_extensions import Literal
 
 from patito.exceptions import MultipleRowsReturned, RowDoesNotExist
 
