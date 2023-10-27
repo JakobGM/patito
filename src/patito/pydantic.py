@@ -73,6 +73,17 @@ PYTHON_TO_PYDANTIC_TYPES = {
     type(None): "null",
 }
 
+PL_INTEGER_DTYPES = [
+    pl.Int64,
+    pl.Int32,
+    pl.Int16,
+    pl.Int8,
+    pl.UInt64,
+    pl.UInt32,
+    pl.UInt16,
+    pl.UInt8,
+]
+
 
 def contains_object(dtype: pl.DataType) -> bool:
     try:
@@ -249,16 +260,7 @@ class ModelMetaclass(PydanticModelMetaclass):
                 )
             return None
         elif props["type"] == "integer":
-            return [
-                pl.Int64,
-                pl.Int32,
-                pl.Int16,
-                pl.Int8,
-                pl.UInt64,
-                pl.UInt32,
-                pl.UInt16,
-                pl.UInt8,
-            ]
+            return PL_INTEGER_DTYPES
         elif props["type"] == "number":
             if props.get("format") == "time-delta":
                 return [pl.Duration]
@@ -1451,8 +1453,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         cls: Type[ModelType],
         field_info: Dict[str, Any],
         field_name: str,
-        required: bool,
         model_schema: Dict[str, Any],
+        required: Optional[bool] = None,
     ) -> Dict[str, Any]:
         if "$ref" in field_info:
             definition = model_schema["$defs"][field_info["$ref"]]
@@ -1475,10 +1477,19 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             field["items"] = cls._append_field_info_to_props(
                 field_info["items"],
                 field_name,
-                required,
                 model_schema,
             )
-        field["required"] = required
+        if "anyOf" in field_info:
+            field["anyOf"] = [
+                cls._append_field_info_to_props(
+                    f,
+                    field_name,
+                    model_schema,
+                )
+                for f in field_info["anyOf"]
+            ]
+        if required is not None:
+            field["required"] = required
         if "const" in field_info and "type" not in field_info:
             field["type"] = PYTHON_TO_PYDANTIC_TYPES[type(field_info["const"])]
         for f in get_args(PT_INFO):

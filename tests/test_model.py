@@ -3,13 +3,14 @@
 import enum
 import re
 from datetime import date, datetime, timedelta
-from typing import List, Optional, Type, Literal
+from typing import List, Optional, Type, Literal, Sequence
 
 import polars as pl
 import pytest
 from pydantic import ValidationError
 
 import patito as pt
+from patito.pydantic import PL_INTEGER_DTYPES
 
 
 def test_model_example():
@@ -493,3 +494,11 @@ def test_model_schema():
     assert schema["properties"]["b"]["required"]
     assert schema["properties"]["a"]["type"] == "integer"
     assert not schema["properties"]["c"]["required"]
+
+    class ParentModel(pt.Model):
+        parent_field: int
+        nested_models: Optional[Sequence[Model]] = None
+
+    valid_dtypes = ParentModel.valid_dtypes
+    assert valid_dtypes["parent_field"] == PL_INTEGER_DTYPES
+    assert set(valid_dtypes["nested_models"]) == set([pl.List(pl.Object), pl.Null])
