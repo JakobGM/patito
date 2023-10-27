@@ -159,8 +159,8 @@ def test_correct_columns_and_dtype_on_read(tmp_path):
     """A model DataFrame should aid CSV reading with column names and dtypes."""
 
     class Foo(pt.Model):
-        a: str = pt.Field(json_schema_extra={"derived_from":"column_1"})
-        b: int = pt.Field(json_schema_extra={"derived_from":"column_2"})
+        a: str = pt.Field(derived_from="column_1")
+        b: int = pt.Field(derived_from="column_2")
 
     csv_path = tmp_path / "foo.csv"
     csv_path.write_text("1,2")
@@ -189,7 +189,7 @@ def test_correct_columns_and_dtype_on_read(tmp_path):
     assert unspecified_column_df.dtypes == [pl.Utf8, pl.Int64, pl.Float64]
 
     class DerivedModel(pt.Model):
-        cents: int = pt.Field(json_schema_extra={"derived_from":100 * pl.col("dollars")})
+        cents: int = pt.Field(derived_from=100 * pl.col("dollars"))
 
     csv_path.write_text("month,dollars\n1,2.99")
     derived_df = DerivedModel.DataFrame.read_csv(csv_path)

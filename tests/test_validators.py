@@ -2,14 +2,13 @@
 import enum
 import sys
 from datetime import date, datetime
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Literal
 
 import polars as pl
 import pytest
-from typing_extensions import Literal
 
 import patito as pt
-from patito.exceptions import DataFrameValidationError
+from patito import DataFrameValidationError
 from patito.validators import _dewrap_optional, _is_optional, validate
 
 
@@ -236,7 +235,7 @@ def test_uniqueness_validation():
     """It should be able to validate uniqueness."""
 
     class MyModel(pt.Model):
-        column: int = pt.Field(json_schema_extra={"unique":True})
+        column: int = pt.Field(unique=True)
 
     non_duplicated_df = pt.DataFrame({"column": [1, 2, 3]})
     MyModel.validate(non_duplicated_df)
@@ -347,7 +346,7 @@ def test_uniqueness_constraint_validation():
     """Uniqueness constraints should be validated."""
 
     class UniqueModel(pt.Model):
-        product_id: int = pt.Field(json_schema_extra={"unique":True})
+        product_id: int = pt.Field(unique=True)
 
     validate(dataframe=pl.DataFrame({"product_id": [1, 2]}), schema=UniqueModel)
 
@@ -375,7 +374,7 @@ def test_validation_of_bounds_checks():
         multiple_column: float = pt.Field(multiple_of=0.5)
         # const fields should now use Literal instead, but pyright
         # complains about Literal of float values
-        const_column: Literal[3.1415] = pt.Field(default=3.1415) #type: ignore
+        const_column: Literal[3.1415] = pt.Field(default=3.1415)  # type: ignore
         regex_column: str = pt.Field(pattern=r"value [A-Z]")
         min_length_column: str = pt.Field(min_length=2)
         max_length_column: str = pt.Field(max_length=2)
@@ -418,7 +417,7 @@ def test_validation_of_dtype_specifiers():
         smallint_column: int = pt.Field(dtype=pl.Int8)
         unsigned_int_column: int = pt.Field(dtype=pl.UInt64)
         unsigned_smallint_column: int = pt.Field(dtype=pl.UInt8)
-    
+
     assert DTypeModel.dtypes == {
         "int_column": pl.Int64,
         "int_explicit_dtype_column": pl.Int64,

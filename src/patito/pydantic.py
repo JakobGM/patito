@@ -16,7 +16,7 @@ from typing import (
     TypeVar,
     Union,
     cast,
-    Literal, 
+    Literal,
     get_args,
     Sequence,
     Tuple,
@@ -26,7 +26,9 @@ import polars as pl
 from polars.datatypes import PolarsDataType
 from pydantic import fields
 from pydantic import ConfigDict, BaseModel, create_model  # noqa: F401
-from pydantic._internal._model_construction import ModelMetaclass as PydanticModelMetaclass
+from pydantic._internal._model_construction import (
+    ModelMetaclass as PydanticModelMetaclass,
+)
 
 from patito.polars import DataFrame, LazyFrame
 from patito.validators import validate
@@ -223,12 +225,16 @@ class ModelMetaclass(PydanticModelMetaclass):
         elif "enum" in props and props["type"] == "string":
             return [pl.Categorical, pl.Utf8]
         elif "type" not in props:
-            if 'anyOf' in props:
-                res = [cls._valid_dtypes(column, sub_props) for sub_props in props['anyOf']]
+            if "anyOf" in props:
+                res = [
+                    cls._valid_dtypes(column, sub_props) for sub_props in props["anyOf"]
+                ]
                 res = [x for x in res if x is not None]
                 return list(itertools.chain.from_iterable(res))
-            elif 'const' in props:
-                return cls._valid_dtypes(column, {'type': PYTHON_TO_PYDANTIC_TYPES.get(type(props['const']))})
+            elif "const" in props:
+                return cls._valid_dtypes(
+                    column, {"type": PYTHON_TO_PYDANTIC_TYPES.get(type(props["const"]))}
+                )
             return None
         elif props["type"] == "integer":
             return [
@@ -483,7 +489,9 @@ class ModelMetaclass(PydanticModelMetaclass):
             >>> sorted(MyModel.non_nullable_columns)
             ['another_non_nullable_field', 'non_nullable_field']
         """
-        return set(k for k in cls.valid_dtypes.keys() if pl.Null not in cls.valid_dtypes[k])
+        return set(
+            k for k in cls.valid_dtypes.keys() if pl.Null not in cls.valid_dtypes[k]
+        )
 
     @property
     def nullable_columns(  # type: ignore
@@ -767,9 +775,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         if "type" in properties:
             field_type = properties["type"]
         elif "anyOf" in properties:
-            allowable = [x['type'] for x in properties['anyOf'] if 'type' in x]
-            if 'null' in allowable:
-                field_type = 'null'
+            allowable = [x["type"] for x in properties["anyOf"] if "type" in x]
+            if "null" in allowable:
+                field_type = "null"
             else:
                 field_type = allowable[0]
         if "const" in properties:
@@ -782,8 +790,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
         elif not properties["required"]:
             return None
-    
-        elif field_type == 'null':
+
+        elif field_type == "null":
             return None
 
         elif "enum" in properties:
@@ -1121,8 +1129,12 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             (other, {"left", "outer", "asof"}),
         ):
             for field_name, field in model.model_fields.items():
-                make_nullable = how in nullable_methods and type(None) not in get_args(field.annotation)
-                kwargs[field_name] = cls._derive_field(field, make_nullable=make_nullable)
+                make_nullable = how in nullable_methods and type(None) not in get_args(
+                    field.annotation
+                )
+                kwargs[field_name] = cls._derive_field(
+                    field, make_nullable=make_nullable
+                )
 
         return create_model(
             f"{cls.__name__}{how.capitalize()}Join{other.__name__}",
@@ -1378,8 +1390,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             else:
                 fields[field_name] = field_info
             fields[field_name]["required"] = field_name in required
-            if 'const' in field_info and 'type' not in field_info:
-                fields[field_name]['type'] = PYTHON_TO_PYDANTIC_TYPES[type(field_info['const'])]
+            if "const" in field_info and "type" not in field_info:
+                fields[field_name]["type"] = PYTHON_TO_PYDANTIC_TYPES[
+                    type(field_info["const"])
+                ]
             for f in get_args(PT_INFO):
                 v = getattr(cls.model_fields[field_name], f, None)
                 if v is not None:
@@ -1418,7 +1432,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 # We have been given a (field_type, field_default) tuple defining the
                 # new field directly.
                 field_type = field_definition[0]
-                if field_definition[1] is None and type(None) not in get_args(field_type):
+                if field_definition[1] is None and type(None) not in get_args(
+                    field_type
+                ):
                     field_type = Optional[field_type]
                 new_fields[new_field_name] = (field_type, field_definition[1])
         return create_model(  # type: ignore
@@ -1428,10 +1444,16 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         )
 
     @staticmethod
-    def _derive_field(field: FieldInfo, make_nullable: bool = False) -> Tuple[Type, FieldInfo]:
+    def _derive_field(
+        field: FieldInfo, make_nullable: bool = False
+    ) -> Tuple[Type, FieldInfo]:
         field_type = field.annotation
         default = field.default
-        extra_attrs = {x: getattr(field, x) for x in field._attributes_set if x in field.__slots__ and x not in ['annotation', 'default']}
+        extra_attrs = {
+            x: getattr(field, x)
+            for x in field._attributes_set
+            if x in field.__slots__ and x not in ["annotation", "default"]
+        }
         if make_nullable:
             # This originally non-nullable field has become nullable
             field_type = Optional[field_type]
@@ -1443,19 +1465,21 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         field_new = Field(default=default, **extra_attrs)
         field_new.metadata = field.metadata
         return field_type, field_new
-    
+
+
 PT_INFO = Literal["constraints", "derived_from", "dtype", "unique"]
 
+
 class FieldInfo(fields.FieldInfo):
-    __slots__ = getattr(fields.FieldInfo, '__slots__') + (
+    __slots__ = getattr(fields.FieldInfo, "__slots__") + (
         "constraints",
         "derived_from",
         "dtype",
         "unique",
     )
-    
+
     def __init__(
-        self, 
+        self,
         constraints: Optional[Union[pl.Expr, Sequence[pl.Expr]]] = None,
         derived_from: Optional[Union[str, pl.Expr]] = None,
         dtype: Optional[pl.DataType] = None,
@@ -1463,30 +1487,32 @@ class FieldInfo(fields.FieldInfo):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        
+
         self.constraints = constraints
         self.derived_from = derived_from
         self.dtype = dtype
         self.unique = unique
-        self._attributes_set.update(**{k: getattr(self, k) for k in get_args(PT_INFO) if getattr(self, k) is not None})
+        self._attributes_set.update(
+            **{
+                k: getattr(self, k)
+                for k in get_args(PT_INFO)
+                if getattr(self, k) is not None
+            }
+        )
 
 
 def Field(
     *args,
     **kwargs,
 ):
-    pt_kwargs = {
-        k: kwargs.pop(k, None) for k in get_args(PT_INFO)
-    }
+    pt_kwargs = {k: kwargs.pop(k, None) for k in get_args(PT_INFO)}
     meta_kwargs = {
         k: v for k, v in kwargs.items() if k in fields.FieldInfo.metadata_lookup
     }
     base_kwargs = {
         k: v for k, v in kwargs.items() if k not in {**pt_kwargs, **meta_kwargs}
     }
-    finfo = fields.Field(
-        *args, **base_kwargs
-    )
+    finfo = fields.Field(*args, **base_kwargs)
     return FieldInfo(
         **finfo._attributes_set,
         **meta_kwargs,

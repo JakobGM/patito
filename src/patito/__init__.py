@@ -2,21 +2,21 @@
 from polars import Expr, Series, col
 
 from patito import exceptions, sql
-# from patito.exceptions import ValidationError
 from patito.polars import DataFrame, LazyFrame
 from patito.pydantic import Field, Model
+from patito.exceptions import DataFrameValidationError
 
 _CACHING_AVAILABLE = False
 _DUCKDB_AVAILABLE = False
 field = col("_")
 __all__ = [
     "DataFrame",
+    "DataFrameValidationError",
     "Expr",
     "Field",
     "LazyFrame",
     "Model",
     "Series",
-    # "ValidationError",
     "_CACHING_AVAILABLE",
     "_DUCKDB_AVAILABLE",
     "col",

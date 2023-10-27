@@ -284,7 +284,7 @@ def test_model_joins():
         """Test if all field validators have been included correctly."""
         with pytest.raises(ValidationError) as e:
             model(left=1, opt_left=1, right=1, opt_right=1)
-        pattern = re.compile(r'Input should be greater than 20')
+        pattern = re.compile(r"Input should be greater than 20")
         assert len(pattern.findall(str(e.value))) == 2
 
     # An inner join should keep nullability information
@@ -388,7 +388,7 @@ def test_with_fields():
 
     ExpandedModel = MyModel.with_fields(
         b=(int, ...),
-        c=(int, None),  # TODO should this be nullable if not specified as optional?
+        c=(int, None),
         d=(int, pt.Field(gt=10)),
         e=(Optional[int], None),
     )
@@ -425,28 +425,32 @@ def test_enum_annotated_field():
         with pytest.raises(TypeError, match=r".*Encountered types: \['int', 'str'\]\."):
             InvalidEnumModel.sql_types
 
-def test_pt_fields():
 
+def test_pt_fields():
     class Model(pt.Model):
         a: int
         b: int = pt.Field(constraints=[(pl.col("b") < 10)])
         c: int = pt.Field(derived_from=pl.col("a") + pl.col("b"))
         d: int = pt.Field(dtype=pl.UInt8)
         e: int = pt.Field(unique=True)
-    
-    schema = Model.model_json_schema()  # no serialization issues
-    props = Model._schema_properties()  # extra fields are stored in modified schema_properties
-    assert 'constraints' in props['b']
-    assert 'derived_from' in props['c']
-    assert 'dtype' in props['d']
-    assert 'unique' in props['e']
 
-    fields = Model.model_fields  # attributes are properly set and catalogued on the `FieldInfo` objects
-    assert 'constraints' in fields['b']._attributes_set
-    assert fields['b'].constraints is not None
-    assert 'derived_from' in fields['c']._attributes_set
-    assert fields['c'].derived_from is not None
-    assert 'dtype' in fields['d']._attributes_set
-    assert fields['d'].dtype is not None
-    assert 'unique' in fields['e']._attributes_set
-    assert fields['e'].unique is not None
+    schema = Model.model_json_schema()  # no serialization issues
+    props = (
+        Model._schema_properties()
+    )  # extra fields are stored in modified schema_properties
+    assert "constraints" in props["b"]
+    assert "derived_from" in props["c"]
+    assert "dtype" in props["d"]
+    assert "unique" in props["e"]
+
+    fields = (
+        Model.model_fields
+    )  # attributes are properly set and catalogued on the `FieldInfo` objects
+    assert "constraints" in fields["b"]._attributes_set
+    assert fields["b"].constraints is not None
+    assert "derived_from" in fields["c"]._attributes_set
+    assert fields["c"].derived_from is not None
+    assert "dtype" in fields["d"]._attributes_set
+    assert fields["d"].dtype is not None
+    assert "unique" in fields["e"]._attributes_set
+    assert fields["e"].unique is not None
