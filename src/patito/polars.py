@@ -63,7 +63,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
             return cls
 
         new_class = type(
-            f"{model.schema()['title']}LazyFrame",
+            f"{model.model_json_schema()['title']}LazyFrame",
             (cls,),
             {"model": model},
         )
@@ -138,7 +138,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 "hard-coded" to the given model.
         """
         new_class = type(
-            f"{model.schema()['title']}DataFrame",
+            f"{model.model_json_schema()['title']}DataFrame",
             (cls,),
             {"model": model},
         )
@@ -706,7 +706,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             pl.Expr, str, pl.Series, list[bool], np.ndarray[Any, Any], bool
         ],
     ) -> DF:
-        return cast(DF, super().filter(predicate=predicate))
+        return cast(DF, super().filter(predicate))
 
     def select(  # noqa: D102
         self: DF,

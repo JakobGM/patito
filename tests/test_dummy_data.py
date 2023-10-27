@@ -189,7 +189,3 @@ def test_uuid():
     )
     Model.validate(example_df)
     assert example_model.uuid == Model.from_row(example_df[0]).uuid
-
-
-if __name__ == "__main__":
-    test_nested_models()

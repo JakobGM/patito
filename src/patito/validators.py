@@ -14,7 +14,7 @@ from patito.exceptions import (
     MissingValuesError,
     RowValueError,
     SuperflousColumnsError,
-    ValidationError,
+    DataFrameValidationError,
 )
 
 if sys.version_info >= (3, 10):  # pragma: no cover
@@ -115,11 +115,11 @@ def _find_errors(  # noqa: C901
     """
     errors: list[ErrorWrapper] = []
     # Check if any columns are missing
-    for missig_column in set(schema.columns) - set(dataframe.columns):
+    for missing_column in set(schema.columns) - set(dataframe.columns):
         errors.append(
             ErrorWrapper(
                 MissingColumnsError("Missing column"),
-                loc=missig_column,
+                loc=missing_column,
             )
         )
 
@@ -241,8 +241,8 @@ def _find_errors(  # noqa: C901
             "multipleOf": lambda v: (col == 0) | ((col % v) == 0),
             "const": lambda v: col == v,
             "pattern": lambda v: col.str.contains(v),
-            "minLength": lambda v: col.str.lengths() >= v,
-            "maxLength": lambda v: col.str.lengths() <= v,
+            "minLength": lambda v: col.str.len_chars() >= v,
+            "maxLength": lambda v: col.str.len_chars() <= v,
         }
         checks = [
             check(column_properties[key])
@@ -271,7 +271,7 @@ def _find_errors(  # noqa: C901
             if isinstance(custom_constraints, pl.Expr):
                 custom_constraints = [custom_constraints]
             constraints = pl.all_horizontal(
-                [constraint.is_not() for constraint in custom_constraints]
+                [constraint.not_() for constraint in custom_constraints]
             )
             if "_" in constraints.meta.root_names():
                 # An underscore is an alias for the current field
@@ -315,4 +315,4 @@ def validate(
 
     errors = _find_errors(dataframe=polars_dataframe, schema=schema)
     if errors:
-        raise ValidationError(errors=errors, model=schema)
+        raise DataFrameValidationError(errors=errors, model=schema)

@@ -2,14 +2,13 @@
 import enum
 import sys
 from datetime import date, datetime
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Literal
 
 import polars as pl
 import pytest
-from typing_extensions import Literal
 
 import patito as pt
-from patito.exceptions import ValidationError
+from patito import DataFrameValidationError
 from patito.validators import _dewrap_optional, _is_optional, validate
 
 
@@ -55,7 +54,7 @@ def test_missing_column_validation():
         column_2: str
 
     # First we raise an error because we are missing column_1
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(dataframe=pl.DataFrame(), schema=SingleColumnModel)
 
     errors = e_info.value.errors()
@@ -81,7 +80,7 @@ def test_superflous_column_validation():
         column_1: int
 
     # We raise an error because we have added column_2
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(
             dataframe=pl.DataFrame().with_columns(
                 [
@@ -106,7 +105,7 @@ def test_validate_non_nullable_columns():
 
     class SmallModel(pt.Model):
         column_1: int
-        column_2: Optional[int]
+        column_2: Optional[int] = None
 
     # We insert nulls into a non-optional column, causing an exception
     wrong_nulls_df = pl.DataFrame().with_columns(
@@ -115,7 +114,7 @@ def test_validate_non_nullable_columns():
             pl.lit(None).cast(pl.Int64).alias("column_2"),
         ]
     )
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(
             dataframe=wrong_nulls_df,
             schema=SmallModel,
@@ -146,7 +145,7 @@ def test_validate_dtype_checks():
     for dtype in (pl.Utf8, pl.Date, pl.Float32, pl.Float64):
         series = pl.Series([], dtype=dtype).alias("column")
         dataframe = pl.DataFrame([series])
-        with pytest.raises(ValidationError) as e_info:
+        with pytest.raises(DataFrameValidationError) as e_info:
             validate(dataframe=dataframe, schema=IntModel)
 
         errors = e_info.value.errors()
@@ -186,7 +185,7 @@ def test_validate_dtype_checks():
         else:
             dtype = pl.Int64
 
-        with pytest.raises(ValidationError) as e_info:
+        with pytest.raises(DataFrameValidationError) as e_info:
             validate(
                 dataframe=valid_df.with_columns(pl.lit(1, dtype=dtype).alias(column)),
                 schema=CompleteModel,
@@ -245,7 +244,7 @@ def test_uniqueness_validation():
     MyModel.validate(empty_df)
 
     duplicated_df = pt.DataFrame({"column": [1, 1, 2]})
-    with pytest.raises(pt.exceptions.ValidationError):
+    with pytest.raises(pt.exceptions.DataFrameValidationError):
         MyModel.validate(duplicated_df)
 
 
@@ -270,27 +269,27 @@ def test_datetime_validation():
         c: str
 
     validate(dataframe=string_df, schema=StringModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=date_df, schema=StringModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=datetime_df, schema=StringModel)
 
     class DateModel(pt.Model):
         c: date
 
     validate(dataframe=date_df, schema=DateModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=string_df, schema=DateModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=datetime_df, schema=DateModel)
 
     class DateTimeModel(pt.Model):
         c: datetime
 
     validate(dataframe=datetime_df, schema=DateTimeModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=string_df, schema=DateTimeModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=date_df, schema=DateTimeModel)
 
 
@@ -309,7 +308,7 @@ def test_enum_validation():
     validate(dataframe=valid_df, schema=EnumModel)
 
     invalid_df = pl.DataFrame({"column": ["d"]})
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(dataframe=invalid_df, schema=EnumModel)
 
     errors = e_info.value.errors()
@@ -331,7 +330,7 @@ def test_literal_enum_validation():
     validate(dataframe=valid_df, schema=EnumModel)
 
     invalid_df = pl.DataFrame({"column": ["d"]})
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(dataframe=invalid_df, schema=EnumModel)
 
     errors = e_info.value.errors()
@@ -351,7 +350,7 @@ def test_uniqueness_constraint_validation():
 
     validate(dataframe=pl.DataFrame({"product_id": [1, 2]}), schema=UniqueModel)
 
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(dataframe=pl.DataFrame({"product_id": [1, 1]}), schema=UniqueModel)
 
     errors = e_info.value.errors()
@@ -373,8 +372,10 @@ def test_validation_of_bounds_checks():
         gt_column: float = pt.Field(gt=42.5)
         combined_column: float = pt.Field(gt=42.5, le=43)
         multiple_column: float = pt.Field(multiple_of=0.5)
-        const_column: float = pt.Field(default=3.1415, const=True)
-        regex_column: str = pt.Field(regex=r"value [A-Z]")
+        # const fields should now use Literal instead, but pyright
+        # complains about Literal of float values
+        const_column: Literal[3.1415] = pt.Field(default=3.1415)  # type: ignore
+        regex_column: str = pt.Field(pattern=r"value [A-Z]")
         min_length_column: str = pt.Field(min_length=2)
         max_length_column: str = pt.Field(max_length=2)
 
@@ -396,7 +397,7 @@ def test_validation_of_bounds_checks():
             + valid[column_index + 1 :]
         )
         invalid_df = pl.DataFrame(data=[data], schema=BoundModel.columns)
-        with pytest.raises(ValidationError) as e_info:
+        with pytest.raises(DataFrameValidationError) as e_info:
             BoundModel.validate(invalid_df)
         errors = e_info.value.errors()
         assert len(errors) == 1
@@ -457,7 +458,7 @@ def test_validation_of_dtype_specifiers():
             + valid[column_index + 1 :]
         )
         invalid_df = pl.DataFrame(data=data, schema=DTypeModel.columns)
-        with pytest.raises(ValidationError) as e_info:
+        with pytest.raises(DataFrameValidationError) as e_info:
             DTypeModel.validate(invalid_df)
         errors = e_info.value.errors()
         assert len(errors) == 1
@@ -478,7 +479,7 @@ def test_custom_constraint_validation():
         odd_int: int = pt.Field(constraints=pl.col("odd_int") % 2 == 1)
 
     df = CustomConstraintModel.DataFrame({"even_int": [2, 3], "odd_int": [1, 2]})
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         df.validate()
     errors = e_info.value.errors()
     assert len(errors) == 2
@@ -502,7 +503,7 @@ def test_custom_constraint_validation():
     PizzaSlice.validate(whole_pizza)
 
     part_pizza = pt.DataFrame({"fraction": [0.25, 0.25]})
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         PizzaSlice.validate(part_pizza)
 
 
@@ -517,7 +518,7 @@ def test_anonymous_column_constraints():
 
     pairs = pt.DataFrame({"odd_number": [1, 3, 5], "even_number": [2, 4, 6]})
     Pair.validate(pairs)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         Pair.validate(
             pairs.select(
                 [
@@ -597,5 +598,5 @@ def test_validation_of_list_dtypes():
         ("nullable_int_or_null_list", "nullable_int_list"),
     ]:
         # print(old, new)
-        with pytest.raises(ValidationError):
+        with pytest.raises(DataFrameValidationError):
             ListModel.validate(valid_df.with_columns(pl.col(old).alias(new)))
