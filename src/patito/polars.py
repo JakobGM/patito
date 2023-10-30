@@ -524,6 +524,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         return self.with_columns(
             [
                 pl.col(column).fill_null(pl.lit(default_value))
+                if column in self.columns
+                else pl.lit(default_value).alias(column)
                 for column, default_value in self.model.defaults.items()
             ]
         ).set_model(self.model)
@@ -696,8 +698,13 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         kwargs.setdefault("dtypes", cls.model.dtypes)
         if not kwargs.get("has_header", True) and "columns" not in kwargs:
             kwargs.setdefault("new_columns", cls.model.columns)
-        df = cls.model.DataFrame._from_pydf(pl.read_csv(*args, **kwargs)._df)
-        return df.derive()
+        df = cls.from_existing(pl.read_csv(*args, **kwargs))
+        return df.derive()  # TODO delegate derivations to user?
+
+    @classmethod
+    def from_existing(cls, df: pl.DataFrame):
+        """Constructs a patito.DataFrame object from an existing polars.DataFrame object"""
+        return cls.model.DataFrame._from_pydf(df._df).cast()
 
     # --- Type annotation overrides ---
     def filter(  # noqa: D102

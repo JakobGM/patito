@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Type, Union, cast
+from typing import TYPE_CHECKING, Type, Union, cast, get_args, get_origin
 
 import polars as pl
-from typing_extensions import get_args, get_origin
 
 from patito.exceptions import (
     ColumnDTypeError,
@@ -150,7 +149,7 @@ def _find_errors(  # noqa: C901
         if not isinstance(dtype, pl.List):
             continue
 
-        annotation = schema.__annotations__[column]  # type: ignore[unreachable]
+        annotation = schema.model_fields[column].annotation  # type: ignore[unreachable]
 
         # Retrieve the annotation of the list itself,
         # dewrapping any potential Optional[...]

@@ -1,5 +1,6 @@
 """Tests related to polars functionality."""
 import re
+from typing import Optional
 from datetime import date, datetime
 
 import polars as pl
@@ -66,6 +67,20 @@ def test_fill_nan_with_defaults():
     missing_df = pt.DataFrame({"foo": [1, None], "bar": [None, "provided"]})
     filled_df = missing_df.set_model(DefaultModel).fill_null(strategy="defaults")
     correct_filled_df = pt.DataFrame({"foo": [1, 2], "bar": ["default", "provided"]})
+    assert filled_df.frame_equal(correct_filled_df)
+
+
+def test_create_missing_columns_with_defaults():
+    """columns that have default values should be created if they are missing."""
+
+    class DefaultModel(pt.Model):
+        foo: int = 2
+        bar: Optional[str] = "default"
+
+    missing_df = pt.DataFrame({"foo": [1, 2]})
+    filled_df = missing_df.set_model(DefaultModel).fill_null(strategy="defaults")
+    correct_filled_df = pt.DataFrame({"foo": [1, 2], "bar": ["default", "default"]})
+    assert "bar" in filled_df.columns
     assert filled_df.frame_equal(correct_filled_df)
 
 
@@ -207,6 +222,13 @@ def test_derive_functionality():
         column_derived: int = pt.Field(derived_from="underived")
         expr_derived: int = pt.Field(derived_from=2 * pl.col("underived"))
         second_order_derived: int = pt.Field(derived_from=2 * pl.col("expr_derived"))
+
+    assert DerivedModel.derived_columns == {
+        "const_derived",
+        "column_derived",
+        "expr_derived",
+        "second_order_derived",
+    }
 
     df = DerivedModel.DataFrame({"underived": [1, 2]})
     assert df.columns == ["underived"]

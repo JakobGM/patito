@@ -96,37 +96,10 @@ def contains_object(dtype: pl.DataType) -> bool:
         return False
 
 
-class ModelMetaclass(PydanticModelMetaclass):
-    """
-    Metclass used by patito.Model.
+class Model(BaseModel):
+    """Custom pydantic class for representing table schema and constructing rows."""
 
-    Responsible for setting any relevant model-dependent class properties.
-    """
-
-    def __init__(cls, name: str, bases: tuple, clsdict: dict, **kwargs) -> None:
-        """
-        Construct new patito model.
-
-        Args:
-            name: Name of model class.
-            bases: Tuple of superclasses.
-            clsdict: Dictionary containing class properties.
-        """
-        super().__init__(name, bases, clsdict)
-        # Add a custom subclass of patito.DataFrame to the model class,
-        # where .set_model() has been implicitly set.
-        cls.DataFrame = DataFrame._construct_dataframe_model_class(
-            model=cls,  # type: ignore
-        )
-        # Similarly for LazyFrame
-        cls.LazyFrame = LazyFrame._construct_lazyframe_model_class(
-            model=cls,  # type: ignore
-        )
-
-    # --- Class properties ---
-    # These properties will only be available on Model *classes*, not instantiated
-    # objects This is backwards compatible to python versions before python 3.9,
-    # unlike a combination of @classmethod and @property.
+    @classmethod
     @property
     def columns(cls: Type[ModelType]) -> List[str]:  # type: ignore
         """
@@ -146,6 +119,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         """
         return list(cls.model_json_schema()["properties"].keys())
 
+    @classmethod
     @property
     def dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -173,6 +147,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             column: valid_dtypes[0] for column, valid_dtypes in cls.valid_dtypes.items()
         }
 
+    @classmethod
     @property
     def valid_dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -290,6 +265,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         else:  # pragma: no cover
             return None
 
+    @classmethod
     @property
     def valid_sql_types(  # type: ignore  # noqa: C901
         cls: Type[ModelType],  # pyright: ignore
@@ -425,6 +401,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
         return valid_dtypes
 
+    @classmethod
     @property
     def sql_types(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -456,6 +433,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             for column, valid_types in cls.valid_sql_types.items()
         }
 
+    @classmethod
     @property
     def defaults(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -483,6 +461,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             if "default" in props
         }
 
+    @classmethod
     @property
     def non_nullable_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -509,6 +488,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             k for k in cls.valid_dtypes.keys() if pl.Null not in cls.valid_dtypes[k]
         )
 
+    @classmethod
     @property
     def nullable_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -533,6 +513,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         """
         return set(cls.columns) - cls.non_nullable_columns
 
+    @classmethod
     @property
     def unique_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -558,31 +539,16 @@ class ModelMetaclass(PydanticModelMetaclass):
         props = cls._schema_properties()
         return {column for column in cls.columns if props[column].get("unique", False)}
 
-
-class Model(BaseModel, metaclass=ModelMetaclass):
-    """Custom pydantic class for representing table schema and constructing rows."""
-
-    # -- Class properties set by model metaclass --
-    # This weird combination of a MetaClass + type annotation
-    # in order to make the following work simultaneously:
-    #     1. Make these dynamically constructed properties of the class.
-    #     2. Have the correct type information for type checkers.
-    #     3. Allow sphinx-autodoc to construct correct documentation.
-    #     4. Be compatible with python 3.7.
-    # Once we drop support for python 3.7, we can replace all of this with just a simple
-    # combination of @property and @classmethod.
-    columns: ClassVar[List[str]]
-
-    unique_columns: ClassVar[Set[str]]
-    non_nullable_columns: ClassVar[Set[str]]
-    nullable_columns: ClassVar[Set[str]]
-
-    dtypes: ClassVar[Dict[str, Type[pl.DataType]]]
-    sql_types: ClassVar[Dict[str, str]]
-    valid_dtypes: ClassVar[Dict[str, List[Type[pl.DataType]]]]
-    valid_sql_types: ClassVar[Dict[str, List["DuckDBSQLType"]]]
-
-    defaults: ClassVar[Dict[str, Any]]
+    @classmethod
+    @property
+    def derived_columns(
+        cls: Type[ModelType],
+    ) -> set[str]:
+        return {
+            column
+            for column, props in cls._schema_properties().items()
+            if "derived_from" in props
+        }
 
     @classmethod  # type: ignore[misc]
     @property
@@ -590,13 +556,19 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         cls: Type[ModelType],
     ) -> Type[DataFrame[ModelType]]:  # pyright: ignore  # noqa
         """Return DataFrame class where DataFrame.set_model() is set to self."""
+        return DataFrame._construct_dataframe_model_class(
+            model=cls,  # type: ignore
+        )
 
     @classmethod  # type: ignore[misc]
     @property
     def LazyFrame(
         cls: Type[ModelType],
     ) -> Type[LazyFrame[ModelType]]:  # pyright: ignore
-        """Return DataFrame class where DataFrame.set_model() is set to self."""
+        """Return LazyFrame class where LazyFrame.set_model() is set to self."""
+        return LazyFrame._construct_lazyframe_model_class(
+            model=cls,  # type: ignore
+        )
 
     @classmethod
     def from_row(
@@ -1421,7 +1393,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         fields = {}
         for (
             f
-        ) in cls.model_fields.values():  # first resolve definitions for nested models
+        ) in (
+            cls.model_fields.values()
+        ):  # first resolve definitions for nested models TODO checks for one-way references, if models are self-referencing this falls apart with recursion depth error
             annotation = f.annotation
             cls._update_dfn(annotation, schema)
             for a in get_args(annotation):
@@ -1436,16 +1410,17 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         schema["properties"] = fields
         return schema
 
-    @staticmethod
-    def _update_dfn(annotation: Any, schema: Dict[str, Any]):
+    @classmethod
+    def _update_dfn(cls, annotation: Any, schema: Dict[str, Any]):
         try:
-            if issubclass(annotation, Model):
+            if issubclass(annotation, Model) and annotation.__name__ != cls.__name__:
                 schema["$defs"][annotation.__name__] = annotation.schema()
         except TypeError:
             pass
 
     @classmethod
     def _schema_properties(cls):
+        schema = cls.schema()
         return cls.schema()["properties"]
 
     @classmethod
@@ -1456,7 +1431,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         model_schema: Dict[str, Any],
         required: Optional[bool] = None,
     ) -> Dict[str, Any]:
-        if "$ref" in field_info:
+        if "$ref" in field_info:  # TODO onto runtime append
             definition = model_schema["$defs"][field_info["$ref"]]
             if "enum" in definition and "type" not in definition:
                 enum_types = set(type(value) for value in definition["enum"])
