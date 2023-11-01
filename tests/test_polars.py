@@ -224,7 +224,7 @@ def test_derive_functionality():
 
     # Non-compatible derive_from arguments should raise TypeError
     class InvalidModel(pt.Model):
-        incompatible: int = pt.Field(derived_from=object)
+        incompatible: int = pt.Field(derived_from=object)  # type: ignore
 
     with pytest.raises(
         TypeError,
