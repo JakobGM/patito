@@ -1151,6 +1151,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         ):
             for field_name, field in model.model_fields.items():
                 field_annotation = field.annotation
+                # Fix type error that field_annotation has type `type | None`,
+                # we want field_annotation as either `type` or `type | Type[None]`,
+                # where the latter means nullable
+                assert field_annotation is not None, "Column type cannot be null!"
+
                 if how in nullable_methods and type(None) not in get_args(
                     field_annotation
                 ):

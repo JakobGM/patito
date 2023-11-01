@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 class ValidationError(ValueError):
     """Exception raised when dataframe does not match schema."""
 
-    def __init__(self, errors: Sequence["ErrorWrapper"], model: Model) -> None:
+    def __init__(self, errors: Sequence["ErrorWrapper"], model: type[Model]) -> None:
         self.raw_errors = errors
         self.model = model
 
