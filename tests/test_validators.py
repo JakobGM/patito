@@ -50,15 +50,16 @@ def test_dewrap_optional_with_pipe_operator():
 def test_missing_column_validation():
     """Validation should catch missing columns."""
 
-    class SingleColumnModel(pt.Model):
+    class DoubleColumnModel(pt.Model):
         column_1: int
         column_2: str
 
-    # First we raise an error because we are missing column_1
+    # First we raise an error because we are missing both columns
     with pytest.raises(ValidationError) as e_info:
-        validate(dataframe=pl.DataFrame(), schema=SingleColumnModel)
+        validate(dataframe=pl.DataFrame(), schema=DoubleColumnModel)
 
-    errors = e_info.value.errors()
+    exception = e_info.value
+    errors = exception.errors()
     assert len(e_info.value.errors()) == 2
     assert sorted(errors, key=lambda e: e["loc"]) == [
         {
@@ -373,8 +374,8 @@ def test_validation_of_bounds_checks():
         gt_column: float = pt.Field(gt=42.5)
         combined_column: float = pt.Field(gt=42.5, le=43)
         multiple_column: float = pt.Field(multiple_of=0.5)
-        const_column: float = pt.Field(default=3.1415, const=True)
-        regex_column: str = pt.Field(regex=r"value [A-Z]")
+        const_column: Literal[31415]
+        regex_column: str = pt.Field(pattern=r"value [A-Z]")
         min_length_column: str = pt.Field(min_length=2)
         max_length_column: str = pt.Field(max_length=2)
 
@@ -384,11 +385,11 @@ def test_validation_of_bounds_checks():
         BoundModel.examples({"regex_column": ["value A", "value B", "value C"]})
     )
 
-    valid = [42.5, 42.4, 42.5, 42.6, 42.6, 19.5, 3.1415, "value X", "ab", "ab"]
+    valid = [42.5, 42.4, 42.5, 42.6, 42.6, 19.5, 31415, "value X", "ab", "ab"]
     valid_df = pl.DataFrame(data=[valid], schema=BoundModel.columns)
     BoundModel.validate(valid_df)
 
-    invalid = [42.6, 42.5, 42.4, 42.5, 43.1, 19.75, 3.2, "value x", "a", "abc"]
+    invalid = [42.6, 42.5, 42.4, 42.5, 43.1, 19.75, 32, "value x", "a", "abc"]
     for column_index, column_name in enumerate(BoundModel.columns):
         data = (
             valid[:column_index]
@@ -596,6 +597,5 @@ def test_validation_of_list_dtypes():
         ("nullable_int_or_null_list", "int_or_null_list"),
         ("nullable_int_or_null_list", "nullable_int_list"),
     ]:
-        # print(old, new)
         with pytest.raises(ValidationError):
             ListModel.validate(valid_df.with_columns(pl.col(old).alias(new)))

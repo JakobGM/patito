@@ -5,12 +5,11 @@ import re
 from datetime import date, datetime, timedelta
 from typing import List, Optional, Type
 
+import patito as pt
 import polars as pl
 import pytest
 from pydantic import ValidationError
 from typing_extensions import Literal
-
-import patito as pt
 
 
 def test_model_example():
@@ -30,7 +29,7 @@ def test_model_example():
         date_value: date
         datetime_value: datetime
 
-    assert MyModel.example().dict() == {
+    assert MyModel.example().model_dump() == {
         "int_value": -1,
         "float_value": -0.5,
         "str_value": "dummy_string",
@@ -46,7 +45,7 @@ def test_model_example():
         bool_value=True,
         default_value="override",
         optional_value=1,
-    ).dict() == {
+    ).model_dump() == {
         "int_value": -1,
         "float_value": -0.5,
         "str_value": "dummy_string",
@@ -61,7 +60,7 @@ def test_model_example():
 
     # For now, valid regex data is not implemented
     class RegexModel(pt.Model):
-        regex_column: str = pt.Field(regex=r"[0-9a-f]")
+        regex_column: str = pt.Field(pattern=r"[0-9a-f]")
 
     with pytest.raises(
         NotImplementedError,
@@ -286,7 +285,8 @@ def test_model_joins():
         with pytest.raises(
             ValidationError,
             match=re.compile(
-                r".*limit_value=20.*\n.*\n.*limit_value=20.*", re.MULTILINE
+                r".*greater than 20.*\n.*\n.*greater than 20.*",
+                re.MULTILINE | re.S,
             ),
         ):
             model(left=1, opt_left=1, right=1, opt_right=1)
@@ -327,13 +327,19 @@ def test_model_selects():
     MySubModel = MyModel.select("b")
     assert MySubModel.columns == ["b"]
     MySubModel(b=11)
-    with pytest.raises(ValidationError, match="limit_value=10"):
+    with pytest.raises(
+        ValidationError,
+        match=r"Input should be greater than 10",
+    ):
         MySubModel(b=1)
 
     MyTotalModel = MyModel.select(["a", "b"])
     assert sorted(MyTotalModel.columns) == ["a", "b"]
     MyTotalModel(a=1, b=11)
-    with pytest.raises(ValidationError, match="limit_value=10"):
+    with pytest.raises(
+        ValidationError,
+        match=r"Input should be greater than 10",
+    ):
         MyTotalModel(a=1, b=1)
     assert MyTotalModel.nullable_columns == {"a"}
 
@@ -385,19 +391,25 @@ def test_model_field_dropping():
 
 
 def test_with_fields():
-    """It should allow whe user to add additional fields."""
+    """It should allow the user to add additional fields."""
 
     class MyModel(pt.Model):
+        # Required column, does not allow nulls
         a: int
 
     ExpandedModel = MyModel.with_fields(
+        # Does not allow the column to be missing, and no nulls
         b=(int, ...),
+        # Allows missing column, but do not allow explicit nulls
         c=(int, None),
+        # Required column, must have values greater than 10
         d=(int, pt.Field(gt=10)),
+        # Allows missing column, allows explicit nulls
         e=(Optional[int], None),
     )
     assert sorted(ExpandedModel.columns) == list("abcde")
-    assert ExpandedModel.nullable_columns == set("ce")
+    assert ExpandedModel.nullable_columns == {"e"}
+    assert ExpandedModel.required_columns == set("abd")
 
 
 def test_enum_annotated_field():
@@ -428,3 +440,15 @@ def test_enum_annotated_field():
         assert EnumModel.sql_types["column"].startswith("enum__")
         with pytest.raises(TypeError, match=r".*Encountered types: \['int', 'str'\]\."):
             InvalidEnumModel.sql_types
+
+
+def test_optional_type_schema():
+    class MyModel(pt.Model):
+        non_required_non_nullable: int = 1
+        required_non_nullable: int
+
+        required_nullable: Optional[int]
+        non_required_nullable: Optional[int] = None
+
+    assert MyModel.required_columns == {"required_non_nullable", "required_nullable"}
+    assert MyModel.nullable_columns == {"required_nullable", "non_required_nullable"}
