@@ -135,7 +135,7 @@ class ModelMetaclass(PydanticModelMetaclass):
     @property
     def dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, Type[pl.DataType]]:
+    ) -> dict[str, pl.PolarsDataType]:
         """
         Return the polars dtypes of the dataframe.
 
@@ -162,7 +162,7 @@ class ModelMetaclass(PydanticModelMetaclass):
     @property
     def valid_dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, List[Union[pl.PolarsDataType, pl.List]]]:
+    ) -> dict[str, List[pl.PolarsDataType]]:
         """
         Return a list of polars dtypes which Patito considers valid for each field.
 
@@ -1490,7 +1490,7 @@ def Field(  # noqa: C901
     # Patito-specific arguments that extends upon Pydantic
     constraints: Union[pl.Expr, List[pl.Expr]] | None = None,
     derived_from: str | pl.Expr | None = None,
-    dtype: pl.DataType | None = None,
+    dtype: pl.PolarsDataType | None = None,
     unique: bool = False,
     **extra: Unpack[_EmptyKwargs],
 ) -> Any:
