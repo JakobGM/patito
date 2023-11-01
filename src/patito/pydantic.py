@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import itertools
-import json
 from collections.abc import Iterable
 from datetime import date, datetime
 from typing import (
@@ -232,7 +231,6 @@ class ModelMetaclass(PydanticModelMetaclass):
         Returns:
             List of valid dtypes. None if no mapping exists.
         """
-        print("Hi", props)
         if "anyOf" in props:
             return list(
                 itertools.chain(*(Model._valid_dtypes(p) for p in props["anyOf"]))
@@ -717,7 +715,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         if validate:
             return cls(**dataframe.to_dicts()[0])
         else:
-            return cls.construct(**dataframe.to_dicts()[0])
+            return cls.model_construct(**dataframe.to_dicts()[0])
 
     @classmethod
     def validate(
@@ -1148,10 +1146,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             (other, {"left", "outer", "asof"}),
         ):
             for field_name, field in model.model_fields.items():
-                print(type(field))
-                print(dir(field))
                 field_annotation = field.annotation
-                field_default = field.default
                 if how in nullable_methods and type(None) not in get_args(
                     field_annotation
                 ):
@@ -1452,7 +1447,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 # We have been given a (field_type, field_default) tuple defining the
                 # new field directly.
                 new_fields[new_field_name] = field_definition
-        print(new_fields)
         return create_model(  # type: ignore
             __model_name=model_name,
             __base__=Model,
