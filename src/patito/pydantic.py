@@ -220,7 +220,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @staticmethod
     def _valid_dtypes(  # noqa: C901
-        props: Dict,
+        props: dict[str, Any],
     ) -> Optional[List[pl.PolarsDataType]]:
         """
         Map schema property to list of valid polars data types.
@@ -232,8 +232,12 @@ class ModelMetaclass(PydanticModelMetaclass):
             List of valid dtypes. None if no mapping exists.
         """
         if "anyOf" in props:
+            nested_valid_dtypes: list[list[pl.PolarsDataType]] = []
+            for valid_dtypes in (Model._valid_dtypes(p) for p in props["anyOf"]):
+                if valid_dtypes is not None:
+                    nested_valid_dtypes.append(valid_dtypes)
             return list(
-                itertools.chain(*(Model._valid_dtypes(p) for p in props["anyOf"]))
+                itertools.chain(*nested_valid_dtypes)
             )
         if "dtype" in props:
             return [
