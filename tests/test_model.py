@@ -462,3 +462,22 @@ def test_nullable_columns():
 
     assert Test.nullable_columns == {"foo"}
     assert set(Test.valid_dtypes['foo']) == {pl.Utf8, pl.Null}
+
+
+def test_conflicting_type_dtype():
+
+    class Test(pt.Model):
+        foo: int = pt.Field(dtype=pl.Utf8)
+
+    with pytest.raises(ValueError):
+        Test.valid_dtypes()
+    
+    class Test(pt.Model):
+        foo: str = pt.Field(dtype=pl.Float32)
+    
+    with pytest.raises(ValueError):
+        Test.valid_dtypes()
+    
+
+if __name__ == "__main__":
+    test_conflicting_type_dtype()
