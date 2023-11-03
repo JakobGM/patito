@@ -3,6 +3,7 @@ import enum
 import sys
 from datetime import date, datetime
 from typing import List, Optional, Union, Literal
+import re
 
 import polars as pl
 import pytest
@@ -600,3 +601,23 @@ def test_validation_of_list_dtypes():
         # print(old, new)
         with pytest.raises(DataFrameValidationError):
             ListModel.validate(valid_df.with_columns(pl.col(old).alias(new)))
+
+
+def test_nested_field_attrs():
+    """ensure that constraints are respected even when embedded inside 'anyOf'"""
+
+    class Test(pt.Model):
+        foo: int | None = pt.Field(
+            dtype=pl.Int64, ge=0, le=100, constraints=pt.field.sum() == 100
+        )
+
+    test_df = Test.DataFrame(
+        {"foo": [110, -10]}
+    )  # meets constraint, but violates bounds (embedded in 'anyOf' in properties)
+    with pytest.raises(DataFrameValidationError) as e:
+        Test.validate(test_df)
+    pattern = re.compile(r"2 rows with out of bound values")
+    assert len(pattern.findall(str(e.value))) == 1
+
+    null_test_df = Test.DataFrame({"foo": [100, None, None]})
+    Test.validate(null_test_df)  # should not raise
