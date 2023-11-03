@@ -433,13 +433,13 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             if column_name not in derived_columns:
                 df, _derived_columns = self._derive_column(df, column_name, props)
                 derived_columns.extend(_derived_columns)
-        return cast(DF, df.select(props.keys()).collect())
+        return cast(DF, df.select([x for x in props if x in df.columns]).collect())
 
     def _derive_column(
         self, df: "LDF", column_name: str, props: Mapping[str, Any]
     ) -> Tuple["LDF", Sequence[str]]:
         props_col = props[column_name]
-        if "derived_from" not in props_col:
+        if "derived_from" not in props_col or column_name in df.columns:
             return df, []
         derived_from = props_col["derived_from"]
         dtype = self.model.dtypes[column_name]
