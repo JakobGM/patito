@@ -145,30 +145,30 @@ def test_nested_models():
     class NestedModel(pt.Model):
         nested_field: int
 
-    class ParentModel(pt.Model):
+    class ParentModel1(pt.Model):
         parent_field: int
         nested_model: NestedModel
 
-    example_model = ParentModel.example()
+    example_model = ParentModel1.example()
     with pytest.raises(NotImplementedError):
-        example_df = ParentModel.examples()
+        example_df = ParentModel1.examples()
     assert isinstance(example_model.nested_model, NestedModel)
     assert example_model.nested_model.nested_field is not None
 
     # inheritance also works
-    class ParentModel(NestedModel):
+    class ParentModel2(NestedModel):
         parent_field: int
 
-    example_model = ParentModel.example()
+    example_model = ParentModel2.example()
     assert example_model.nested_field is not None
     assert example_model.parent_field is not None
 
     # and optional nested models are ok
-    class ParentModel(pt.Model):
+    class ParentModel3(pt.Model):
         parent_field: int
         nested_model: Optional[NestedModel] = None
 
-    example_model = ParentModel.example()
+    example_model = ParentModel3.example()
     assert example_model.nested_model is None
 
     # sequences of nested models also work

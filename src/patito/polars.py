@@ -437,7 +437,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
     def _derive_column(
         self, df: "LDF", column_name: str, props: Mapping[str, Any]
-    ) -> Tuple["DF", Sequence[str]]:
+    ) -> Tuple["LDF", Sequence[str]]:
         props_col = props[column_name]
         if "derived_from" not in props_col:
             return df, []
@@ -702,7 +702,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         return df.derive()  # TODO delegate derivations to user?
 
     @classmethod
-    def from_existing(cls, df: pl.DataFrame):
+    def from_existing(cls: Type[DF], df: pl.DataFrame) -> DF:
         """Constructs a patito.DataFrame object from an existing polars.DataFrame object"""
         return cls.model.DataFrame._from_pydf(df._df).cast()
 

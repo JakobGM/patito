@@ -243,22 +243,34 @@ def _find_errors(  # noqa: C901
             "minLength": lambda v: col.str.len_chars() >= v,
             "maxLength": lambda v: col.str.len_chars() <= v,
         }
-        checks = [
+        if "anyOf" in column_properties:
+            checks = [
+                check(x[key])
+                for key, check in filters.items()
+                for x in column_properties["anyOf"]
+                if key in x
+            ]
+        else:
+            checks = []
+        checks += [
             check(column_properties[key])
             for key, check in filters.items()
             if key in column_properties
         ]
         if checks:
-            lazy_df = dataframe.lazy()
+            n_invalid_rows = 0
             for check in checks:
-                lazy_df = lazy_df.filter(check)
-            valid_rows = lazy_df.collect()
-            invalid_rows = dataframe.height - valid_rows.height
-            if invalid_rows > 0:
+                lazy_df = dataframe.lazy()
+                lazy_df = lazy_df.filter(
+                    ~check
+                )  # get failing rows (nulls will evaluate to null on boolean check, we only want failures (false)))
+                invalid_rows = lazy_df.collect()
+                n_invalid_rows += invalid_rows.height
+            if n_invalid_rows > 0:
                 errors.append(
                     ErrorWrapper(
                         RowValueError(
-                            f"{invalid_rows} row{'' if invalid_rows == 1 else 's'} "
+                            f"{n_invalid_rows} row{'' if n_invalid_rows == 1 else 's'} "
                             "with out of bound values."
                         ),
                         loc=column_name,

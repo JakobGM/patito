@@ -20,6 +20,7 @@ from typing import (
     get_args,
     Sequence,
     Tuple,
+    Mapping,
 )
 
 import polars as pl
@@ -85,9 +86,9 @@ PL_INTEGER_DTYPES = [
 ]
 
 
-def contains_object(dtype: pl.DataType) -> bool:
+def contains_object(dtype: PolarsDataType) -> bool:
     try:
-        inner = dtype.inner
+        inner = dtype.inner  # pyright: ignore
         if inner == pl.Object():
             return True
         else:
@@ -96,8 +97,17 @@ def contains_object(dtype: pl.DataType) -> bool:
         return False
 
 
-class Model(BaseModel):
+class ModelMetaclass(
+    PydanticModelMetaclass
+):  # keep around for typing on Model construction
+    ...
+
+
+class Model(BaseModel, metaclass=ModelMetaclass):
     """Custom pydantic class for representing table schema and constructing rows."""
+
+    if TYPE_CHECKING:
+        model_fields: ClassVar[Dict[str, FieldInfo]]
 
     @classmethod
     @property
@@ -123,7 +133,7 @@ class Model(BaseModel):
     @property
     def dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, Type[pl.DataType]]:
+    ) -> dict[str, PolarsDataType]:
         """
         Return the polars dtypes of the dataframe.
 
@@ -151,7 +161,7 @@ class Model(BaseModel):
     @property
     def valid_dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, List[Union[pl.PolarsDataType, pl.List]]]:
+    ) -> dict[str, List[Union[PolarsDataType, pl.List]]]:
         """
         Return a list of polars dtypes which Patito considers valid for each field.
 
@@ -195,10 +205,10 @@ class Model(BaseModel):
 
     @classmethod
     def _valid_dtypes(  # noqa: C901
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # pyright: ignore
         column: str,
         props: Dict,
-    ) -> Optional[List[pl.PolarsDataType]]:
+    ) -> Optional[List[PolarsDataType]]:
         """
         Map schema property to list of valid polars data types.
 
@@ -216,7 +226,14 @@ class Model(BaseModel):
                     f"No valid dtype mapping found for column '{column}'."
                 )
             return [pl.List(dtype) for dtype in item_dtypes]
-        if "dtype" in props:
+
+        if "dtype" in props and "anyOf" not in props:
+            if props["dtype"] not in cls._pydantic_type_to_valid_polars_types(
+                props
+            ):  # TODO should we allow pl floats for integer columns? Other type hierarchies to consider?
+                raise ValueError(
+                    f"Invalid dtype {props['dtype']} for column '{column}'. Check that specified dtype is allowable for the given type annotations."
+                )
             return [
                 props["dtype"],
             ]
@@ -234,7 +251,14 @@ class Model(BaseModel):
                     column, {"type": PYTHON_TO_PYDANTIC_TYPES.get(type(props["const"]))}
                 )
             return None
-        elif props["type"] == "integer":
+
+        return cls._pydantic_type_to_valid_polars_types(props)
+
+    @staticmethod
+    def _pydantic_type_to_valid_polars_types(
+        props: Dict,
+    ) -> Optional[List[PolarsDataType]]:
+        if props["type"] == "integer":
             return PL_INTEGER_DTYPES
         elif props["type"] == "number":
             if props.get("format") == "time-delta":
@@ -730,7 +754,7 @@ class Model(BaseModel):
         cls,
         field: Optional[str] = None,
         properties: Optional[Dict[str, Any]] = None,
-    ) -> Union[date, datetime, float, int, str, None]:
+    ) -> Union[date, datetime, float, int, str, None, Mapping, List]:
         """
         Return a valid example value for the given model field.
 
@@ -769,6 +793,7 @@ class Model(BaseModel):
             )
         if field:
             properties = cls._schema_properties()[field]
+        properties = properties or {}
 
         if "type" in properties:
             field_type = properties["type"]
@@ -1419,7 +1444,7 @@ class Model(BaseModel):
             pass
 
     @classmethod
-    def _schema_properties(cls):
+    def _schema_properties(cls) -> Dict[str, Any]:
         schema = cls.schema()
         return cls.schema()["properties"]
 
@@ -1454,15 +1479,6 @@ class Model(BaseModel):
                 field_name,
                 model_schema,
             )
-        if "anyOf" in field_info:
-            field["anyOf"] = [
-                cls._append_field_info_to_props(
-                    f,
-                    field_name,
-                    model_schema,
-                )
-                for f in field_info["anyOf"]
-            ]
         if required is not None:
             field["required"] = required
         if "const" in field_info and "type" not in field_info:
@@ -1527,8 +1543,13 @@ class Model(BaseModel):
             if x in field.__slots__ and x not in ["annotation", "default"]
         }
         if make_nullable:
-            # This originally non-nullable field has become nullable
-            field_type = Optional[field_type]
+            if field_type is None:
+                raise TypeError(
+                    "Cannot make field nullable if no type annotation is provided!"
+                )
+            else:
+                # This originally non-nullable field has become nullable
+                field_type = Optional[field_type]
         elif field.is_required() and default is None:
             # We need to replace Pydantic's None default value with ... in order
             # to make it clear that the field is still non-nullable and
@@ -1573,10 +1594,10 @@ class FieldInfo(fields.FieldInfo):
         )
 
 
-def Field(
+def Field(  # noqa: C901
     *args,
     **kwargs,
-):
+) -> Any:
     pt_kwargs = {k: kwargs.pop(k, None) for k in get_args(PT_INFO)}
     meta_kwargs = {
         k: v for k, v in kwargs.items() if k in fields.FieldInfo.metadata_lookup

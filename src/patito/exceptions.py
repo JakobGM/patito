@@ -127,7 +127,7 @@ ErrorList = Union[Sequence[Any], ErrorWrapper]
 class DataFrameValidationError(Representation, ValueError):
     __slots__ = "raw_errors", "model", "_error_cache"
 
-    def __init__(self, errors: Sequence[ErrorList], model: "BaseModel") -> None:
+    def __init__(self, errors: Sequence[ErrorList], model: Type["BaseModel"]) -> None:
         self.raw_errors = errors
         self.model = model
         self._error_cache: Optional[List["ErrorDict"]] = None

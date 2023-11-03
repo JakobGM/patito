@@ -495,10 +495,24 @@ def test_model_schema():
     assert schema["properties"]["a"]["type"] == "integer"
     assert not schema["properties"]["c"]["required"]
 
-    class ParentModel(pt.Model):
-        parent_field: int
-        nested_models: Optional[Sequence[Model]] = None
 
-    valid_dtypes = ParentModel.valid_dtypes
-    assert valid_dtypes["parent_field"] == PL_INTEGER_DTYPES
-    assert set(valid_dtypes["nested_models"]) == set([pl.List(pl.Object), pl.Null])
+def test_nullable_columns():
+    class Test(pt.Model):
+        foo: str | None = pt.Field(dtype=pl.Utf8)
+
+    assert Test.nullable_columns == {"foo"}
+    assert set(Test.valid_dtypes["foo"]) == {pl.Utf8, pl.Null}
+
+
+def test_conflicting_type_dtype():
+    class Test1(pt.Model):
+        foo: int = pt.Field(dtype=pl.Utf8)
+
+    with pytest.raises(ValueError):
+        Test1.valid_dtypes
+
+    class Test2(pt.Model):
+        foo: str = pt.Field(dtype=pl.Float32)
+
+    with pytest.raises(ValueError):
+        Test2.valid_dtypes
