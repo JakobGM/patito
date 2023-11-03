@@ -454,3 +454,11 @@ def test_pt_fields():
     assert fields["d"].dtype is not None
     assert "unique" in fields["e"]._attributes_set
     assert fields["e"].unique is not None
+
+
+def test_nullable_columns():
+    class Test(pt.Model):
+        foo: str | None = pt.Field(dtype=pl.Utf8)
+
+    assert Test.nullable_columns == {"foo"}
+    assert set(Test.valid_dtypes['foo']) == {pl.Utf8, pl.Null}

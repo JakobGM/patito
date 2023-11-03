@@ -218,7 +218,8 @@ class ModelMetaclass(PydanticModelMetaclass):
                     f"No valid dtype mapping found for column '{column}'."
                 )
             return [pl.List(dtype) for dtype in item_dtypes]
-        if "dtype" in props:
+        
+        if "dtype" in props and 'anyOf' not in props:
             return [
                 props["dtype"],
             ]

@@ -253,3 +253,5 @@ def test_drop_method():
 
     # Or a list of columns
     assert df.drop(["column_1", "column_2"]).columns == []
+
+
