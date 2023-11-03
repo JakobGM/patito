@@ -497,22 +497,45 @@ def test_model_schema():
 
 
 def test_nullable_columns():
-    class Test(pt.Model):
+    class Test1(pt.Model):
         foo: str | None = pt.Field(dtype=pl.Utf8)
 
-    assert Test.nullable_columns == {"foo"}
-    assert set(Test.valid_dtypes["foo"]) == {pl.Utf8, pl.Null}
+    assert Test1.nullable_columns == {"foo"}
+    assert set(Test1.valid_dtypes["foo"]) == {pl.Utf8}
+
+    class Test2(pt.Model):
+        foo: int | None = pt.Field(dtype=pl.UInt32)
+
+    assert Test2.nullable_columns == {"foo"}
+    assert set(Test2.valid_dtypes["foo"]) == {pl.UInt32}
 
 
 def test_conflicting_type_dtype():
     class Test1(pt.Model):
         foo: int = pt.Field(dtype=pl.Utf8)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as e:
         Test1.valid_dtypes
+    assert "Invalid dtype" in str(e.value)
 
     class Test2(pt.Model):
         foo: str = pt.Field(dtype=pl.Float32)
 
     with pytest.raises(ValueError):
         Test2.valid_dtypes
+
+    class Test3(pt.Model):
+        foo: str | None = pt.Field(dtype=pl.UInt32)
+
+    with pytest.raises(ValueError):
+        Test3.valid_dtypes
+
+
+def test_polars_python_type_harmonization():
+    class Test(pt.Model):
+        date: datetime = pt.Field(dtype=pl.Datetime(time_unit="us"))
+        # TODO add more other lesser-used type combinations here
+
+    assert type(Test.valid_dtypes["date"][0]) == pl.Datetime
+    assert Test.valid_dtypes["date"][0].time_unit == "us"
+    assert Test.valid_dtypes["date"][0].time_zone == None

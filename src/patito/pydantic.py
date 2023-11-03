@@ -227,10 +227,27 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 )
             return [pl.List(dtype) for dtype in item_dtypes]
 
-        if "dtype" in props and "anyOf" not in props:
-            if props["dtype"] not in cls._pydantic_type_to_valid_polars_types(
-                props
-            ):  # TODO should we allow pl floats for integer columns? Other type hierarchies to consider?
+        if "dtype" in props:
+
+            def dtype_invalid(props: Dict) -> bool:
+                if "type" in props and props[
+                    "dtype"
+                ] not in cls._pydantic_type_to_valid_polars_types(props):
+                    return True
+                elif "anyOf" in props:
+                    for sub_props in props["anyOf"]:
+                        if sub_props["type"] == "null":
+                            continue
+                        else:
+                            if props[
+                                "dtype"
+                            ] not in cls._pydantic_type_to_valid_polars_types(
+                                sub_props
+                            ):
+                                return True
+                return False
+
+            if dtype_invalid(props):
                 raise ValueError(
                     f"Invalid dtype {props['dtype']} for column '{column}'. Check that specified dtype is allowable for the given type annotations."
                 )
@@ -509,7 +526,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             ['another_non_nullable_field', 'non_nullable_field']
         """
         return set(
-            k for k in cls.valid_dtypes.keys() if pl.Null not in cls.valid_dtypes[k]
+            k
+            for k in cls.columns
+            if type(None) not in get_args(cls.model_fields[k].annotation)
         )
 
     @classmethod
