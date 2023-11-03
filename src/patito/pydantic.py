@@ -126,7 +126,7 @@ class ModelMetaclass(PydanticModelMetaclass):
     @property
     def dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, Type[pl.DataType]]:
+    ) -> dict[str, PolarsDataType]:
         """
         Return the polars dtypes of the dataframe.
 
@@ -153,7 +153,7 @@ class ModelMetaclass(PydanticModelMetaclass):
     @property
     def valid_dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, List[Union[pl.PolarsDataType, pl.List]]]:
+    ) -> dict[str, List[Union[PolarsDataType, pl.List]]]:
         """
         Return a list of polars dtypes which Patito considers valid for each field.
 
@@ -197,10 +197,10 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @classmethod
     def _valid_dtypes(  # noqa: C901
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # pyright: ignore
         column: str,
         props: Dict,
-    ) -> Optional[List[pl.PolarsDataType]]:
+    ) -> Optional[List[PolarsDataType]]:
         """
         Map schema property to list of valid polars data types.
 
@@ -218,10 +218,14 @@ class ModelMetaclass(PydanticModelMetaclass):
                     f"No valid dtype mapping found for column '{column}'."
                 )
             return [pl.List(dtype) for dtype in item_dtypes]
-        
-        if "dtype" in props and 'anyOf' not in props:
-            if props['dtype'] not in cls._pydantic_type_to_valid_polars_types(props):  # TODO should we allow pl floats for integer columns? Other type hierarchies to consider?
-                raise ValueError(f"Invalid dtype {props['dtype']} for column '{column}'. Check that specified dtype is allowable for the given type annotations.")
+
+        if "dtype" in props and "anyOf" not in props:
+            if props["dtype"] not in cls._pydantic_type_to_valid_polars_types(
+                props
+            ):  # TODO should we allow pl floats for integer columns? Other type hierarchies to consider?
+                raise ValueError(
+                    f"Invalid dtype {props['dtype']} for column '{column}'. Check that specified dtype is allowable for the given type annotations."
+                )
             return [
                 props["dtype"],
             ]
@@ -239,11 +243,13 @@ class ModelMetaclass(PydanticModelMetaclass):
                     column, {"type": PYTHON_TO_PYDANTIC_TYPES.get(type(props["const"]))}
                 )
             return None
-        
+
         return cls._pydantic_type_to_valid_polars_types(props)
 
     @staticmethod
-    def _pydantic_type_to_valid_polars_types(props: Dict) -> Optional[List[pl.DataType]]:
+    def _pydantic_type_to_valid_polars_types(
+        props: Dict,
+    ) -> Optional[List[PolarsDataType]]:
         if props["type"] == "integer":
             return [
                 pl.Int64,
@@ -574,6 +580,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     defaults: ClassVar[Dict[str, Any]]
 
+    if TYPE_CHECKING:
+        model_fields: ClassVar[dict[str, FieldInfo]]
+
     @classmethod  # type: ignore[misc]
     @property
     def DataFrame(
@@ -786,6 +795,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 field_type = "null"
             else:
                 field_type = allowable[0]
+        else:
+            raise NotImplementedError
         if "const" in properties:
             # The default value is the only valid value, provided as const
             return properties["const"]
@@ -1461,8 +1472,13 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             if x in field.__slots__ and x not in ["annotation", "default"]
         }
         if make_nullable:
-            # This originally non-nullable field has become nullable
-            field_type = Optional[field_type]
+            if field_type is None:
+                raise TypeError(
+                    "Cannot make field nullable if no type annotation is provided!"
+                )
+            else:
+                # This originally non-nullable field has become nullable
+                field_type = Optional[field_type]
         elif field.is_required() and default is None:
             # We need to replace Pydantic's None default value with ... in order
             # to make it clear that the field is still non-nullable and
@@ -1507,10 +1523,10 @@ class FieldInfo(fields.FieldInfo):
         )
 
 
-def Field(
+def Field(  # noqa: C901
     *args,
     **kwargs,
-):
+) -> Any:
     pt_kwargs = {k: kwargs.pop(k, None) for k in get_args(PT_INFO)}
     meta_kwargs = {
         k: v for k, v in kwargs.items() if k in fields.FieldInfo.metadata_lookup
