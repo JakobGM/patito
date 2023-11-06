@@ -516,19 +516,30 @@ def test_conflicting_type_dtype():
 
     with pytest.raises(ValueError) as e:
         Test1.valid_dtypes
-    assert "Invalid dtype" in str(e.value)
+    assert (
+        f"Invalid dtype Utf8 for column 'foo'. Allowable polars dtypes for int are: {', '.join(str(x) for x in PL_INTEGER_DTYPES)}."
+        == str(e.value)
+    )
 
     class Test2(pt.Model):
         foo: str = pt.Field(dtype=pl.Float32)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as e:
         Test2.valid_dtypes
+    assert (
+        "Invalid dtype Float32 for column 'foo'. Allowable polars dtypes for str are: Utf8."
+        == str(e.value)
+    )
 
     class Test3(pt.Model):
         foo: str | None = pt.Field(dtype=pl.UInt32)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as e:
         Test3.valid_dtypes
+    assert (
+        "Invalid dtype UInt32 for column 'foo'. Allowable polars dtypes for Union[str, NoneType] are: Utf8."
+        == str(e.value)
+    )
 
 
 def test_polars_python_type_harmonization():

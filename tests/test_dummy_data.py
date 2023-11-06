@@ -1,6 +1,6 @@
 """Test of functionality related to the generation of dummy data."""
 from datetime import date, datetime
-from typing import Optional, Sequence, Literal
+from typing import Optional, Sequence, Literal, List
 import uuid
 
 import polars as pl
@@ -53,11 +53,12 @@ def test_examples():
         a: int
         b: Optional[str]
         c: Optional[int]
+        d: Optional[List[str]] = pt.Field(dtype=pl.List(pl.Utf8))
 
     df = MyModel.examples({"a": [1, 2]})
     assert isinstance(df, pl.DataFrame)
-    assert df.dtypes == [pl.Int64, pl.Utf8, pl.Int64]
-    assert df.columns == ["a", "b", "c"]
+    assert df.dtypes == [pl.Int64, pl.Utf8, pl.Int64, pl.List]
+    assert df.columns == ["a", "b", "c", "d"]
 
     # A TypeError should be raised when you provide no column names
     with pytest.raises(
