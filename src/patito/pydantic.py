@@ -20,6 +20,7 @@ from typing import (
     get_args,
     Sequence,
     Tuple,
+    Callable
 )
 
 import polars as pl
@@ -85,6 +86,24 @@ PL_INTEGER_DTYPES = [
 ]
 
 
+class classproperty:
+    """Equivalent to @property, but works on a class (doesn't require an instance).
+    
+    https://github.com/pola-rs/polars/blob/8d29d3cebec713363db4ad5d782c74047e24314d/py-polars/polars/datatypes/classes.py#L25C12-L25C12
+    """
+
+    def __init__(self, method: Callable[..., Any] | None = None) -> None:
+        self.fget = method
+
+    def __get__(self, instance: Any, cls: type | None = None) -> Any:
+        return self.fget(cls)  # type: ignore[misc]
+
+    def getter(self, method: Callable[..., Any]) -> Any:  # noqa: D102
+        self.fget = method
+        return self
+
+
+
 class ModelMetaclass(PydanticModelMetaclass):
     """
     Metclass used by patito.Model.
@@ -100,9 +119,12 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     if TYPE_CHECKING:
         model_fields: ClassVar[Dict[str, FieldInfo]]
+    
+    model_config = ConfigDict(
+        ignored_types=(classproperty,),
+    )
 
-    @classmethod
-    @property
+    @classproperty
     def columns(cls: Type[ModelType]) -> List[str]:  # type: ignore
         """
         Return the name of the dataframe columns specified by the fields of the model.
@@ -121,8 +143,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """
         return list(cls.model_json_schema()["properties"].keys())
 
-    @classmethod
-    @property
+    @classproperty
     def dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
     ) -> dict[str, PolarsDataType]:
@@ -149,8 +170,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             column: valid_dtypes[0] for column, valid_dtypes in cls.valid_dtypes.items()
         }
 
-    @classmethod
-    @property
+    @classproperty
     def valid_dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
     ) -> dict[str, List[Union[PolarsDataType, pl.List]]]:
@@ -294,8 +314,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         elif props["type"] == "null":
             return [pl.Null]
 
-    @classmethod
-    @property
+    @classproperty
     def valid_sql_types(  # type: ignore  # noqa: C901
         cls: Type[ModelType],  # pyright: ignore
     ) -> dict[str, List["DuckDBSQLType"]]:
@@ -430,8 +449,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
         return valid_dtypes
 
-    @classmethod
-    @property
+    @classproperty
     def sql_types(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
     ) -> dict[str, str]:
@@ -462,8 +480,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             for column, valid_types in cls.valid_sql_types.items()
         }
 
-    @classmethod
-    @property
+    @classproperty
     def defaults(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
     ) -> dict[str, Any]:
@@ -490,8 +507,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             if "default" in props
         }
 
-    @classmethod
-    @property
+    @classproperty
     def non_nullable_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
     ) -> set[str]:
@@ -519,8 +535,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             if type(None) not in get_args(cls.model_fields[k].annotation)
         )
 
-    @classmethod
-    @property
+    @classproperty
     def nullable_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
     ) -> set[str]:
@@ -544,8 +559,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """
         return set(cls.columns) - cls.non_nullable_columns
 
-    @classmethod
-    @property
+    @classproperty
     def unique_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
     ) -> set[str]:
@@ -570,20 +584,18 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         props = cls._schema_properties()
         return {column for column in cls.columns if props[column].get("unique", False)}
 
-    @classmethod  # type: ignore[misc]
-    @property
+    @classproperty
     def DataFrame(
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # type: ignore[misc]
     ) -> Type[DataFrame[ModelType]]:  # pyright: ignore  # noqa
         """Return DataFrame class where DataFrame.set_model() is set to self."""
         return DataFrame._construct_dataframe_model_class(
             model=cls,  # type: ignore
         )
 
-    @classmethod  # type: ignore[misc]
-    @property
+    @classproperty  
     def LazyFrame(
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # type: ignore[misc]
     ) -> Type[LazyFrame[ModelType]]:  # pyright: ignore
         """Return DataFrame class where DataFrame.set_model() is set to self."""
         return LazyFrame._construct_lazyframe_model_class(
@@ -592,7 +604,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def from_row(
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # type: ignore[misc]
         row: Union["pd.DataFrame", pl.DataFrame],
         validate: bool = True,
     ) -> ModelType:
