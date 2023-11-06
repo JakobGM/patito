@@ -73,6 +73,17 @@ PYTHON_TO_PYDANTIC_TYPES = {
     type(None): "null",
 }
 
+PL_INTEGER_DTYPES = [
+    pl.Int64,
+    pl.Int32,
+    pl.Int16,
+    pl.Int8,
+    pl.UInt64,
+    pl.UInt32,
+    pl.UInt16,
+    pl.UInt8,
+]
+
 
 class ModelMetaclass(PydanticModelMetaclass):
     """
@@ -81,30 +92,16 @@ class ModelMetaclass(PydanticModelMetaclass):
     Responsible for setting any relevant model-dependent class properties.
     """
 
-    def __init__(cls, name: str, bases: tuple, clsdict: dict, **kwargs) -> None:
-        """
-        Construct new patito model.
+    ...
 
-        Args:
-            name: Name of model class.
-            bases: Tuple of superclasses.
-            clsdict: Dictionary containing class properties.
-        """
-        super().__init__(name, bases, clsdict)
-        # Add a custom subclass of patito.DataFrame to the model class,
-        # where .set_model() has been implicitly set.
-        cls.DataFrame = DataFrame._construct_dataframe_model_class(
-            model=cls,  # type: ignore
-        )
-        # Similarly for LazyFrame
-        cls.LazyFrame = LazyFrame._construct_lazyframe_model_class(
-            model=cls,  # type: ignore
-        )
 
-    # --- Class properties ---
-    # These properties will only be available on Model *classes*, not instantiated
-    # objects This is backwards compatible to python versions before python 3.9,
-    # unlike a combination of @classmethod and @property.
+class Model(BaseModel, metaclass=ModelMetaclass):
+    """Custom pydantic class for representing table schema and constructing rows."""
+
+    if TYPE_CHECKING:
+        model_fields: ClassVar[Dict[str, FieldInfo]]
+
+    @classmethod
     @property
     def columns(cls: Type[ModelType]) -> List[str]:  # type: ignore
         """
@@ -124,6 +121,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         """
         return list(cls.model_json_schema()["properties"].keys())
 
+    @classmethod
     @property
     def dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -151,6 +149,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             column: valid_dtypes[0] for column, valid_dtypes in cls.valid_dtypes.items()
         }
 
+    @classmethod
     @property
     def valid_dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -269,16 +268,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         props: Dict,
     ) -> Optional[List[PolarsDataType]]:
         if props["type"] == "integer":
-            return [
-                pl.Int64,
-                pl.Int32,
-                pl.Int16,
-                pl.Int8,
-                pl.UInt64,
-                pl.UInt32,
-                pl.UInt16,
-                pl.UInt8,
-            ]
+            return PL_INTEGER_DTYPES
         elif props["type"] == "number":
             if props.get("format") == "time-delta":
                 return [pl.Duration]
@@ -304,6 +294,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         elif props["type"] == "null":
             return [pl.Null]
 
+    @classmethod
     @property
     def valid_sql_types(  # type: ignore  # noqa: C901
         cls: Type[ModelType],  # pyright: ignore
@@ -439,6 +430,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
         return valid_dtypes
 
+    @classmethod
     @property
     def sql_types(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -470,6 +462,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             for column, valid_types in cls.valid_sql_types.items()
         }
 
+    @classmethod
     @property
     def defaults(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -497,6 +490,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             if "default" in props
         }
 
+    @classmethod
     @property
     def non_nullable_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -525,6 +519,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             if type(None) not in get_args(cls.model_fields[k].annotation)
         )
 
+    @classmethod
     @property
     def nullable_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -549,6 +544,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         """
         return set(cls.columns) - cls.non_nullable_columns
 
+    @classmethod
     @property
     def unique_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
@@ -574,41 +570,15 @@ class ModelMetaclass(PydanticModelMetaclass):
         props = cls._schema_properties()
         return {column for column in cls.columns if props[column].get("unique", False)}
 
-
-class Model(BaseModel, metaclass=ModelMetaclass):
-    """Custom pydantic class for representing table schema and constructing rows."""
-
-    # -- Class properties set by model metaclass --
-    # This weird combination of a MetaClass + type annotation
-    # in order to make the following work simultaneously:
-    #     1. Make these dynamically constructed properties of the class.
-    #     2. Have the correct type information for type checkers.
-    #     3. Allow sphinx-autodoc to construct correct documentation.
-    #     4. Be compatible with python 3.7.
-    # Once we drop support for python 3.7, we can replace all of this with just a simple
-    # combination of @property and @classmethod.
-    columns: ClassVar[List[str]]
-
-    unique_columns: ClassVar[Set[str]]
-    non_nullable_columns: ClassVar[Set[str]]
-    nullable_columns: ClassVar[Set[str]]
-
-    dtypes: ClassVar[Dict[str, Type[pl.DataType]]]
-    sql_types: ClassVar[Dict[str, str]]
-    valid_dtypes: ClassVar[Dict[str, List[Type[pl.DataType]]]]
-    valid_sql_types: ClassVar[Dict[str, List["DuckDBSQLType"]]]
-
-    defaults: ClassVar[Dict[str, Any]]
-
-    if TYPE_CHECKING:
-        model_fields: ClassVar[dict[str, FieldInfo]]
-
     @classmethod  # type: ignore[misc]
     @property
     def DataFrame(
         cls: Type[ModelType],
     ) -> Type[DataFrame[ModelType]]:  # pyright: ignore  # noqa
         """Return DataFrame class where DataFrame.set_model() is set to self."""
+        return DataFrame._construct_dataframe_model_class(
+            model=cls,  # type: ignore
+        )
 
     @classmethod  # type: ignore[misc]
     @property
@@ -616,6 +586,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         cls: Type[ModelType],
     ) -> Type[LazyFrame[ModelType]]:  # pyright: ignore
         """Return DataFrame class where DataFrame.set_model() is set to self."""
+        return LazyFrame._construct_lazyframe_model_class(
+            model=cls,  # type: ignore
+        )
 
     @classmethod
     def from_row(

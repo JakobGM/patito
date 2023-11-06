@@ -10,6 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 import patito as pt
+from patito.pydantic import PL_INTEGER_DTYPES
 
 
 def test_model_example():
