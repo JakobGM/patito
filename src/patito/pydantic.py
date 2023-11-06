@@ -32,6 +32,7 @@ from pydantic._internal._model_construction import (
 
 from patito.polars import DataFrame, LazyFrame
 from patito.validators import validate
+from patito._pydantic.repr import display_as_type
 
 try:
     import pandas as pd
@@ -221,27 +222,27 @@ class ModelMetaclass(PydanticModelMetaclass):
 
         if "dtype" in props:
 
-            def dtype_invalid(props: Dict) -> bool:
-                if "type" in props and props[
-                    "dtype"
-                ] not in cls._pydantic_type_to_valid_polars_types(props):
-                    return True
+            def dtype_invalid(props: Dict) -> Tuple[bool, List[PolarsDataType]]:
+                if "type" in props:
+                    valid_pl_types = cls._pydantic_type_to_valid_polars_types(props)
+                    if props["dtype"] not in valid_pl_types:
+                        return True, valid_pl_types or []
                 elif "anyOf" in props:
                     for sub_props in props["anyOf"]:
                         if sub_props["type"] == "null":
                             continue
                         else:
-                            if props[
-                                "dtype"
-                            ] not in cls._pydantic_type_to_valid_polars_types(
+                            valid_pl_types = cls._pydantic_type_to_valid_polars_types(
                                 sub_props
-                            ):
-                                return True
-                return False
+                            )
+                            if props["dtype"] not in valid_pl_types:
+                                return True, valid_pl_types or []
+                return False, []
 
-            if dtype_invalid(props):
+            invalid, valid_pl_types = dtype_invalid(props)
+            if invalid:
                 raise ValueError(
-                    f"Invalid dtype {props['dtype']} for column '{column}'. Check that specified dtype is allowable for the given type annotations."
+                    f"Invalid dtype {props['dtype']} for column '{column}'. Allowable polars dtypes for {display_as_type(cls.model_fields[column].annotation)} are: {', '.join([str(x) for x in valid_pl_types])}."
                 )
             return [
                 props["dtype"],
