@@ -17,7 +17,6 @@ polars = ">=0.19.0"
 # Required for typing.Literal in python3.7
 typing-extensions = "*"
 pandas = {version = "*", optional = true, python = "^3.8"}
-duckdb = {version = ">=0.6.0", optional = true, python = "^3.8"}
 pyarrow = {version = ">=5.0.0", optional = true, python = "^3.8"}
 # Optional docs dependencies
 Sphinx = {version = "<7", optional = true}

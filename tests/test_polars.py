@@ -286,6 +286,23 @@ def test_recursive_derive():
     assert derived_df.frame_equal(correct_derived_df)
 
 
+def test_derive_on_defaults():
+    class DerivedModel(pt.Model):
+        underived: int
+        derived: Optional[int] = pt.Field(default=None, derived_from="underived")
+
+    df = DerivedModel.DataFrame([DerivedModel(underived=1), DerivedModel(underived=2)])
+    derived_df = df.derive()
+
+    correct_derived_df = DerivedModel.DataFrame(
+        {
+            "underived": [1, 2],
+            "derived": [1, 2],
+        }
+    )
+    assert derived_df.frame_equal(correct_derived_df)
+
+
 def test_drop_method():
     """We should be able to drop columns not specified by the data frame model."""
 
