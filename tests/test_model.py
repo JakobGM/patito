@@ -3,14 +3,14 @@
 import enum
 import re
 from datetime import date, datetime, timedelta
-from typing import List, Optional, Type, Literal
+from typing import List, Optional, Type, Literal, get_args
 
 import polars as pl
 import pytest
-from pydantic import ValidationError
+from pydantic import ValidationError, BaseModel, fields
 
 import patito as pt
-from patito.pydantic import PL_INTEGER_DTYPES
+from patito.pydantic import PL_INTEGER_DTYPES, PT_INFO, field, _Unset
 
 
 def test_model_example():
@@ -444,17 +444,43 @@ def test_pt_fields():
     assert "dtype" in props["d"]
     assert "unique" in props["e"]
 
+    def check_repr(field, set_value: str) -> None:
+        assert f"{set_value}=" in repr(field)
+        assert all(x not in repr(field) for x in get_args(PT_INFO) if x != set_value)
+
     fields = (
         Model.model_fields
     )  # attributes are properly set and catalogued on the `FieldInfo` objects
     assert "constraints" in fields["b"]._attributes_set
     assert fields["b"].constraints is not None
+    check_repr(fields["b"], "constraints")
     assert "derived_from" in fields["c"]._attributes_set
     assert fields["c"].derived_from is not None
+    check_repr(fields["c"], "derived_from")
     assert "dtype" in fields["d"]._attributes_set
     assert fields["d"].dtype is not None
+    check_repr(fields["d"], "dtype")
     assert "unique" in fields["e"]._attributes_set
     assert fields["e"].unique is not None
+    check_repr(fields["e"], "unique")
+
+
+def test_custom_field_info():
+    class FieldExt(BaseModel):
+        foo: str | None = _Unset
+
+    Field = field(exts=[FieldExt])
+
+    class Model(pt.Model):
+        bar: int = Field(foo="hello")
+
+    test_field = Model.model_fields["bar"]
+    assert (
+        test_field.foo == "hello"
+    )  # TODO passes but typing is unhappy here, can we make custom FieldInfo configurable? If users subclass `Model` then it is easy to reset the typing to point at their own `FieldInfo` implementation
+    assert "foo=" in repr(test_field)
+    with pytest.raises(AttributeError):
+        print(test_field.derived_from)  # patito FieldInfo successfully overriden
 
 
 def test_nullable_columns():

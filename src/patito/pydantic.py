@@ -22,10 +22,12 @@ from typing import (
     Tuple,
     Callable,
 )
+from functools import reduce
+import inspect
 
 import polars as pl
 from polars.datatypes import PolarsDataType
-from pydantic import fields
+from pydantic import fields, PydanticUndefinedAnnotation
 from pydantic import ConfigDict, BaseModel, create_model  # noqa: F401
 from pydantic._internal._model_construction import (
     ModelMetaclass as PydanticModelMetaclass,
@@ -49,6 +51,23 @@ if TYPE_CHECKING:
 # The generic type of a single row in given Relation.
 # Should be a typed subclass of Model.
 ModelType = TypeVar("ModelType", bound="Model")
+
+PT_INFO = Literal["constraints", "derived_from", "dtype", "unique"]
+
+_Unset: Any = PydanticUndefinedAnnotation
+
+
+class PatitoFieldInfo(fields.FieldInfo):
+    """
+    !!! warning
+        Not intended to be used directly. Specified to facilitate proper type hinting, while preserving customizability of the generated `FieldInfo` objects.
+    """
+
+    constraints: pl.Expr | Sequence[pl.Expr] | None = _Unset
+    derived_from: str | pl.Expr | None = _Unset
+    dtype: PolarsDataType | None = _Unset
+    unique: bool | None = _Unset
+
 
 # A mapping from pydantic types to the equivalent type used in DuckDB
 PYDANTIC_TO_DUCKDB_TYPES = {
@@ -117,7 +136,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     """Custom pydantic class for representing table schema and constructing rows."""
 
     if TYPE_CHECKING:
-        model_fields: ClassVar[Dict[str, FieldInfo]]
+        model_fields: ClassVar[Dict[str, PatitoFieldInfo]]
 
     model_config = ConfigDict(
         ignored_types=(classproperty,),
@@ -1471,8 +1490,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @staticmethod
     def _derive_field(
-        field: FieldInfo, make_nullable: bool = False
-    ) -> Tuple[Type, FieldInfo]:
+        field: PatitoFieldInfo,
+        make_nullable: bool = False,
+    ) -> Tuple[Type, PatitoFieldInfo]:
         field_type = field.annotation
         default = field.default
         extra_attrs = {
@@ -1498,61 +1518,93 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         return field_type, field_new
 
 
-PT_INFO = Literal["constraints", "derived_from", "dtype", "unique"]
+class PatitoFieldExtension(BaseModel):
+    """Stores type hints and default values for patito-custom field attributes"""
+
+    constraints: pl.Expr | Sequence[pl.Expr] | None = _Unset
+    derived_from: str | pl.Expr | None = _Unset
+    dtype: PolarsDataType | None = _Unset
+    unique: bool | None = _Unset
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
-class FieldInfo(fields.FieldInfo):
-    __slots__ = getattr(fields.FieldInfo, "__slots__") + (
-        "constraints",
-        "derived_from",
-        "dtype",
-        "unique",
+def field_info(exts: Sequence[Type[BaseModel]]) -> Type[fields.FieldInfo]:
+    """generates a custom FieldInfo class, with extra attributes specified by the models passed as exts
+
+    Parameters
+    ----------
+    exts : Sequence[Type[BaseModel]]
+        pydantic models describing the extra attributes to be added to the FieldInfo class
+
+    Returns
+    -------
+    Type[fields.FieldInfo]
+        a child class of pydantic's `FieldInfo`, with slots and attributes updated to include the extra attributes
+    """
+    ext_fields = reduce(
+        lambda x, y: x + y, [tuple(x.model_fields.keys()) for x in exts]
     )
 
-    def __init__(
-        self,
-        constraints: Optional[Union[pl.Expr, Sequence[pl.Expr]]] = None,
-        derived_from: Optional[Union[str, pl.Expr]] = None,
-        dtype: Optional[PolarsDataType] = None,
-        unique: bool = False,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
+    class FieldInfo(fields.FieldInfo):
+        __slots__ = getattr(fields.FieldInfo, "__slots__") + ext_fields
 
-        self.constraints = constraints
-        self.derived_from = derived_from
-        self.dtype = dtype
-        self.unique = unique
-        self._attributes_set.update(
-            **{
-                k: getattr(self, k)
-                for k in get_args(PT_INFO)
-                if getattr(self, k) is not None
-            }
+        def __init__(self, *args, **kwargs):
+            super().__init__(
+                *args, **kwargs
+            )  # processes base fields, popping associated kwargs
+            self._attributes_set.update(
+                **{k: v for k, v in kwargs.items() if v is not _Unset}
+            )
+            for f in ext_fields:
+                self.__setattr__(f, kwargs.pop(f, None))
+
+    return FieldInfo
+
+
+def field(exts: Sequence[Type[BaseModel]]) -> Callable:
+    """a `Field` callable factory that accepts extra attributes specified by the models passed as exts
+
+    Parameters
+    ----------
+    exts : Sequence[Type[BaseModel]]
+        pydantic models describing the extra attributes to be added to the FieldInfo class
+
+    Returns
+    -------
+    Callable
+        a custom factory method that splits arguments intended for pydantic's `Field` constructor and the extra attributes
+    """
+    FieldInfo = field_info(exts=exts)
+
+    def _Field(  # noqa: C901
+        *args,
+        **kwargs,
+    ) -> Any:
+        meta_kwargs = {
+            k: v for k, v in kwargs.items() if k in fields.FieldInfo.metadata_lookup
+        }
+        base_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k not in meta_kwargs and k in inspect.signature(fields.Field).parameters
+        }
+        finfo = fields.Field(*args, **base_kwargs)
+        new_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k not in meta_kwargs and k not in base_kwargs
+        }
+        return FieldInfo(
+            **finfo._attributes_set,
+            **meta_kwargs,
+            **new_kwargs,
         )
 
+    return _Field
 
-def Field(  # noqa: C901
-    *args,
-    constraints: Optional[Union[pl.Expr, Sequence[pl.Expr]]] = None,
-    derived_from: Optional[Union[str, pl.Expr]] = None,
-    dtype: Optional[PolarsDataType] = None,
-    unique: bool = False,
-    **kwargs,
-) -> Any:
-    meta_kwargs = {
-        k: v for k, v in kwargs.items() if k in fields.FieldInfo.metadata_lookup
-    }
-    base_kwargs = {k: v for k, v in kwargs.items() if k not in meta_kwargs}
-    finfo = fields.Field(*args, **base_kwargs)
-    return FieldInfo(
-        **finfo._attributes_set,
-        **meta_kwargs,
-        constraints=constraints,
-        derived_from=derived_from,
-        dtype=dtype,
-        unique=unique,
-    )
+
+Field = field(exts=[PatitoFieldExtension])
 
 
 class FieldDoc:
