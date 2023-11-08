@@ -479,6 +479,7 @@ def test_custom_field_info():
         test_field.foo == "hello"
     )  # TODO passes but typing is unhappy here, can we make custom FieldInfo configurable? If users subclass `Model` then it is easy to reset the typing to point at their own `FieldInfo` implementation
     assert "foo=" in repr(test_field)
+    assert "foo" in Model._schema_properties()["bar"]
     with pytest.raises(AttributeError):
         print(test_field.derived_from)  # patito FieldInfo successfully overriden
 

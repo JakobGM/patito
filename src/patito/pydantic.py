@@ -57,7 +57,7 @@ PT_INFO = Literal["constraints", "derived_from", "dtype", "unique"]
 _Unset: Any = PydanticUndefinedAnnotation
 
 
-class PatitoFieldInfo(fields.FieldInfo):
+class _PatitoFieldInfo(fields.FieldInfo):
     """
     !!! warning
         Not intended to be used directly. Specified to facilitate proper type hinting, while preserving customizability of the generated `FieldInfo` objects.
@@ -136,7 +136,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     """Custom pydantic class for representing table schema and constructing rows."""
 
     if TYPE_CHECKING:
-        model_fields: ClassVar[Dict[str, PatitoFieldInfo]]
+        model_fields: ClassVar[Dict[str, _PatitoFieldInfo]]
 
     model_config = ConfigDict(
         ignored_types=(classproperty,),
@@ -1439,10 +1439,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 fields[field_name]["type"] = PYTHON_TO_PYDANTIC_TYPES[
                     type(field_info["const"])
                 ]
-            for f in get_args(PT_INFO):
-                v = getattr(cls.model_fields[field_name], f, None)
-                if v is not None:
-                    fields[field_name][f] = v
+            for f in cls.model_fields[field_name]._attributes_set:
+                if f not in fields[field_name]:
+                    v = getattr(cls.model_fields[field_name], f, None)
+                    if v is not None:
+                        fields[field_name][f] = v
 
         return fields
 
@@ -1490,9 +1491,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @staticmethod
     def _derive_field(
-        field: PatitoFieldInfo,
+        field: _PatitoFieldInfo,
         make_nullable: bool = False,
-    ) -> Tuple[Type, PatitoFieldInfo]:
+    ) -> Tuple[Type, _PatitoFieldInfo]:
         field_type = field.annotation
         default = field.default
         extra_attrs = {
