@@ -1,4 +1,3 @@
-import json
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -10,9 +9,7 @@ from typing import (
     Tuple,
     Type,
     Union,
-    Callable,
     TypedDict,
-    Iterable,
 )
 
 from patito._pydantic.repr import Representation

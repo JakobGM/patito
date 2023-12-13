@@ -189,6 +189,7 @@ def _find_errors(  # noqa: C901
     valid_dtypes = schema.valid_dtypes
     dataframe_datatypes = dict(zip(dataframe.columns, dataframe.dtypes))
     for column_name, column_properties in schema._schema_properties().items():
+        column_info = schema.column_infos[column_name]
         if column_name not in dataframe.columns:
             continue
 
@@ -220,7 +221,7 @@ def _find_errors(  # noqa: C901
                     )
                 )
 
-        if column_properties.get("unique", False):
+        if column_info.unique:
             # Coalescing to 0 in the case of dataframe of height 0
             num_duplicated = dataframe[column_name].is_duplicated().sum() or 0
             if num_duplicated > 0:
@@ -278,8 +279,8 @@ def _find_errors(  # noqa: C901
                     )
                 )
 
-        if "constraints" in column_properties:
-            custom_constraints = column_properties["constraints"]
+        if column_info.constraints is not None:
+            custom_constraints = column_info.constraints
             if isinstance(custom_constraints, pl.Expr):
                 custom_constraints = [custom_constraints]
             constraints = pl.all_horizontal(

@@ -3,14 +3,14 @@
 import enum
 import re
 from datetime import date, datetime, timedelta
-from typing import List, Optional, Type, Literal, get_args
+from typing import List, Optional, Type, Literal
 
 import polars as pl
 import pytest
-from pydantic import ValidationError, BaseModel, fields
+from pydantic import ValidationError
 
 import patito as pt
-from patito.pydantic import PL_INTEGER_DTYPES, PT_INFO, field, _Unset
+from patito.pydantic import PL_INTEGER_DTYPES
 
 
 def test_model_example():
@@ -427,61 +427,62 @@ def test_enum_annotated_field():
             InvalidEnumModel.sql_types
 
 
-def test_pt_fields():
-    class Model(pt.Model):
-        a: int
-        b: int = pt.Field(constraints=[(pl.col("b") < 10)])
-        c: int = pt.Field(derived_from=pl.col("a") + pl.col("b"))
-        d: int = pt.Field(dtype=pl.UInt8)
-        e: int = pt.Field(unique=True)
+# TODO new tests for ColumnInfo
+# def test_pt_fields():
+#     class Model(pt.Model):
+#         a: int
+#         b: int = pt.Field(constraints=[(pl.col("b") < 10)])
+#         c: int = pt.Field(derived_from=pl.col("a") + pl.col("b"))
+#         d: int = pt.Field(dtype=pl.UInt8)
+#         e: int = pt.Field(unique=True)
 
-    schema = Model.model_json_schema()  # no serialization issues
-    props = (
-        Model._schema_properties()
-    )  # extra fields are stored in modified schema_properties
-    assert "constraints" in props["b"]
-    assert "derived_from" in props["c"]
-    assert "dtype" in props["d"]
-    assert "unique" in props["e"]
+#     schema = Model.model_json_schema()  # no serialization issues
+#     props = (
+#         Model._schema_properties()
+#     )  # extra fields are stored in modified schema_properties
+#     assert "constraints" in props["b"]
+#     assert "derived_from" in props["c"]
+#     assert "dtype" in props["d"]
+#     assert "unique" in props["e"]
 
-    def check_repr(field, set_value: str) -> None:
-        assert f"{set_value}=" in repr(field)
-        assert all(x not in repr(field) for x in get_args(PT_INFO) if x != set_value)
+#     def check_repr(field, set_value: str) -> None:
+#         assert f"{set_value}=" in repr(field)
+#         assert all(x not in repr(field) for x in get_args(ColumnInfo.model_fields) if x != set_value)
 
-    fields = (
-        Model.model_fields
-    )  # attributes are properly set and catalogued on the `FieldInfo` objects
-    assert "constraints" in fields["b"]._attributes_set
-    assert fields["b"].constraints is not None
-    check_repr(fields["b"], "constraints")
-    assert "derived_from" in fields["c"]._attributes_set
-    assert fields["c"].derived_from is not None
-    check_repr(fields["c"], "derived_from")
-    assert "dtype" in fields["d"]._attributes_set
-    assert fields["d"].dtype is not None
-    check_repr(fields["d"], "dtype")
-    assert "unique" in fields["e"]._attributes_set
-    assert fields["e"].unique is not None
-    check_repr(fields["e"], "unique")
+#     fields = (
+#         Model.model_fields
+#     )  # attributes are properly set and catalogued on the `FieldInfo` objects
+#     assert "constraints" in fields["b"]._attributes_set
+#     assert fields["b"].constraints is not None
+#     check_repr(fields["b"], "constraints")
+#     assert "derived_from" in fields["c"]._attributes_set
+#     assert fields["c"].derived_from is not None
+#     check_repr(fields["c"], "derived_from")
+#     assert "dtype" in fields["d"]._attributes_set
+#     assert fields["d"].dtype is not None
+#     check_repr(fields["d"], "dtype")
+#     assert "unique" in fields["e"]._attributes_set
+#     assert fields["e"].unique is not None
+#     check_repr(fields["e"], "unique")
 
 
-def test_custom_field_info():
-    class FieldExt(BaseModel):
-        foo: str | None = _Unset
+# def test_custom_field_info():
+#     class FieldExt(BaseModel):
+#         foo: str | None = _Unset
 
-    Field = field(exts=[FieldExt])
+#     Field = field(exts=[FieldExt])
 
-    class Model(pt.Model):
-        bar: int = Field(foo="hello")
+#     class Model(pt.Model):
+#         bar: int = Field(foo="hello")
 
-    test_field = Model.model_fields["bar"]
-    assert (
-        test_field.foo == "hello"
-    )  # TODO passes but typing is unhappy here, can we make custom FieldInfo configurable? If users subclass `Model` then it is easy to reset the typing to point at their own `FieldInfo` implementation
-    assert "foo=" in repr(test_field)
-    assert "foo" in Model._schema_properties()["bar"]
-    with pytest.raises(AttributeError):
-        print(test_field.derived_from)  # patito FieldInfo successfully overriden
+#     test_field = Model.model_fields["bar"]
+#     assert (
+#         test_field.foo == "hello"
+#     )  # TODO passes but typing is unhappy here, can we make custom FieldInfo configurable? If users subclass `Model` then it is easy to reset the typing to point at their own `FieldInfo` implementation
+#     assert "foo=" in repr(test_field)
+#     assert "foo" in Model._schema_properties()["bar"]
+#     with pytest.raises(AttributeError):
+#         print(test_field.derived_from)  # patito FieldInfo successfully overriden
 
 
 def test_nullable_columns():
@@ -537,4 +538,4 @@ def test_polars_python_type_harmonization():
 
     assert type(Test.valid_dtypes["date"][0]) == pl.Datetime
     assert Test.valid_dtypes["date"][0].time_unit == "us"
-    assert Test.valid_dtypes["date"][0].time_zone == None
+    assert Test.valid_dtypes["date"][0].time_zone is None

@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 import polars as pl
 import pytest
+from pydantic import ValidationError
 
 import patito as pt
 
@@ -223,14 +224,10 @@ def test_derive_functionality():
     assert derived_df.frame_equal(correct_derived_df)
 
     # Non-compatible derive_from arguments should raise TypeError
-    class InvalidModel(pt.Model):
-        incompatible: int = pt.Field(derived_from=object)
+    with pytest.raises(ValidationError):
 
-    with pytest.raises(
-        TypeError,
-        match=r"Can not derive dataframe column from type \<class 'type'\>\.",
-    ):
-        InvalidModel.DataFrame().derive()
+        class InvalidModel(pt.Model):
+            incompatible: int = pt.Field(derived_from=object)
 
 
 def test_drop_method():

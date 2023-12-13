@@ -406,9 +406,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             └─────┴─────┴────────────┘
         """
         df = self.lazy()
-        for column_name, props in self.model._schema_properties().items():
-            if "derived_from" in props:
-                derived_from = props["derived_from"]
+        for column_name, info in self.model.column_infos.items():
+            if info.derived_from is not None:
+                derived_from = info.derived_from
                 dtype = self.model.dtypes[column_name]
                 if isinstance(derived_from, str):
                     df = df.with_columns(

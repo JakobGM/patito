@@ -11,7 +11,6 @@ from typing import (
     Dict,
     List,
     Optional,
-    Set,
     Type,
     TypeVar,
     Union,
@@ -22,12 +21,15 @@ from typing import (
     Tuple,
     Callable,
 )
-from functools import reduce
-import inspect
+import json
 
 import polars as pl
-from polars.datatypes import PolarsDataType
-from pydantic import fields, PydanticUndefinedAnnotation
+from polars.polars import dtype_str_repr
+from polars.datatypes import PolarsDataType, convert, DataTypeClass, DataType
+from pydantic import (
+    fields,
+    field_serializer,
+)
 from pydantic import ConfigDict, BaseModel, create_model  # noqa: F401
 from pydantic._internal._model_construction import (
     ModelMetaclass as PydanticModelMetaclass,
@@ -51,22 +53,6 @@ if TYPE_CHECKING:
 # The generic type of a single row in given Relation.
 # Should be a typed subclass of Model.
 ModelType = TypeVar("ModelType", bound="Model")
-
-PT_INFO = Literal["constraints", "derived_from", "dtype", "unique"]
-
-_Unset: Any = PydanticUndefinedAnnotation
-
-
-class _PatitoFieldInfo(fields.FieldInfo):
-    """
-    !!! warning
-        Not intended to be used directly. Specified to facilitate proper type hinting, while preserving customizability of the generated `FieldInfo` objects.
-    """
-
-    constraints: pl.Expr | Sequence[pl.Expr] | None = _Unset
-    derived_from: str | pl.Expr | None = _Unset
-    dtype: PolarsDataType | None = _Unset
-    unique: bool | None = _Unset
 
 
 # A mapping from pydantic types to the equivalent type used in DuckDB
@@ -105,7 +91,7 @@ PL_INTEGER_DTYPES = [
 ]
 
 
-class classproperty:
+class classproperty:  # TODO figure out how to get typing to carry through this decorator
     """Equivalent to @property, but works on a class (doesn't require an instance).
 
     https://github.com/pola-rs/polars/blob/8d29d3cebec713363db4ad5d782c74047e24314d/py-polars/polars/datatypes/classes.py#L25C12-L25C12
@@ -136,7 +122,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     """Custom pydantic class for representing table schema and constructing rows."""
 
     if TYPE_CHECKING:
-        model_fields: ClassVar[Dict[str, _PatitoFieldInfo]]
+        model_fields: ClassVar[Dict[str, fields.FieldInfo]]
 
     model_config = ConfigDict(
         ignored_types=(classproperty,),
@@ -248,14 +234,17 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         Returns:
             List of valid dtypes. None if no mapping exists.
         """
-        if "dtype" in props:
+        column_info = cls.column_infos[column]
+        if (
+            column_info.dtype is not None and "column_info" in props
+        ):  # hack to make sure we only use dtype if we're in the outer scope
 
             def dtype_invalid(props: Dict) -> Tuple[bool, List[PolarsDataType]]:
                 if "type" in props:
                     valid_pl_types = cls._pydantic_type_to_valid_polars_types(
                         column, props
                     )
-                    if props["dtype"] not in valid_pl_types:
+                    if column_info.dtype not in valid_pl_types:
                         return True, valid_pl_types or []
                 elif "anyOf" in props:
                     for sub_props in props["anyOf"]:
@@ -265,17 +254,17 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                             valid_pl_types = cls._pydantic_type_to_valid_polars_types(
                                 column, sub_props
                             )
-                            if props["dtype"] not in valid_pl_types:
+                            if column_info.dtype not in valid_pl_types:
                                 return True, valid_pl_types or []
                 return False, []
 
             invalid, valid_pl_types = dtype_invalid(props)
             if invalid:
                 raise ValueError(
-                    f"Invalid dtype {props['dtype']} for column '{column}'. Allowable polars dtypes for {display_as_type(cls.model_fields[column].annotation)} are: {', '.join([str(x) for x in valid_pl_types])}."
+                    f"Invalid dtype {column_info.dtype} for column '{column}'. Allowable polars dtypes for {display_as_type(cls.model_fields[column].annotation)} are: {', '.join([str(x) for x in valid_pl_types])}."
                 )
             return [
-                props["dtype"],
+                column_info.dtype,
             ]
         elif "enum" in props and props["type"] == "string":
             return [pl.Categorical, pl.Utf8]
@@ -604,8 +593,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             >>> sorted(Product.unique_columns)
             ['barcode', 'product_id']
         """
-        props = cls._schema_properties()
-        return {column for column in cls.columns if props[column].get("unique", False)}
+        infos = cls.column_infos
+        return {column for column in cls.columns if infos[column].unique}
 
     @classproperty
     def DataFrame(
@@ -815,6 +804,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """
         field_data = cls._schema_properties()
         properties = field_data[field]
+        info = cls.column_infos[field]
         if "type" in properties:
             field_type = properties["type"]
         elif "anyOf" in properties:
@@ -848,8 +838,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             upper = properties.get("maximum") or properties.get("exclusiveMaximum")
 
             # If the dtype is an unsigned integer type, we must return a positive value
-            if "dtype" in properties:
-                dtype = properties["dtype"]
+            if info.dtype:
+                dtype = info.dtype
                 if dtype in (pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64):
                     lower = 0 if lower is None else max(lower, 0)
 
@@ -1400,6 +1390,29 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         )
 
     @classmethod
+    def model_json_schema(cls, *args, **kwargs) -> Dict[str, Any]:
+        schema = super().model_json_schema(*args, **kwargs)
+        # for k, v in schema["properties"].items():
+        #    if 'column_info' in v:
+        #         schema["properties"][k] = {**schema['properties'][k].pop("column_info"), **schema["properties"][k]}
+        return schema
+
+    @classproperty
+    def column_infos(cls) -> Dict[str, ColumnInfo]:
+        fields = cls.model_fields
+
+        def get_column_info(field: fields.FieldInfo) -> ColumnInfo:
+            if field.json_schema_extra is None:
+                return ColumnInfo()
+            elif callable(field.json_schema_extra):
+                raise NotImplementedError(
+                    "Callable json_schema_extra not supported by patito."
+                )
+            return field.json_schema_extra["column_info"]
+
+        return {k: get_column_info(v) for k, v in fields.items()}
+
+    @classmethod
     def _schema_properties(cls) -> Dict[str, Dict[str, Any]]:
         """
         Return schema properties where definition references have been resolved.
@@ -1439,11 +1452,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 fields[field_name]["type"] = PYTHON_TO_PYDANTIC_TYPES[
                     type(field_info["const"])
                 ]
-            for f in cls.model_fields[field_name]._attributes_set:
-                if f not in fields[field_name]:
-                    v = getattr(cls.model_fields[field_name], f, None)
-                    if v is not None:
-                        fields[field_name][f] = v
+            # for f in cls.model_fields[field_name]._attributes_set:
+            #     if f not in fields[field_name]:
+            #         v = getattr(cls.model_fields[field_name], f, None)
+            #         if v is not None:
+            #             fields[field_name][f] = v
 
         return fields
 
@@ -1491,9 +1504,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @staticmethod
     def _derive_field(
-        field: _PatitoFieldInfo,
+        field: fields.FieldInfo,
         make_nullable: bool = False,
-    ) -> Tuple[Type, _PatitoFieldInfo]:
+    ) -> Tuple[Type, fields.FieldInfo]:
         field_type = field.annotation
         default = field.default
         extra_attrs = {
@@ -1514,98 +1527,91 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             # to make it clear that the field is still non-nullable and
             # required.
             default = ...
-        field_new = Field(default=default, **extra_attrs)
+        field_new = fields.Field(default=default, **extra_attrs)
         field_new.metadata = field.metadata
         return field_type, field_new
 
 
-class PatitoFieldExtension(BaseModel):
-    """Stores type hints and default values for patito-custom field attributes"""
-
-    constraints: pl.Expr | Sequence[pl.Expr] | None = _Unset
-    derived_from: str | pl.Expr | None = _Unset
-    dtype: PolarsDataType | None = _Unset
-    unique: bool | None = _Unset
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
+    if dtype in pl.NESTED_DTYPES:  # TODO deprecated, move onto lookup
+        return f"{convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype.base_type()]}[{parse_composite_dtype(dtype.inner)}]"
+    elif dtype in pl.DATETIME_DTYPES:
+        return dtype_str_repr(dtype)
+    else:
+        return convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype]
 
 
-def field_info(exts: Sequence[Type[BaseModel]]) -> Type[fields.FieldInfo]:
-    """generates a custom FieldInfo class, with extra attributes specified by the models passed as exts
+def dtype_from_string(v: str):
+    """for deserialization"""
+    # TODO test all dtypes
+    return convert.dtype_short_repr_to_dtype(v)
 
-    Parameters
-    ----------
-    exts : Sequence[Type[BaseModel]]
-        pydantic models describing the extra attributes to be added to the FieldInfo class
 
-    Returns
-    -------
-    Type[fields.FieldInfo]
-        a child class of pydantic's `FieldInfo`, with slots and attributes updated to include the extra attributes
-    """
-    ext_fields = reduce(
-        lambda x, y: x + y, [tuple(x.model_fields.keys()) for x in exts]
+class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
+    dtype: DataTypeClass | DataType | None = None  # TODO polars migrating onto using instances?  https://github.com/pola-rs/polars/issues/6163
+    constraints: pl.Expr | Sequence[pl.Expr] | None = None
+    derived_from: str | pl.Expr | None = None
+    unique: bool | None = None
+
+    # @model_serializer
+    # def serialize(self) -> Dict[str, Any]:
+    #     return {k: v for k, v in self.__dict__.items() if v is not None}
+
+    @field_serializer("constraints", "derived_from")
+    def serialize_exprs(self, exprs: str | pl.Expr | Sequence[pl.Expr] | None) -> Any:
+        if exprs is None:
+            return None
+        elif isinstance(exprs, str):
+            return exprs
+        elif isinstance(exprs, pl.Expr):
+            return self._serialize_expr(exprs)
+        elif isinstance(exprs, Sequence):
+            return [self._serialize_expr(c) for c in exprs]
+        else:
+            raise ValueError(f"Invalid type for exprs: {type(exprs)}")
+
+    def _serialize_expr(self, expr: pl.Expr) -> Dict:
+        if isinstance(expr, pl.Expr):
+            return json.loads(
+                expr.meta.write_json(None)
+            )  # can we access the dictionary directly?
+        else:
+            raise ValueError(f"Invalid type for expr: {type(expr)}")
+
+    @field_serializer("dtype")
+    def serialize_dtype(self, dtype: DataTypeClass | DataType | None) -> Any:
+        """
+
+        References
+        ----------
+            [1] https://stackoverflow.com/questions/76572310/how-to-serialize-deserialize-polars-datatypes
+        """
+        if dtype is None:
+            return None
+        elif isinstance(dtype, DataTypeClass) or isinstance(dtype, DataType):
+            return parse_composite_dtype(dtype)
+        else:
+            raise ValueError(f"Invalid type for dtype: {type(dtype)}")
+
+
+def Field(
+    *args,
+    dtype: DataTypeClass
+    | DataType
+    | None = None,  # TODO figure out how to make nice signature
+    constraints: pl.Expr | Sequence[pl.Expr] | None = None,
+    derived_from: str | pl.Expr | None = None,
+    unique: bool | None = None,
+    **kwargs,
+) -> Any:
+    column_info = ColumnInfo(
+        dtype=dtype, constraints=constraints, derived_from=derived_from, unique=unique
     )
-
-    class FieldInfo(fields.FieldInfo):
-        __slots__ = getattr(fields.FieldInfo, "__slots__") + ext_fields
-
-        def __init__(self, *args, **kwargs):
-            super().__init__(
-                *args, **kwargs
-            )  # processes base fields, popping associated kwargs
-            self._attributes_set.update(
-                **{k: v for k, v in kwargs.items() if v is not _Unset}
-            )
-            for f in ext_fields:
-                self.__setattr__(f, kwargs.pop(f, None))
-
-    return FieldInfo
-
-
-def field(exts: Sequence[Type[BaseModel]]) -> Callable:
-    """a `Field` callable factory that accepts extra attributes specified by the models passed as exts
-
-    Parameters
-    ----------
-    exts : Sequence[Type[BaseModel]]
-        pydantic models describing the extra attributes to be added to the FieldInfo class
-
-    Returns
-    -------
-    Callable
-        a custom factory method that splits arguments intended for pydantic's `Field` constructor and the extra attributes
-    """
-    FieldInfo = field_info(exts=exts)
-
-    def _Field(  # noqa: C901
+    return fields.Field(
         *args,
+        json_schema_extra={"column_info": column_info},
         **kwargs,
-    ) -> Any:
-        meta_kwargs = {
-            k: v for k, v in kwargs.items() if k in fields.FieldInfo.metadata_lookup
-        }
-        base_kwargs = {
-            k: v
-            for k, v in kwargs.items()
-            if k not in meta_kwargs and k in inspect.signature(fields.Field).parameters
-        }
-        finfo = fields.Field(*args, **base_kwargs)
-        new_kwargs = {
-            k: v
-            for k, v in kwargs.items()
-            if k not in meta_kwargs and k not in base_kwargs
-        }
-        return FieldInfo(
-            **finfo._attributes_set,
-            **meta_kwargs,
-            **new_kwargs,
-        )
-
-    return _Field
-
-
-Field = field(exts=[PatitoFieldExtension])
+    )
 
 
 class FieldDoc:
