@@ -2,9 +2,9 @@
 from polars import Expr, Series, col
 
 from patito import exceptions, sql
+from patito.exceptions import DataFrameValidationError
 from patito.polars import DataFrame, LazyFrame
 from patito.pydantic import Field, Model
-from patito.exceptions import DataFrameValidationError
 
 _CACHING_AVAILABLE = False
 _DUCKDB_AVAILABLE = False

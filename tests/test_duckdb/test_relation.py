@@ -4,11 +4,10 @@ from pathlib import Path
 from typing import Optional
 from unittest.mock import MagicMock
 
+import patito as pt
 import polars as pl
 import pytest
 from typing_extensions import Literal
-
-import patito as pt
 
 # Skip test module if DuckDB is not installed
 if not pt._DUCKDB_AVAILABLE:

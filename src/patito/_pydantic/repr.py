@@ -1,19 +1,19 @@
+import sys
 import types
 import typing
 from typing import (
     Any,
-    Tuple,
     Callable,
     Generator,
-    Union,
-    Sequence,
     Iterable,
-    Optional,
-    get_origin,
-    get_args,
     Literal,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    get_args,
+    get_origin,
 )
-import sys
 
 if typing.TYPE_CHECKING:
     Loc = Tuple[Union[int, str], ...]

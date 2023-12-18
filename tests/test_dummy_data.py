@@ -1,11 +1,10 @@
 """Test of functionality related to the generation of dummy data."""
 from datetime import date, datetime
-from typing import Optional, Literal, List
-
-import polars as pl
-import pytest
+from typing import List, Literal, Optional
 
 import patito as pt
+import polars as pl
+import pytest
 
 
 def test_model_example_df():
@@ -35,8 +34,8 @@ def test_model_example_df():
         }
     )
 
-    assert df_1[correct_df.columns].frame_equal(correct_df)
-    assert df_2[correct_df.columns].frame_equal(correct_df)
+    assert df_1[correct_df.columns].equals(correct_df)
+    assert df_2[correct_df.columns].equals(correct_df)
 
     # A TypeError should be raised when you provide wrong keywords
     with pytest.raises(
@@ -127,7 +126,7 @@ def test_enum_field_example_values():
 
     # Workaround for pl.StringCache() not working here for some reason
     assert correct_example_df.dtypes == example_df.dtypes
-    assert example_df.select(pl.all().cast(pl.Utf8)).frame_equal(
+    assert example_df.select(pl.all().cast(pl.Utf8)).equals(
         correct_example_df.select(pl.all().cast(pl.Utf8))
     )
 

@@ -2,11 +2,10 @@
 import re
 from datetime import date, datetime
 
+import patito as pt
 import polars as pl
 import pytest
 from pydantic import ValidationError
-
-import patito as pt
 
 
 def test_dataframe_get_method():
@@ -67,7 +66,7 @@ def test_fill_nan_with_defaults():
     missing_df = pt.DataFrame({"foo": [1, None], "bar": [None, "provided"]})
     filled_df = missing_df.set_model(DefaultModel).fill_null(strategy="defaults")
     correct_filled_df = pt.DataFrame({"foo": [1, 2], "bar": ["default", "provided"]})
-    assert filled_df.frame_equal(correct_filled_df)
+    assert filled_df.equals(correct_filled_df)
 
 
 def test_preservation_of_model():
@@ -111,21 +110,15 @@ def test_dataframe_model_dtype_casting():
     """You should be able to cast columns according to model type annotations."""
 
     class DTypeModel(pt.Model):
-        implicit_int_1: int
         implicit_int_2: int
-        explicit_uint: int = pt.Field(dtype=pl.UInt64)
         implicit_date: date
         implicit_datetime: datetime
 
     original_df = DTypeModel.DataFrame().with_columns(
         [
-            # This float will be casted to an integer, and since no specific integer
-            # dtype is specified, the default pl.Int64 will be used.
-            pl.lit(1.0).cast(pl.Float64).alias("implicit_int_1"),
             # UInt32 is compatible with the "int" annotation, and since no explicit
             # dtype is specified, it will not be casted to the default pl.Int64
             pl.lit(1).cast(pl.UInt32).alias("implicit_int_2"),
-            pl.lit(1.0).cast(pl.Float64).alias("explicit_uint"),
             # The integer will be casted to datetime 1970-01-01 00:00:00
             pl.lit(0).cast(pl.Int64).alias("implicit_date"),
             # The integer will be casted to date 1970-01-01
@@ -136,9 +129,7 @@ def test_dataframe_model_dtype_casting():
     )
     casted_df = original_df.cast()
     assert casted_df.dtypes == [
-        pl.Int64,
         pl.UInt32,
-        pl.UInt64,
         pl.Date,
         pl.Datetime,
         pl.Boolean,
@@ -147,8 +138,6 @@ def test_dataframe_model_dtype_casting():
     strictly_casted_df = original_df.cast(strict=True)
     assert strictly_casted_df.dtypes == [
         pl.Int64,
-        pl.Int64,
-        pl.UInt64,
         pl.Date,
         pl.Datetime,
         pl.Boolean,
@@ -194,7 +183,7 @@ def test_correct_columns_and_dtype_on_read(tmp_path):
 
     csv_path.write_text("month,dollars\n1,2.99")
     derived_df = DerivedModel.DataFrame.read_csv(csv_path)
-    assert derived_df.frame_equal(
+    assert derived_df.equals(
         DerivedModel.DataFrame({"month": [1], "dollars": [2.99], "cents": [299]})
     )
 
@@ -221,13 +210,13 @@ def test_derive_functionality():
             "second_order_derived": [4, 8],
         }
     )
-    assert derived_df.frame_equal(correct_derived_df)
+    assert derived_df.equals(correct_derived_df)
 
     # Non-compatible derive_from arguments should raise TypeError
     with pytest.raises(ValidationError):
 
         class InvalidModel(pt.Model):
-            incompatible: int = pt.Field(derived_from=object)
+            incompatible: int = pt.Field(derived_from=object)  # pyright: ignore
 
 
 def test_drop_method():

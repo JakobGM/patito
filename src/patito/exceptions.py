@@ -8,8 +8,8 @@ from typing import (
     Sequence,
     Tuple,
     Type,
-    Union,
     TypedDict,
+    Union,
 )
 
 from patito._pydantic.repr import Representation

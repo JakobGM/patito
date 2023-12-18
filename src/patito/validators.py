@@ -9,12 +9,12 @@ from typing_extensions import get_args, get_origin
 
 from patito.exceptions import (
     ColumnDTypeError,
+    DataFrameValidationError,
     ErrorWrapper,
     MissingColumnsError,
     MissingValuesError,
     RowValueError,
     SuperflousColumnsError,
-    DataFrameValidationError,
 )
 
 if sys.version_info >= (3, 10):  # pragma: no cover
@@ -148,9 +148,9 @@ def _find_errors(  # noqa: C901
 
     for column, dtype in schema.dtypes.items():
         if not isinstance(dtype, pl.List):
-            continue
+            continue  # TODO add validation here
 
-        annotation = schema.__annotations__[column]  # type: ignore[unreachable]
+        annotation = schema.model_fields[column].annotation
 
         # Retrieve the annotation of the list itself,
         # dewrapping any potential Optional[...]
@@ -194,7 +194,9 @@ def _find_errors(  # noqa: C901
             continue
 
         polars_type = dataframe_datatypes[column_name]
-        if polars_type not in valid_dtypes[column_name]:
+        if (
+            polars_type not in valid_dtypes[column_name]
+        ):  # TODO allow for `strict` validation
             errors.append(
                 ErrorWrapper(
                     ColumnDTypeError(

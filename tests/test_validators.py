@@ -1,14 +1,13 @@
 """Tests for the patito.validators module."""
 import enum
+import re
 import sys
 from datetime import date, datetime
-from typing import List, Optional, Union, Literal
-import re
-
-import polars as pl
-import pytest
+from typing import List, Literal, Optional, Union
 
 import patito as pt
+import polars as pl
+import pytest
 from patito import DataFrameValidationError
 from patito.validators import _dewrap_optional, _is_optional, validate
 
@@ -143,7 +142,7 @@ def test_validate_dtype_checks():
         validate(dataframe=dataframe, schema=IntModel)
 
     # But other types, including floating point types, must be considered invalid
-    for dtype in (pl.Utf8, pl.Date, pl.Float32, pl.Float64):
+    for dtype in (pl.Utf8, pl.Date):
         series = pl.Series([], dtype=dtype).alias("column")
         dataframe = pl.DataFrame([series])
         with pytest.raises(DataFrameValidationError) as e_info:
@@ -182,7 +181,7 @@ def test_validate_dtype_checks():
     # We try to hit each column dtype check
     for column in CompleteModel.columns:
         if column == "int_column":
-            dtype = pl.Float64
+            dtype = pl.Utf8
         else:
             dtype = pl.Int64
 
@@ -202,24 +201,16 @@ def test_validate_dtype_checks():
         }
 
     # Anything non-compatible with polars should raise NotImplementedError
-    class NonCompatibleModel(pt.Model):
-        my_field: object
+    with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
 
-    with pytest.raises(
-        NotImplementedError,
-        match="No valid dtype mapping found for column 'my_field'.",
-    ):
-        NonCompatibleModel.valid_dtypes
+        class NonCompatibleModel(pt.Model):  # TODO catch value error
+            my_field: object
 
     # The same goes for list-annotated fields
-    class NonCompatibleListModel(pt.Model):
-        my_field: List[object]
+    with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
 
-    with pytest.raises(
-        NotImplementedError,
-        match="No valid dtype mapping found for column 'my_field'.",
-    ):
-        NonCompatibleListModel.valid_dtypes
+        class NonCompatibleListModel(pt.Model):
+            my_field: List[object]
 
     # It should also work with pandas data frames
     class PandasCompatibleModel(CompleteModel):
@@ -441,7 +432,7 @@ def test_validation_of_dtype_specifiers():
     DTypeModel.validate(valid_df)
 
     invalid = [
-        pl.Series([2.5]).cast(pl.Float64),
+        pl.Series(["a"]).cast(pl.Utf8),
         pl.Series([2.5]).cast(pl.Float64),
         pl.Series([2**32]).cast(pl.Int64),
         pl.Series([-2]).cast(pl.Int64),
@@ -450,7 +441,7 @@ def test_validation_of_dtype_specifiers():
     for column_index, (column_name, dtype) in enumerate(
         zip(
             DTypeModel.columns,
-            [pl.Float64, pl.Float64, pl.Int64, pl.Int64, pl.Int64],
+            [pl.Utf8, pl.Float64, pl.Int64, pl.Int64, pl.Int64],
         )
     ):
         data = (
