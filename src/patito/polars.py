@@ -60,7 +60,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
             return cls
 
         new_class = type(
-            f"{model.schema()['title']}LazyFrame",
+            f"{model.model_json_schema()['title']}LazyFrame",
             (cls,),
             {"model": model},
         )
@@ -68,14 +68,8 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
 
     def collect(
         self,
-        type_coercion: bool = True,
-        predicate_pushdown: bool = True,
-        projection_pushdown: bool = True,
-        simplify_expression: bool = True,
-        no_optimization: bool = False,
-        slice_pushdown: bool = True,
-        common_subplan_elimination: bool = True,
-        streaming: bool = False,
+        *args,
+        **kwargs,
     ) -> "DataFrame[ModelType]":  # noqa: DAR101, DAR201
         """
         Collect into a DataFrame.
@@ -83,16 +77,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         See documentation of polars.DataFrame.collect for full description of
         parameters.
         """
-        df = super().collect(
-            type_coercion=type_coercion,
-            predicate_pushdown=predicate_pushdown,
-            projection_pushdown=projection_pushdown,
-            simplify_expression=simplify_expression,
-            no_optimization=no_optimization,
-            slice_pushdown=slice_pushdown,
-            common_subplan_elimination=common_subplan_elimination,
-            streaming=streaming,
-        )
+        df = super().collect(*args, **kwargs)
         if getattr(self, "model", False):
             cls = DataFrame._construct_dataframe_model_class(model=self.model)
         else:
@@ -150,7 +135,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 "hard-coded" to the given model.
         """
         new_class = type(
-            f"{model.schema()['title']}DataFrame",
+            f"{model.model_json_schema()['title']}DataFrame",
             (cls,),
             {"model": model},
         )
@@ -421,9 +406,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             └─────┴─────┴────────────┘
         """
         df = self.lazy()
-        for column_name, props in self.model._schema_properties().items():
-            if "derived_from" in props:
-                derived_from = props["derived_from"]
+        for column_name, info in self.model.column_infos.items():
+            if info.derived_from is not None:
+                derived_from = info.derived_from
                 dtype = self.model.dtypes[column_name]
                 if isinstance(derived_from, str):
                     df = df.with_columns(
@@ -684,7 +669,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             pl.Expr, str, pl.Series, list[bool], np.ndarray[Any, Any], bool
         ],
     ) -> DF:
-        return cast(DF, super().filter(predicate=predicate))
+        return cast(DF, super().filter(predicate))
 
     def select(  # noqa: D102
         self: DF,

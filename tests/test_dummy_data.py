@@ -1,12 +1,10 @@
 """Test of functionality related to the generation of dummy data."""
 from datetime import date, datetime
-from typing import Optional
-
-import polars as pl
-import pytest
-from typing_extensions import Literal
+from typing import List, Literal, Optional
 
 import patito as pt
+import polars as pl
+import pytest
 
 
 def test_model_example_df():
@@ -36,8 +34,8 @@ def test_model_example_df():
         }
     )
 
-    assert df_1[correct_df.columns].frame_equal(correct_df)
-    assert df_2[correct_df.columns].frame_equal(correct_df)
+    assert df_1[correct_df.columns].equals(correct_df)
+    assert df_2[correct_df.columns].equals(correct_df)
 
     # A TypeError should be raised when you provide wrong keywords
     with pytest.raises(
@@ -52,11 +50,12 @@ def test_examples():
         a: int
         b: Optional[str]
         c: Optional[int]
+        d: Optional[List[str]] = pt.Field(dtype=pl.List(pl.Utf8))
 
     df = MyModel.examples({"a": [1, 2]})
     assert isinstance(df, pl.DataFrame)
-    assert df.dtypes == [pl.Int64, pl.Utf8, pl.Int64]
-    assert df.columns == ["a", "b", "c"]
+    assert df.dtypes == [pl.Int64, pl.Utf8, pl.Int64, pl.List]
+    assert df.columns == ["a", "b", "c", "d"]
 
     # A TypeError should be raised when you provide no column names
     with pytest.raises(
@@ -127,7 +126,7 @@ def test_enum_field_example_values():
 
     # Workaround for pl.StringCache() not working here for some reason
     assert correct_example_df.dtypes == example_df.dtypes
-    assert example_df.select(pl.all().cast(pl.Utf8)).frame_equal(
+    assert example_df.select(pl.all().cast(pl.Utf8)).equals(
         correct_example_df.select(pl.all().cast(pl.Utf8))
     )
 

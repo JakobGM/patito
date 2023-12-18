@@ -9,12 +9,12 @@ from typing_extensions import get_args, get_origin
 
 from patito.exceptions import (
     ColumnDTypeError,
+    DataFrameValidationError,
     ErrorWrapper,
     MissingColumnsError,
     MissingValuesError,
     RowValueError,
     SuperflousColumnsError,
-    ValidationError,
 )
 
 if sys.version_info >= (3, 10):  # pragma: no cover
@@ -115,11 +115,11 @@ def _find_errors(  # noqa: C901
     """
     errors: list[ErrorWrapper] = []
     # Check if any columns are missing
-    for missig_column in set(schema.columns) - set(dataframe.columns):
+    for missing_column in set(schema.columns) - set(dataframe.columns):
         errors.append(
             ErrorWrapper(
                 MissingColumnsError("Missing column"),
-                loc=missig_column,
+                loc=missing_column,
             )
         )
 
@@ -148,9 +148,9 @@ def _find_errors(  # noqa: C901
 
     for column, dtype in schema.dtypes.items():
         if not isinstance(dtype, pl.List):
-            continue
+            continue  # TODO add validation here
 
-        annotation = schema.__annotations__[column]  # type: ignore[unreachable]
+        annotation = schema.model_fields[column].annotation
 
         # Retrieve the annotation of the list itself,
         # dewrapping any potential Optional[...]
@@ -189,11 +189,14 @@ def _find_errors(  # noqa: C901
     valid_dtypes = schema.valid_dtypes
     dataframe_datatypes = dict(zip(dataframe.columns, dataframe.dtypes))
     for column_name, column_properties in schema._schema_properties().items():
+        column_info = schema.column_infos[column_name]
         if column_name not in dataframe.columns:
             continue
 
         polars_type = dataframe_datatypes[column_name]
-        if polars_type not in valid_dtypes[column_name]:
+        if (
+            polars_type not in valid_dtypes[column_name]
+        ):  # TODO allow for `strict` validation
             errors.append(
                 ErrorWrapper(
                     ColumnDTypeError(
@@ -220,7 +223,7 @@ def _find_errors(  # noqa: C901
                     )
                 )
 
-        if column_properties.get("unique", False):
+        if column_info.unique:
             # Coalescing to 0 in the case of dataframe of height 0
             num_duplicated = dataframe[column_name].is_duplicated().sum() or 0
             if num_duplicated > 0:
@@ -241,37 +244,49 @@ def _find_errors(  # noqa: C901
             "multipleOf": lambda v: (col == 0) | ((col % v) == 0),
             "const": lambda v: col == v,
             "pattern": lambda v: col.str.contains(v),
-            "minLength": lambda v: col.str.lengths() >= v,
-            "maxLength": lambda v: col.str.lengths() <= v,
+            "minLength": lambda v: col.str.len_chars() >= v,
+            "maxLength": lambda v: col.str.len_chars() <= v,
         }
-        checks = [
+        if "anyOf" in column_properties:
+            checks = [
+                check(x[key])
+                for key, check in filters.items()
+                for x in column_properties["anyOf"]
+                if key in x
+            ]
+        else:
+            checks = []
+        checks += [
             check(column_properties[key])
             for key, check in filters.items()
             if key in column_properties
         ]
         if checks:
-            lazy_df = dataframe.lazy()
+            n_invalid_rows = 0
             for check in checks:
-                lazy_df = lazy_df.filter(check)
-            valid_rows = lazy_df.collect()
-            invalid_rows = dataframe.height - valid_rows.height
-            if invalid_rows > 0:
+                lazy_df = dataframe.lazy()
+                lazy_df = lazy_df.filter(
+                    ~check
+                )  # get failing rows (nulls will evaluate to null on boolean check, we only want failures (false)))
+                invalid_rows = lazy_df.collect()
+                n_invalid_rows += invalid_rows.height
+            if n_invalid_rows > 0:
                 errors.append(
                     ErrorWrapper(
                         RowValueError(
-                            f"{invalid_rows} row{'' if invalid_rows == 1 else 's'} "
+                            f"{n_invalid_rows} row{'' if n_invalid_rows == 1 else 's'} "
                             "with out of bound values."
                         ),
                         loc=column_name,
                     )
                 )
 
-        if "constraints" in column_properties:
-            custom_constraints = column_properties["constraints"]
+        if column_info.constraints is not None:
+            custom_constraints = column_info.constraints
             if isinstance(custom_constraints, pl.Expr):
                 custom_constraints = [custom_constraints]
             constraints = pl.all_horizontal(
-                [constraint.is_not() for constraint in custom_constraints]
+                [constraint.not_() for constraint in custom_constraints]
             )
             if "_" in constraints.meta.root_names():
                 # An underscore is an alias for the current field
@@ -315,4 +330,4 @@ def validate(
 
     errors = _find_errors(dataframe=polars_dataframe, schema=schema)
     if errors:
-        raise ValidationError(errors=errors, model=schema)
+        raise DataFrameValidationError(errors=errors, model=schema)

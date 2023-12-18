@@ -3,14 +3,20 @@
 import enum
 import re
 from datetime import date, datetime, timedelta
-from typing import List, Optional, Type
-
-import polars as pl
-import pytest
-from pydantic import ValidationError
-from typing_extensions import Literal
+from typing import List, Literal, Optional, Type
 
 import patito as pt
+import polars as pl
+import pytest
+from patito._pydantic.dtypes import (
+    DATE_DTYPES,
+    DATETIME_DTYPES,
+    DURATION_DTYPES,
+    FLOAT_DTYPES,
+    INTEGER_DTYPES,
+    DataTypeGroup,
+)
+from pydantic import ValidationError
 
 
 def test_model_example():
@@ -30,7 +36,7 @@ def test_model_example():
         date_value: date
         datetime_value: datetime
 
-    assert MyModel.example().dict() == {
+    assert MyModel.example().model_dump() == {
         "int_value": -1,
         "float_value": -0.5,
         "str_value": "dummy_string",
@@ -46,7 +52,7 @@ def test_model_example():
         bool_value=True,
         default_value="override",
         optional_value=1,
-    ).dict() == {
+    ).model_dump() == {
         "int_value": -1,
         "float_value": -0.5,
         "str_value": "dummy_string",
@@ -61,7 +67,7 @@ def test_model_example():
 
     # For now, valid regex data is not implemented
     class RegexModel(pt.Model):
-        regex_column: str = pt.Field(regex=r"[0-9a-f]")
+        regex_column: str = pt.Field(pattern=r"[0-9a-f]")
 
     with pytest.raises(
         NotImplementedError,
@@ -199,74 +205,15 @@ def test_mapping_to_polars_dtypes():
     }
 
     assert CompleteModel.valid_dtypes == {
-        "str_column": [pl.Utf8],
-        "int_column": [
-            pl.Int64,
-            pl.Int32,
-            pl.Int16,
-            pl.Int8,
-            pl.UInt64,
-            pl.UInt32,
-            pl.UInt16,
-            pl.UInt8,
-        ],
-        "float_column": [pl.Float64, pl.Float32],
-        "bool_column": [pl.Boolean],
-        "date_column": [pl.Date],
-        "datetime_column": [pl.Datetime],
-        "duration_column": [pl.Duration],
-        "categorical_column": [pl.Categorical, pl.Utf8],
-        "null_column": [pl.Null],
-    }
-
-
-def test_mapping_to_polars_dtypes_with_lists():
-    """Model list fields should be mappable to polars dtypes."""
-
-    class CompleteModel(pt.Model):
-        str_column: List[str]
-        int_column: List[int]
-        float_column: List[float]
-        bool_column: List[bool]
-
-        date_column: List[date]
-        datetime_column: List[datetime]
-        duration_column: List[timedelta]
-
-        categorical_column: List[Literal["a", "b", "c"]]
-        null_column: List[None]
-
-    assert CompleteModel.dtypes == {
-        "str_column": pl.List(pl.Utf8),
-        "int_column": pl.List(pl.Int64),
-        "float_column": pl.List(pl.Float64),
-        "bool_column": pl.List(pl.Boolean),
-        "date_column": pl.List(pl.Date),
-        "datetime_column": pl.List(pl.Datetime),
-        "duration_column": pl.List(pl.Duration),
-        "categorical_column": pl.List(pl.Categorical),
-        "null_column": pl.List(pl.Null),
-    }
-
-    assert CompleteModel.valid_dtypes == {
-        "str_column": [pl.List(pl.Utf8)],
-        "int_column": [
-            pl.List(pl.Int64),
-            pl.List(pl.Int32),
-            pl.List(pl.Int16),
-            pl.List(pl.Int8),
-            pl.List(pl.UInt64),
-            pl.List(pl.UInt32),
-            pl.List(pl.UInt16),
-            pl.List(pl.UInt8),
-        ],
-        "float_column": [pl.List(pl.Float64), pl.List(pl.Float32)],
-        "bool_column": [pl.List(pl.Boolean)],
-        "date_column": [pl.List(pl.Date)],
-        "datetime_column": [pl.List(pl.Datetime)],
-        "duration_column": [pl.List(pl.Duration)],
-        "categorical_column": [pl.List(pl.Categorical), pl.List(pl.Utf8)],
-        "null_column": [pl.List(pl.Null)],
+        "str_column": {pl.Utf8},
+        "int_column": DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES),
+        "float_column": FLOAT_DTYPES,
+        "bool_column": {pl.Boolean},
+        "date_column": DATE_DTYPES,
+        "datetime_column": DATETIME_DTYPES,
+        "duration_column": DURATION_DTYPES,
+        "categorical_column": {pl.Categorical, pl.Utf8},
+        "null_column": {pl.Null},
     }
 
 
@@ -275,21 +222,18 @@ def test_model_joins():
 
     class Left(pt.Model):
         left: int = pt.Field(gt=20)
-        opt_left: Optional[int]
+        opt_left: Optional[int] = None
 
     class Right(pt.Model):
         right: int = pt.Field(gt=20)
-        opt_right: Optional[int]
+        opt_right: Optional[int] = None
 
     def test_model_validator(model: Type[pt.Model]) -> None:
         """Test if all field validators have been included correctly."""
-        with pytest.raises(
-            ValidationError,
-            match=re.compile(
-                r".*limit_value=20.*\n.*\n.*limit_value=20.*", re.MULTILINE
-            ),
-        ):
+        with pytest.raises(ValidationError) as e:
             model(left=1, opt_left=1, right=1, opt_right=1)
+        pattern = re.compile(r"Input should be greater than 20")
+        assert len(pattern.findall(str(e.value))) == 2
 
     # An inner join should keep nullability information
     InnerJoinModel = Left.join(Right, how="inner")
@@ -327,13 +271,13 @@ def test_model_selects():
     MySubModel = MyModel.select("b")
     assert MySubModel.columns == ["b"]
     MySubModel(b=11)
-    with pytest.raises(ValidationError, match="limit_value=10"):
+    with pytest.raises(ValidationError, match="Input should be greater than 10"):
         MySubModel(b=1)
 
     MyTotalModel = MyModel.select(["a", "b"])
     assert sorted(MyTotalModel.columns) == ["a", "b"]
     MyTotalModel(a=1, b=11)
-    with pytest.raises(ValidationError, match="limit_value=10"):
+    with pytest.raises(ValidationError, match="Input should be greater than 10"):
         MyTotalModel(a=1, b=1)
     assert MyTotalModel.nullable_columns == {"a"}
 
@@ -421,10 +365,76 @@ def test_enum_annotated_field():
         ONE = 1
         TWO = "2"
 
-    class InvalidEnumModel(pt.Model):
-        column: MultiTypedEnum
+    with pytest.raises(TypeError, match="Mixed type enums not supported"):
+
+        class InvalidEnumModel(pt.Model):
+            column: MultiTypedEnum
 
     if pt._DUCKDB_AVAILABLE:  # pragma: no cover
         assert EnumModel.sql_types["column"].startswith("enum__")
         with pytest.raises(TypeError, match=r".*Encountered types: \['int', 'str'\]\."):
-            InvalidEnumModel.sql_types
+            InvalidEnumModel.sql_types  # pyright: ignore
+
+
+def test_column_infos():
+    class Model(pt.Model):
+        a: int
+        b: int = pt.Field(constraints=[(pl.col("b") < 10)])
+        c: int = pt.Field(derived_from=pl.col("a") + pl.col("b"))
+        d: int = pt.Field(dtype=pl.UInt8)
+        e: int = pt.Field(unique=True)
+
+    schema = Model.model_json_schema()  # no serialization issues
+    props = schema[
+        "properties"
+    ]  # extra fields are stored in modified schema_properties
+    for col in ["b", "c", "d", "e"]:
+        assert "column_info" in props[col]
+    assert props["b"]["column_info"]["constraints"] is not None
+    assert props["c"]["column_info"]["derived_from"] is not None
+    assert props["d"]["column_info"]["dtype"] is not None
+    assert props["e"]["column_info"]["unique"] is not None
+    infos = Model.column_infos
+    assert infos["b"].constraints is not None
+    assert infos["c"].derived_from is not None
+    assert infos["d"].dtype is not None
+    assert infos["e"].unique is not None
+
+
+def test_nullable_columns():
+    class Test1(pt.Model):
+        foo: str | None = pt.Field(dtype=pl.Utf8)
+
+    assert Test1.nullable_columns == {"foo"}
+    assert set(Test1.valid_dtypes["foo"]) == {pl.Utf8}
+
+    class Test2(pt.Model):
+        foo: int | None = pt.Field(dtype=pl.UInt32)
+
+    assert Test2.nullable_columns == {"foo"}
+    assert set(Test2.valid_dtypes["foo"]) == {pl.UInt32}
+
+
+def test_conflicting_type_dtype():
+    with pytest.raises(ValueError, match="Invalid dtype Utf8") as e:
+
+        class Test1(pt.Model):
+            foo: int = pt.Field(dtype=pl.Utf8)
+
+    with pytest.raises(ValueError, match="Invalid dtype Float32") as e:
+
+        class Test2(pt.Model):
+            foo: str = pt.Field(dtype=pl.Float32)
+
+    with pytest.raises(ValueError, match="Invalid dtype UInt32") as e:
+
+        class Test3(pt.Model):
+            foo: str | None = pt.Field(dtype=pl.UInt32)
+
+
+def test_polars_python_type_harmonization():
+    class Test(pt.Model):
+        date: datetime = pt.Field(dtype=pl.Datetime(time_unit="us"))
+        # TODO add more other lesser-used type combinations here
+
+    assert Test.valid_dtypes["date"] == {pl.Datetime(time_unit="us")}

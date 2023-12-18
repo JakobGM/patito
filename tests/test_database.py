@@ -5,10 +5,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, List, Optional
 
+import patito as pt
 import polars as pl
 import pytest
-
-import patito as pt
 
 if TYPE_CHECKING:
     import pyarrow as pa  # type: ignore

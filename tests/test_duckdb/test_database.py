@@ -2,11 +2,10 @@
 import enum
 from typing import Optional
 
+import patito as pt
 import polars as pl
 import pytest
 from typing_extensions import Literal
-
-import patito as pt
 
 # Skip test module if DuckDB is not installed
 if not pt._DUCKDB_AVAILABLE:
@@ -117,7 +116,7 @@ def test_database_create_table():
         "BOOLEAN",
         "BOOLEAN",
         pt.duckdb._enum_type_name(  # pyright: ignore
-            field_properties=Model.schema()["properties"]["enum_column"]
+            field_properties=Model.model_json_schema()["properties"]["enum_column"]
         ),
     ]
 
