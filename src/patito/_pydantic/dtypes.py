@@ -1,4 +1,5 @@
 import itertools
+import json
 from enum import Enum
 from typing import (
     Any,
@@ -88,10 +89,55 @@ def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
         return convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype]
 
 
-def dtype_from_string(v: str):
-    """for deserialization"""
-    # TODO test all dtypes
-    return convert.dtype_short_repr_to_dtype(v)
+def dtype_to_json(dtype: pl.DataType) -> str:
+    """Serialize a polars dtype to a JSON string representation."""
+    return json.dumps(str(dtype))
+
+
+def json_to_dtype(json_dtype_str: str) -> pl.DataType:
+    """Deserialize a polars dtype from a JSON string representation."""
+    dtype = str_to_dtype(json.loads(json_dtype_str))
+    return dtype
+
+
+def str_to_dtype(dtype_str: str) -> pl.DataType:
+    """Return the corresponding polars dtype."""
+    from polars.datatypes.classes import (  # noqa F401
+        Array,
+        Binary,
+        Boolean,
+        Categorical,
+        Date,
+        Datetime,
+        Decimal,
+        Duration,
+        Enum,
+        Float32,
+        Float64,
+        Int8,
+        Int16,
+        Int32,
+        Int64,
+        List,
+        Null,
+        Object,
+        Struct,
+        Time,
+        UInt8,
+        UInt16,
+        UInt32,
+        UInt64,
+        Unknown,
+        Utf8,
+    )
+
+    from polars.datatypes import DataTypeClass
+
+    dtype = eval(dtype_str)
+    if isinstance(dtype, DataTypeClass):
+        # Float32() has string representation Float32, so we need to call it
+        dtype = dtype()
+    return dtype
 
 
 def validate_polars_dtype(
@@ -150,13 +196,13 @@ def validate_annotation(annotation: type[Any] | None, column: Optional[str] = No
 
 
 def valid_polars_dtypes_for_annotation(
-    annotation: type[Any] | None
+    annotation: type[Any] | None,
 ) -> FrozenSet[DataTypeClass | DataType]:
     """Returns a set of polars types that are valid for the given annotation. If the annotation is Any, returns all supported polars dtypes.
 
     Args:
         annotation (type[Any] | None): python type annotation
-    
+
     Returns:
         FrozenSet[DataTypeClass | DataType]: set of polars dtypes
     """
@@ -167,7 +213,7 @@ def valid_polars_dtypes_for_annotation(
 
 
 def default_polars_dtype_for_annotation(
-    annotation: type[Any] | None
+    annotation: type[Any] | None,
 ) -> DataTypeClass | DataType | None:
     """Returns the default polars dtype for the given annotation. If the annotation is Any, returns pl.Utf8. If no default dtype can be determined, returns None.
 
@@ -184,7 +230,7 @@ def default_polars_dtype_for_annotation(
 
 
 def _valid_polars_dtypes_for_schema(
-    schema: Dict
+    schema: Dict,
 ) -> FrozenSet[DataTypeClass | DataType]:
     valid_type_sets = []
     if "anyOf" in schema:
@@ -195,7 +241,9 @@ def _valid_polars_dtypes_for_schema(
             )
     else:
         valid_type_sets.append(set(_pydantic_subschema_to_valid_polars_types(schema)))
-    return set.intersection(*valid_type_sets) if valid_type_sets else frozenset()  # pyright: ignore
+    return (
+        set.intersection(*valid_type_sets) if valid_type_sets else frozenset()
+    )  # pyright: ignore
 
 
 def _default_polars_dtype_for_schema(schema: Dict) -> DataTypeClass | DataType | None:
@@ -242,7 +290,7 @@ def _pydantic_subschema_to_valid_polars_types(
 
 
 def _pydantic_subschema_to_default_dtype(
-    props: Dict
+    props: Dict,
 ) -> DataTypeClass | DataType | None:
     if "type" not in props:
         if "enum" in props:
@@ -317,7 +365,7 @@ def _pyd_type_to_default_dtype(
 
 
 def _pyd_string_format_to_valid_dtypes(
-    string_format: PydanticStringFormat | None
+    string_format: PydanticStringFormat | None,
 ) -> FrozenSet[DataTypeClass | DataType]:
     if string_format is None:
         return STRING_DTYPES
@@ -334,7 +382,7 @@ def _pyd_string_format_to_valid_dtypes(
 
 
 def _pyd_string_format_to_default_dtype(
-    string_format: PydanticStringFormat | None
+    string_format: PydanticStringFormat | None,
 ) -> DataTypeClass | DataType:
     if string_format is None:
         return pl.Utf8
