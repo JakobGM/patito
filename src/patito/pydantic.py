@@ -31,17 +31,22 @@ from pydantic import (  # noqa: F401
     ConfigDict,
     create_model,
     field_serializer,
+    field_validator,
     fields,
-    JsonDict,
 )
+
+# JsonDict,
 from pydantic._internal._model_construction import (
     ModelMetaclass as PydanticModelMetaclass,
 )
+from pydantic_core.core_schema import ValidationInfo
 
 from patito._pydantic.dtypes import (
     default_polars_dtype_for_annotation,
-    dtype_from_string,
+    dtype_to_json,
+    json_to_dtype,
     parse_composite_dtype,
+    str_to_dtype,
     valid_polars_dtypes_for_annotation,
     validate_annotation,
     validate_polars_dtype,
@@ -134,12 +139,16 @@ class ModelMetaclass(PydanticModelMetaclass):
 
         def get_column_info(field: fields.FieldInfo) -> ColumnInfo:
             if field.json_schema_extra is None:
-                return ColumnInfo()
+                return ColumnInfo(
+                    dtype=pl.Null()
+                )  # not sure if we should allow ColumnInfo without dtype
             elif callable(field.json_schema_extra):
                 raise NotImplementedError(
                     "Callable json_schema_extra not supported by patito."
                 )
-            return field.json_schema_extra["column_info"]  # pyright: ignore  # TODO JsonDict fix
+            return field.json_schema_extra[
+                "column_info"
+            ]  # pyright: ignore  # TODO JsonDict fix
 
         return {k: get_column_info(v) for k, v in fields.items()}
 
@@ -1426,7 +1435,7 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
         unique (bool): All row values must be unique.
     """
 
-    dtype: DataTypeClass | DataType | None = None
+    dtype: DataType
     constraints: pl.Expr | Sequence[pl.Expr] | None = None
     derived_from: str | pl.Expr | None = None
     unique: bool | None = None
@@ -1453,26 +1462,27 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
             raise ValueError(f"Invalid type for expr: {type(expr)}")
 
     @field_serializer("dtype")
-    def serialize_dtype(self, dtype: DataTypeClass | DataType | None) -> Any:
+    def serialize_dtype(self, dtype: DataType) -> Any:
         """
 
         References
         ----------
             [1] https://stackoverflow.com/questions/76572310/how-to-serialize-deserialize-polars-datatypes
         """
-        if dtype is None:
-            return None
-        elif isinstance(dtype, DataTypeClass) or isinstance(dtype, DataType):
-            return parse_composite_dtype(dtype)
-        else:
-            raise ValueError(f"Invalid type for dtype: {type(dtype)}")
+        return dtype_to_json(dtype)
+
+    @field_validator("dtype", mode="before")
+    @classmethod
+    def parse_json_dtype(cls, v: Any, info: ValidationInfo) -> pl.DataType:
+        if isinstance(v, str):
+            # info.field_name is the name of the field being validated
+            v = str_to_dtype(v)
+        return v
 
 
 def Field(
     *args,
-    dtype: DataTypeClass
-    | DataType
-    | None = None,  # TODO figure out how to make nice signature
+    dtype: DataType,  # TODO figure out how to make nice signature
     constraints: pl.Expr | Sequence[pl.Expr] | None = None,
     derived_from: str | pl.Expr | None = None,
     unique: bool | None = None,
