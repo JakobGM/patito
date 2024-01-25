@@ -5,6 +5,7 @@ from patito import exceptions, sql
 from patito.exceptions import ValidationError
 from patito.polars import DataFrame, LazyFrame
 from patito.pydantic import Field, Model
+from patito.decorators import validate_hints
 
 _CACHING_AVAILABLE = False
 _DUCKDB_AVAILABLE = False
@@ -23,6 +24,7 @@ __all__ = [
     "exceptions",
     "field",
     "sql",
+    "validate_hints"
 ]
 
 try:
