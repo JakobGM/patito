@@ -10,7 +10,6 @@ from patito._pydantic.dtypes import (
     DURATION_DTYPES,
     FLOAT_DTYPES,
     INTEGER_DTYPES,
-    PT_BASE_SUPPORTED_DTYPES,
     STRING_DTYPES,
     TIME_DTYPES,
     DataTypeGroup,

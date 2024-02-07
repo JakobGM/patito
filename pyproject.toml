@@ -136,4 +136,9 @@ module = ["tests.test_validators"]
 warn_unused_ignores = false
 
 [tool.ruff.lint]
-select = ["I"]
+select = ["E4", "E7", "E9", "F", "I"]
+ignore = []
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []

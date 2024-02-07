@@ -3,7 +3,7 @@
 import enum
 import re
 from datetime import date, datetime, timedelta
-from typing import List, Literal, Optional, Type
+from typing import Literal, Optional, Type
 
 import patito as pt
 import polars as pl

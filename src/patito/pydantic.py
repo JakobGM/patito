@@ -5,7 +5,6 @@ import itertools
 import json
 from collections.abc import Iterable
 from datetime import date, datetime
-from functools import cached_property
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -25,14 +24,12 @@ from typing import (
 )
 
 import polars as pl
-from polars.datatypes import DataType, DataTypeClass, PolarsDataType, convert
+from polars.datatypes import DataType, DataTypeClass
 from pydantic import (  # noqa: F401
     BaseModel,
-    ConfigDict,
     create_model,
     field_serializer,
     fields,
-    JsonDict,
 )
 from pydantic._internal._model_construction import (
     ModelMetaclass as PydanticModelMetaclass,
@@ -40,13 +37,11 @@ from pydantic._internal._model_construction import (
 
 from patito._pydantic.dtypes import (
     default_polars_dtype_for_annotation,
-    dtype_from_string,
     parse_composite_dtype,
     valid_polars_dtypes_for_annotation,
     validate_annotation,
     validate_polars_dtype,
 )
-from patito._pydantic.repr import display_as_type
 from patito.polars import DataFrame, LazyFrame
 from patito.validators import validate
 

@@ -1,16 +1,11 @@
-import itertools
 from enum import Enum
 from typing import (
     Any,
     Dict,
     FrozenSet,
     List,
-    Literal,
     Optional,
     Sequence,
-    Tuple,
-    cast,
-    get_args,
 )
 
 import polars as pl
@@ -70,8 +65,7 @@ class PydanticStringFormat(Enum):
 
 
 def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
-    """for serialization, converts polars dtype to string representation
-    """
+    """for serialization, converts polars dtype to string representation"""
     if dtype in pl.NESTED_DTYPES:
         if dtype == pl.Struct or isinstance(dtype, pl.Struct):
             raise NotImplementedError("Structs not yet supported by patito")
@@ -156,7 +150,7 @@ def valid_polars_dtypes_for_annotation(
 
     Args:
         annotation (type[Any] | None): python type annotation
-    
+
     Returns:
         FrozenSet[DataTypeClass | DataType]: set of polars dtypes
     """
