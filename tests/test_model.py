@@ -2,21 +2,26 @@
 # pyright: reportPrivateImportUsage=false
 import enum
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Literal, Optional, Type
 
 import patito as pt
 import polars as pl
 import pytest
-from patito._pydantic.dtypes import (
+from patito._pydantic.dtypes.utils import (
     DATE_DTYPES,
+    TIME_DTYPES,
+)
+from polars.datatypes import DataTypeGroup
+from polars.datatypes.constants import (
     DATETIME_DTYPES,
     DURATION_DTYPES,
     FLOAT_DTYPES,
     INTEGER_DTYPES,
-    DataTypeGroup,
 )
 from pydantic import ValidationError
+
+from tests.examples import CompleteModel
 
 
 def test_model_example():
@@ -179,29 +184,30 @@ def test_model_dataframe_class_creation():
 def test_mapping_to_polars_dtypes():
     """Model fields should be mappable to polars dtypes."""
 
-    class CompleteModel(pt.Model):
-        str_column: str
-        int_column: int
-        float_column: float
-        bool_column: bool
-
-        date_column: date
-        datetime_column: datetime
-        duration_column: timedelta
-
-        categorical_column: Literal["a", "b", "c"]
-        null_column: None
-
     assert CompleteModel.dtypes == {
-        "str_column": pl.Utf8,
-        "int_column": pl.Int64,
-        "float_column": pl.Float64,
-        "bool_column": pl.Boolean,
-        "date_column": pl.Date,
-        "datetime_column": pl.Datetime,
-        "duration_column": pl.Duration,
-        "categorical_column": pl.Categorical,
-        "null_column": pl.Null,
+        "str_column": pl.Utf8(),
+        "int_column": pl.Int64(),
+        "float_column": pl.Float64(),
+        "bool_column": pl.Boolean(),
+        "date_column": pl.Date(),
+        "datetime_column": pl.Datetime(),
+        "aware_datetime_column": pl.Datetime(time_zone="UTC"),
+        "duration_column": pl.Duration(),
+        "time_column": pl.Time(),
+        "categorical_column": pl.Enum(["a", "b", "c"]),
+        "null_column": pl.Null(),
+        "pt_model_column": pl.Struct(
+            [
+                pl.Field("a", pl.Int64),
+                pl.Field("b", pl.Utf8),
+                pl.Field("c", pl.Datetime(time_zone="UTC")),
+                pl.Field("d", pl.Datetime(time_zone="UTC")),
+                pl.Field("e", pl.Int8),
+            ]
+        ),
+        "list_int_column": pl.List(pl.Int64),
+        "list_str_column": pl.List(pl.Utf8),
+        "list_opt_column": pl.List(pl.Int64),
     }
 
     assert CompleteModel.valid_dtypes == {
@@ -211,10 +217,35 @@ def test_mapping_to_polars_dtypes():
         "bool_column": {pl.Boolean},
         "date_column": DATE_DTYPES,
         "datetime_column": DATETIME_DTYPES,
+        "aware_datetime_column": {pl.Datetime(time_zone="UTC")},
         "duration_column": DURATION_DTYPES,
-        "categorical_column": {pl.Categorical, pl.Utf8},
+        "time_column": TIME_DTYPES,
+        "categorical_column": {pl.Enum(["a", "b", "c"]), pl.Utf8},
         "null_column": {pl.Null},
+        "pt_model_column": DataTypeGroup(
+            [
+                pl.Struct(
+                    [
+                        pl.Field("a", pl.Int64),
+                        pl.Field("b", pl.Utf8),
+                        pl.Field("c", pl.Datetime(time_zone="UTC")),
+                        pl.Field("d", pl.Datetime(time_zone="UTC")),
+                        pl.Field("e", pl.Int8),
+                    ]
+                )
+            ]
+        ),
+        "list_int_column": DataTypeGroup(
+            [pl.List(x) for x in DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)]
+        ),
+        "list_str_column": DataTypeGroup([pl.List(pl.Utf8)]),
+        "list_opt_column": DataTypeGroup(
+            [pl.List(x) for x in DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)]
+        ),
     }
+
+    CompleteModel.example(int_column=2)
+    CompleteModel.validate(CompleteModel.examples({"int_column": [1, 2, 3]}))
 
 
 def test_model_joins():
@@ -355,7 +386,7 @@ def test_enum_annotated_field():
     class EnumModel(pt.Model):
         column: ABCEnum
 
-    assert EnumModel.dtypes["column"] == pl.Categorical
+    assert EnumModel.dtypes["column"] == pl.Enum(["a", "b", "c"])
     assert EnumModel.example_value(field="column") == "a"
     assert EnumModel.example() == EnumModel(column="a")
 
@@ -370,10 +401,7 @@ def test_enum_annotated_field():
         class InvalidEnumModel(pt.Model):
             column: MultiTypedEnum
 
-    if pt._DUCKDB_AVAILABLE:  # pragma: no cover
-        assert EnumModel.sql_types["column"].startswith("enum__")
-        with pytest.raises(TypeError, match=r".*Encountered types: \['int', 'str'\]\."):
-            InvalidEnumModel.sql_types  # pyright: ignore
+        InvalidEnumModel.validate_schema()
 
 
 def test_column_infos():
@@ -416,20 +444,26 @@ def test_nullable_columns():
 
 
 def test_conflicting_type_dtype():
-    with pytest.raises(ValueError, match="Invalid dtype Utf8") as e:
+    with pytest.raises(ValueError, match="Invalid dtype String") as e:
 
         class Test1(pt.Model):
             foo: int = pt.Field(dtype=pl.Utf8)
+
+        Test1.validate_schema()
 
     with pytest.raises(ValueError, match="Invalid dtype Float32") as e:
 
         class Test2(pt.Model):
             foo: str = pt.Field(dtype=pl.Float32)
 
+        Test2.validate_schema()
+
     with pytest.raises(ValueError, match="Invalid dtype UInt32") as e:
 
         class Test3(pt.Model):
             foo: str | None = pt.Field(dtype=pl.UInt32)
+
+        Test3.validate_schema()
 
 
 def test_polars_python_type_harmonization():

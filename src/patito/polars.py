@@ -12,6 +12,10 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    Dict,
+    Sequence,
+    Mapping,
+    Tuple
 )
 
 import polars as pl
@@ -20,6 +24,7 @@ from pydantic import create_model
 from typing_extensions import Literal
 
 from patito.exceptions import MultipleRowsReturned, RowDoesNotExist
+from patito._pydantic.column_info import ColumnInfo
 
 if TYPE_CHECKING:
     import numpy as np
@@ -60,7 +65,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
             return cls
 
         new_class = type(
-            f"{model.model_json_schema()['title']}LazyFrame",
+            f"{model.__name__}LazyFrame",
             (cls,),
             {"model": model},
         )
@@ -83,6 +88,79 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         else:
             cls = DataFrame
         return cls._from_pydf(df._df)
+
+    def derive(self: LDF, columns: list[str] | None = None) -> LDF:
+        derived_columns = []
+        props = self.model._schema_properties()
+        original_columns = set(self.columns)
+        to_derive = self.model.derived_columns if columns is None else columns
+        for column_name in to_derive:
+            if column_name not in derived_columns:
+                self, _derived_columns = self._derive_column(
+                    self, column_name, self.model.column_infos
+                )
+                derived_columns.extend(_derived_columns)
+        out_cols = [
+            x for x in props if x in original_columns.union(to_derive)
+        ]  # ensure that model columns are first and in the correct order
+        out_cols += [
+            x for x in original_columns.union(to_derive) if x not in out_cols
+        ]  # collect columns originally in data frame that are not in the model and append to end of df
+        return self.select(out_cols)
+
+    def _derive_column(
+        self,
+        df: LDF,
+        column_name: str,
+        column_infos: Dict[str, ColumnInfo],
+    ) -> Tuple[LDF, Sequence[str]]:
+        if (
+            column_infos.get(column_name, None) is None
+            or column_infos[column_name].derived_from is None
+        ):
+            return df, []
+        derived_from = column_infos[column_name].derived_from
+        dtype = self.model.dtypes[column_name]
+        derived_columns = []
+        if isinstance(derived_from, str):
+            df = df.with_columns(pl.col(derived_from).cast(dtype).alias(column_name))
+        elif isinstance(derived_from, pl.Expr):
+            root_cols = derived_from.meta.root_names()
+            while root_cols:
+                root_col = root_cols.pop()
+                df, _derived_columns = self._derive_column(df, root_col, column_infos)
+                derived_columns.extend(_derived_columns)
+            df = df.with_columns(derived_from.cast(dtype).alias(column_name))
+        else:
+            raise TypeError(
+                "Can not derive dataframe column from type " f"{type(derived_from)}."
+            )
+        derived_columns.append(column_name)
+        return df, derived_columns
+
+    def cast(
+        self: LDF, strict: bool = False, columns: Optional[Sequence[str]] = None
+    ) -> LDF:
+        properties = self.model._schema_properties()
+        valid_dtypes = self.model.valid_dtypes
+        default_dtypes = self.model.dtypes
+        columns = columns or self.columns
+        exprs = []
+        for column, current_dtype in zip(self.columns, self.dtypes):
+            if (column not in columns) or (column not in properties):
+                exprs.append(pl.col(column))
+            elif "dtype" in properties[column]:
+                exprs.append(pl.col(column).cast(properties[column]["dtype"]))
+            elif not strict and current_dtype in valid_dtypes[column]:
+                exprs.append(pl.col(column))
+            else:
+                exprs.append(pl.col(column).cast(default_dtypes[column]))
+        return self.with_columns(exprs)
+
+    @classmethod
+    def from_existing(cls: Type[LDF], lf: pl.LazyFrame) -> LDF:
+        """Constructs a patito.DataFrame object from an existing polars.DataFrame object"""
+        return cls.model.LazyFrame._from_pyldf(lf._ldf).cast()
 
 
 class DataFrame(pl.DataFrame, Generic[ModelType]):
@@ -220,7 +298,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             cls._from_pydf(self._df),
         )
 
-    def cast(self: DF, strict: bool = False) -> DF:
+    def cast(self: DF, strict: bool = False, columns: Optional[Sequence[str]] = None) -> DF:
         """
         Cast columns to `dtypes` specified by the associated Patito model.
 
@@ -257,20 +335,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             │ apple ┆ 8          │
             └───────┴────────────┘
         """
-        properties = self.model._schema_properties()
-        valid_dtypes = self.model.valid_dtypes
-        default_dtypes = self.model.dtypes
-        columns = []
-        for column, current_dtype in zip(self.columns, self.dtypes):
-            if column not in properties:
-                columns.append(pl.col(column))
-            elif "dtype" in properties[column]:
-                columns.append(pl.col(column).cast(properties[column]["dtype"]))
-            elif not strict and current_dtype in valid_dtypes[column]:
-                columns.append(pl.col(column))
-            else:
-                columns.append(pl.col(column).cast(default_dtypes[column]))
-        return self.with_columns(columns)
+        return self.lazy().cast(strict=strict, columns=columns).collect()
 
     def drop(
         self: DF,
@@ -370,7 +435,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         self.model.validate(dataframe=self)
         return self
 
-    def derive(self: DF) -> DF:
+    def derive(self: DF, columns: list[str] | None = None) -> DF:
         """
         Populate columns which have ``pt.Field(derived_from=...)`` definitions.
 
@@ -405,23 +470,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             │ 2   ┆ 2   ┆ 4          │
             └─────┴─────┴────────────┘
         """
-        df = self.lazy()
-        for column_name, info in self.model.column_infos.items():
-            if info.derived_from is not None:
-                derived_from = info.derived_from
-                dtype = self.model.dtypes[column_name]
-                if isinstance(derived_from, str):
-                    df = df.with_columns(
-                        pl.col(derived_from).cast(dtype).alias(column_name)
-                    )
-                elif isinstance(derived_from, pl.Expr):
-                    df = df.with_columns(derived_from.cast(dtype).alias(column_name))
-                else:
-                    raise TypeError(
-                        "Can not derive dataframe column from type "
-                        f"{type(derived_from)}."
-                    )
-        return cast(DF, df.collect())
+        return cast(DF, self.lazy().derive(columns=columns).collect())
 
     def fill_null(
         self: DF,

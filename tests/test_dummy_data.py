@@ -96,7 +96,7 @@ def test_generation_of_unique_data():
         assert example_df[column].is_duplicated().sum() == 0
 
 
-def test_enum_field_example_values():
+def test_enum_field_example_values() -> None:
     """It should produce correct example values for enums."""
 
     class DefaultEnumModel(pt.Model):
@@ -111,16 +111,22 @@ def test_enum_field_example_values():
 
     # Workaround for pola-rs/polars#4253
     example_df = DefaultEnumModel.examples({"row_number": [1]}).with_columns(
-        pl.col("none_default_optional_enum_field").cast(pl.Categorical)
+        pl.col("none_default_optional_enum_field").cast(pl.Enum(["a", "b", "c"]))
     )
 
     correct_example_df = pl.DataFrame(
         [
             pl.Series("row_number", [1], dtype=pl.Int64),
-            pl.Series("enum_field", ["a"], dtype=pl.Categorical),
-            pl.Series("default_enum_field", ["b"], dtype=pl.Categorical),
-            pl.Series("default_optional_enum_field", ["c"], dtype=pl.Categorical),
-            pl.Series("none_default_optional_enum_field", [None], dtype=pl.Categorical),
+            pl.Series("enum_field", ["a"], dtype=pl.Enum(["a", "b", "c"])),
+            pl.Series("default_enum_field", ["b"], dtype=pl.Enum(["a", "b", "c"])),
+            pl.Series(
+                "default_optional_enum_field", ["c"], dtype=pl.Enum(["a", "b", "c"])
+            ),
+            pl.Series(
+                "none_default_optional_enum_field",
+                [None],
+                dtype=pl.Enum(["a", "b", "c"]),
+            ),
         ]
     )
 

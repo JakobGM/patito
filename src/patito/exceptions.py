@@ -173,7 +173,7 @@ class MissingColumnsError(WrongColumnsError):
     """Exception for when a dataframe is missing one or more columns."""
 
 
-class SuperflousColumnsError(WrongColumnsError):
+class SuperfluousColumnsError(WrongColumnsError):
     """Exception for when a dataframe has one ore more non-specified columns."""
 
 

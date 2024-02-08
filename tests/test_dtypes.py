@@ -1,91 +1,115 @@
+from __future__ import annotations
+
+import sys
 from datetime import date, datetime, time, timedelta
-from typing import Dict, List, Literal, Sequence, Tuple
+from typing import Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import polars as pl
 import pytest
-from patito._pydantic.dtypes import (
+from patito._pydantic.dtypes.dtypes import (
+    DtypeResolver,
+    validate_annotation,
+    validate_polars_dtype,
+)
+from patito._pydantic.dtypes.utils import (
     BOOLEAN_DTYPES,
     DATE_DTYPES,
+    STRING_DTYPES,
+    TIME_DTYPES,
+)
+from polars.datatypes import DataTypeGroup
+from polars.datatypes.constants import (
     DATETIME_DTYPES,
     DURATION_DTYPES,
     FLOAT_DTYPES,
     INTEGER_DTYPES,
-    STRING_DTYPES,
-    TIME_DTYPES,
-    DataTypeGroup,
-    default_polars_dtype_for_annotation,
-    valid_polars_dtypes_for_annotation,
-    validate_annotation,
-    validate_polars_dtype,
 )
+from pydantic import AwareDatetime
+
+from tests.examples import ManyTypes
 
 
-def test_valids_basic_annotations():
+def test_valids_basic_annotations() -> None:
     # base types
-    assert valid_polars_dtypes_for_annotation(str) == STRING_DTYPES
-    assert valid_polars_dtypes_for_annotation(int) == DataTypeGroup(
+    assert DtypeResolver(str).valid_polars_dtypes() == STRING_DTYPES
+    assert DtypeResolver(int).valid_polars_dtypes() == DataTypeGroup(
         INTEGER_DTYPES | FLOAT_DTYPES
     )
-    assert valid_polars_dtypes_for_annotation(float) == FLOAT_DTYPES
-    assert valid_polars_dtypes_for_annotation(bool) == BOOLEAN_DTYPES
+    assert DtypeResolver(float).valid_polars_dtypes() == FLOAT_DTYPES
+    assert DtypeResolver(bool).valid_polars_dtypes() == BOOLEAN_DTYPES
 
     # temporals
-    assert valid_polars_dtypes_for_annotation(datetime) == DATETIME_DTYPES
-    assert valid_polars_dtypes_for_annotation(date) == DATE_DTYPES
-    assert valid_polars_dtypes_for_annotation(time) == TIME_DTYPES
-    assert valid_polars_dtypes_for_annotation(timedelta) == DURATION_DTYPES
+    assert DtypeResolver(datetime).valid_polars_dtypes() == DATETIME_DTYPES
+    assert DtypeResolver(date).valid_polars_dtypes() == DATE_DTYPES
+    assert DtypeResolver(time).valid_polars_dtypes() == TIME_DTYPES
+    assert DtypeResolver(timedelta).valid_polars_dtypes() == DURATION_DTYPES
 
     # other
     with pytest.raises(TypeError, match="must be strings"):
-        valid_polars_dtypes_for_annotation(Literal[1, 2, 3])  # pyright: ignore
+        DtypeResolver(Literal[1, 2, 3]).valid_polars_dtypes()  # pyright: ignore
     with pytest.raises(TypeError, match="Mixed type enums not supported"):
-        valid_polars_dtypes_for_annotation(Literal[1, 2, "3"])  # pyright: ignore
+        DtypeResolver(Literal[1, 2, "3"]).valid_polars_dtypes()  # pyright: ignore
 
-    assert valid_polars_dtypes_for_annotation(Literal["a", "b", "c"]) == {  # pyright: ignore
-        pl.Categorical,
+    assert DtypeResolver(Literal["a", "b", "c"]).valid_polars_dtypes() == {  # pyright: ignore
+        pl.Enum(["a", "b", "c"]),
         pl.Utf8,
     }
 
     # combos
-    assert valid_polars_dtypes_for_annotation(str | None) == STRING_DTYPES
-    assert valid_polars_dtypes_for_annotation(int | float) == FLOAT_DTYPES
+    assert DtypeResolver(Optional[str]).valid_polars_dtypes() == STRING_DTYPES
+    if sys.version_info[1] >= 10:
+        assert (
+            DtypeResolver(str | None | None).valid_polars_dtypes() == STRING_DTYPES
+        )  # superfluous None is ok
+    assert DtypeResolver(Union[int, float]).valid_polars_dtypes() == FLOAT_DTYPES
     assert (
-        valid_polars_dtypes_for_annotation(str | int) == frozenset()
-    )  # incompatible, TODO raise patito error with strict validation on
+        DtypeResolver(Union[str, int]).valid_polars_dtypes() == frozenset()
+    )  # incompatible
 
     # invalids
-    assert valid_polars_dtypes_for_annotation(object) == frozenset()
+    assert DtypeResolver(object).valid_polars_dtypes() == frozenset()
 
 
-def test_valids_nested_annotations():
-    assert len(valid_polars_dtypes_for_annotation(List)) == 0  # needs inner annotation
+def test_valids_nested_annotations() -> None:
+    assert len(DtypeResolver(List).valid_polars_dtypes()) == 0  # needs inner annotation
     assert (
-        valid_polars_dtypes_for_annotation(Tuple)
-        == valid_polars_dtypes_for_annotation(List)
-        == valid_polars_dtypes_for_annotation(Sequence)
+        DtypeResolver(Tuple).valid_polars_dtypes()
+        == DtypeResolver(List).valid_polars_dtypes()
+        == DtypeResolver(Sequence).valid_polars_dtypes()
     )  # for now, these are the same
 
-    assert valid_polars_dtypes_for_annotation(List[str]) == {pl.List(pl.Utf8)}
-    assert valid_polars_dtypes_for_annotation(List[str] | None) == {pl.List(pl.Utf8)}
-    assert len(valid_polars_dtypes_for_annotation(List[int])) == len(
+    assert DtypeResolver(List[str]).valid_polars_dtypes() == {pl.List(pl.Utf8)}
+    assert DtypeResolver(Optional[List[str]]).valid_polars_dtypes() == {
+        pl.List(pl.Utf8)
+    }
+    assert len(DtypeResolver(List[int]).valid_polars_dtypes()) == len(
         DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)
     )
-    assert len(valid_polars_dtypes_for_annotation(List[int | float])) == len(
+    assert len(DtypeResolver(List[Union[int, float]]).valid_polars_dtypes()) == len(
         FLOAT_DTYPES
     )
-    assert len(valid_polars_dtypes_for_annotation(List[int | None])) == len(
+    assert len(DtypeResolver(List[Optional[int]]).valid_polars_dtypes()) == len(
         DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)
     )
-    assert valid_polars_dtypes_for_annotation(List[List[str]]) == {
+    assert DtypeResolver(List[List[str]]).valid_polars_dtypes() == {
         pl.List(pl.List(pl.Utf8))
     }  # recursion works as expected
 
     assert (
-        valid_polars_dtypes_for_annotation(Dict) == frozenset()
+        DtypeResolver(Dict).valid_polars_dtypes() == frozenset()
     )  # not currently supported
 
+    # support for nested models via struct
+    assert (
+        len(DtypeResolver(ManyTypes).valid_polars_dtypes()) == 1
+    )  # only defaults are valid
+    assert (
+        DtypeResolver(ManyTypes).valid_polars_dtypes()
+        == DtypeResolver(Optional[ManyTypes]).valid_polars_dtypes()
+    )
 
-def test_dtype_validation():
+
+def test_dtype_validation() -> None:
     validate_polars_dtype(int, pl.Int16)  # no issue
     validate_polars_dtype(int, pl.Float64)  # no issue
     with pytest.raises(ValueError, match="Invalid dtype"):
@@ -94,61 +118,78 @@ def test_dtype_validation():
     with pytest.raises(ValueError, match="Invalid dtype"):
         validate_polars_dtype(List[str], pl.List(pl.Float64))
 
+    # some potential corner cases
+    validate_polars_dtype(AwareDatetime, dtype=pl.Datetime(time_zone="UTC"))
 
-def test_defaults_basic_annotations():
+
+def test_defaults_basic_annotations() -> None:
     # base types
-    assert default_polars_dtype_for_annotation(str) == pl.Utf8
-    assert default_polars_dtype_for_annotation(int) == pl.Int64
-    assert default_polars_dtype_for_annotation(float) == pl.Float64
-    assert default_polars_dtype_for_annotation(bool) == pl.Boolean
+    assert DtypeResolver(str).default_polars_dtype() == pl.Utf8
+    assert DtypeResolver(int).default_polars_dtype() == pl.Int64
+    assert DtypeResolver(float).default_polars_dtype() == pl.Float64
+    assert DtypeResolver(bool).default_polars_dtype() == pl.Boolean
 
     # temporals
-    assert default_polars_dtype_for_annotation(datetime) == pl.Datetime
-    assert default_polars_dtype_for_annotation(date) == pl.Date
-    assert default_polars_dtype_for_annotation(time) == pl.Time
-    assert default_polars_dtype_for_annotation(timedelta) == pl.Duration
+    assert DtypeResolver(datetime).default_polars_dtype() == pl.Datetime
+    assert DtypeResolver(date).default_polars_dtype() == pl.Date
+    assert DtypeResolver(time).default_polars_dtype() == pl.Time
+    assert DtypeResolver(timedelta).default_polars_dtype() == pl.Duration
 
     # combos
-    assert default_polars_dtype_for_annotation(str | None) == pl.Utf8
-    assert default_polars_dtype_for_annotation(int | float) == None
-    assert default_polars_dtype_for_annotation(str | int) == None
+    assert DtypeResolver(Optional[str]).default_polars_dtype() == pl.Utf8
+    assert DtypeResolver(Union[int, float]).default_polars_dtype() is None
+    assert DtypeResolver(Union[str, int]).default_polars_dtype() is None
+
+    # other
+    literal = DtypeResolver(Literal["a", "b", "c"]).default_polars_dtype()
+    assert literal == pl.Enum(["a", "b", "c"])
+    assert set(literal.categories) == {"a", "b", "c"}
 
     # invalids
-    assert default_polars_dtype_for_annotation(object) == None
+    assert DtypeResolver(object).default_polars_dtype() is None
 
 
-def test_defaults_nested_annotations():
-    assert default_polars_dtype_for_annotation(List) == None  # needs inner annotation
+def test_defaults_nested_annotations() -> None:
+    assert DtypeResolver(List).default_polars_dtype() is None  # needs inner annotation
 
-    assert default_polars_dtype_for_annotation(List[str]) == pl.List(pl.Utf8)
-    assert default_polars_dtype_for_annotation(List[str] | None) == pl.List(pl.Utf8)
-    assert default_polars_dtype_for_annotation(List[int]) == pl.List(pl.Int64)
-    assert default_polars_dtype_for_annotation(List[int | None]) == pl.List(pl.Int64)
-    assert default_polars_dtype_for_annotation(List[int | float]) == None
-    assert default_polars_dtype_for_annotation(List[str | int]) == None
-    assert default_polars_dtype_for_annotation(List[List[str]]) == pl.List(
+    assert DtypeResolver(List[str]).default_polars_dtype() == pl.List(pl.Utf8)
+    assert DtypeResolver(Optional[List[str]]).default_polars_dtype() == pl.List(pl.Utf8)
+    assert DtypeResolver(List[int]).default_polars_dtype() == pl.List(pl.Int64)
+    assert DtypeResolver(List[Optional[int]]).default_polars_dtype() == pl.List(
+        pl.Int64
+    )
+    assert DtypeResolver(List[Union[int, float]]).default_polars_dtype() is None
+    assert DtypeResolver(List[Union[str, int]]).default_polars_dtype() is None
+    assert DtypeResolver(List[List[str]]).default_polars_dtype() == pl.List(
         pl.List(pl.Utf8)
     )  # recursion works as expected
-    assert default_polars_dtype_for_annotation(List[List[str | None]]) == pl.List(
+    assert DtypeResolver(List[List[Optional[str]]]).default_polars_dtype() == pl.List(
         pl.List(pl.Utf8)
     )
 
     with pytest.raises(
-        ValueError, match="pydantic object types not currently supported"
+        NotImplementedError, match="dictionaries not currently supported"
     ):
-        default_polars_dtype_for_annotation(Dict)
+        DtypeResolver(Dict).default_polars_dtype()
+
+    # support for nested models via struct
+    many_types = DtypeResolver(ManyTypes).default_polars_dtype()
+    assert many_types == pl.Struct
+    assert len(many_types.fields) == len(ManyTypes.columns)
+    assert DtypeResolver(Optional[ManyTypes]).default_polars_dtype() == many_types
 
 
-def test_annotation_validation():
+def test_annotation_validation() -> None:
     validate_annotation(int)  # no issue
-    validate_annotation(int | None)
-    with pytest.raises(ValueError, match="Valid dtypes are:"):
-        validate_annotation(int | float)
-    with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
-        validate_annotation(str | int)
+    validate_annotation(Optional[int])
 
-    validate_annotation(List[int | None])
-    with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
-        validate_annotation(List[str | int])
     with pytest.raises(ValueError, match="Valid dtypes are:"):
-        validate_annotation(List[int | float])
+        validate_annotation(Union[int, float])
+    with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
+        validate_annotation(Union[str, int])
+
+    validate_annotation(List[Optional[int]])
+    with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
+        validate_annotation(List[Union[str, int]])
+    with pytest.raises(ValueError, match="Valid dtypes are:"):
+        validate_annotation(List[Union[int, float]])

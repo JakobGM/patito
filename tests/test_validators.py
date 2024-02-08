@@ -73,7 +73,7 @@ def test_missing_column_validation():
     ]
 
 
-def test_superflous_column_validation():
+def test_superfluous_column_validation():
     """Validation should catch superflous columns."""
 
     class SingleColumnModel(pt.Model):
@@ -95,8 +95,8 @@ def test_superflous_column_validation():
     assert len(e_info.value.errors()) == 1
     assert errors[0] == {
         "loc": ("column_2",),
-        "msg": "Superflous column",
-        "type": "type_error.superflouscolumns",
+        "msg": "Superfluous column",
+        "type": "type_error.superfluouscolumns",
     }
 
 
@@ -206,11 +206,15 @@ def test_validate_dtype_checks():
         class NonCompatibleModel(pt.Model):  # TODO catch value error
             my_field: object
 
+        NonCompatibleModel.validate_schema()
+
     # The same goes for list-annotated fields
     with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
 
         class NonCompatibleListModel(pt.Model):
             my_field: List[object]
+
+        NonCompatibleListModel.validate_schema()
 
     # It should also work with pandas data frames
     class PandasCompatibleModel(CompleteModel):

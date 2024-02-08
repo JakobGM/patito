@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Type, Union, cast
+from typing import TYPE_CHECKING, Optional, Sequence, Type, Union, cast
 
 import polars as pl
 from typing_extensions import get_args, get_origin
@@ -14,7 +14,7 @@ from patito.exceptions import (
     MissingColumnsError,
     MissingValuesError,
     RowValueError,
-    SuperflousColumnsError,
+    SuperfluousColumnsError,
 )
 
 if sys.version_info >= (3, 10):  # pragma: no cover
@@ -94,6 +94,9 @@ def _dewrap_optional(type_annotation: Type) -> Type:
 def _find_errors(  # noqa: C901
     dataframe: pl.DataFrame,
     schema: Type[Model],
+    columns: Optional[Sequence[str]] = None,
+    allow_missing_columns: bool = False,
+    allow_superfluous_columns: bool = False,
 ) -> list[ErrorWrapper]:
     """
     Validate the given dataframe.
@@ -101,39 +104,49 @@ def _find_errors(  # noqa: C901
     Args:
         dataframe: Polars DataFrame to be validated.
         schema: Patito model which specifies how the dataframe should be structured.
+        columns: If specified, only validate the given columns. Missing columns will
+            check if any specified columns are missing from the inputted dataframe,
+            and superfluous columns will check if any columns not specified in the
+            schema are present in the columns list.
+        allow_missing_columns: If True, missing columns will not be considered an error.
+        allow_superfluous_columns: If True, additional columns will not be considered an error.
 
     Returns:
         A list of patito.exception.ErrorWrapper instances. The specific validation
         error can be retrieved from the "exc" attribute on each error wrapper instance.
 
         MissingColumnsError: If there are any missing columns.
-        SuperflousColumnsError: If there are additional, non-specified columns.
+        SuperfluousColumnsError: If there are additional, non-specified columns.
         MissingValuesError: If there are nulls in a non-optional column.
         ColumnDTypeError: If any column has the wrong dtype.
         NotImplementedError: If validation has not been implement for the given
             type.
     """
     errors: list[ErrorWrapper] = []
-    # Check if any columns are missing
-    for missing_column in set(schema.columns) - set(dataframe.columns):
-        errors.append(
-            ErrorWrapper(
-                MissingColumnsError("Missing column"),
-                loc=missing_column,
+    schema_subset = columns or schema.columns
+    column_subset = columns or dataframe.columns
+    if not allow_missing_columns:
+        # Check if any columns are missing
+        for missing_column in set(schema_subset) - set(dataframe.columns):
+            errors.append(
+                ErrorWrapper(
+                    MissingColumnsError("Missing column"),
+                    loc=missing_column,
+                )
             )
-        )
 
-    # Check if any additional columns are included
-    for superflous_column in set(dataframe.columns) - set(schema.columns):
-        errors.append(
-            ErrorWrapper(
-                SuperflousColumnsError("Superflous column"),
-                loc=superflous_column,
+    if not allow_superfluous_columns:
+        # Check if any additional columns are included
+        for superfluous_column in set(column_subset) - set(schema.columns):
+            errors.append(
+                ErrorWrapper(
+                    SuperfluousColumnsError("Superfluous column"),
+                    loc=superfluous_column,
+                )
             )
-        )
 
     # Check if any non-optional columns have null values
-    for column in schema.non_nullable_columns.intersection(dataframe.columns):
+    for column in schema.non_nullable_columns.intersection(column_subset):
         num_missing_values = dataframe.get_column(name=column).null_count()
         if num_missing_values:
             errors.append(
@@ -147,10 +160,12 @@ def _find_errors(  # noqa: C901
             )
 
     for column, dtype in schema.dtypes.items():
+        if column not in column_subset:
+            continue
         if not isinstance(dtype, pl.List):
-            continue  # TODO add validation here
+            continue
 
-        annotation = schema.model_fields[column].annotation
+        annotation = schema.model_fields[column].annotation  # type: ignore[unreachable]
 
         # Retrieve the annotation of the list itself,
         # dewrapping any potential Optional[...]
@@ -190,13 +205,11 @@ def _find_errors(  # noqa: C901
     dataframe_datatypes = dict(zip(dataframe.columns, dataframe.dtypes))
     for column_name, column_properties in schema._schema_properties().items():
         column_info = schema.column_infos[column_name]
-        if column_name not in dataframe.columns:
+        if column_name not in dataframe.columns or column_name not in column_subset:
             continue
 
         polars_type = dataframe_datatypes[column_name]
-        if (
-            polars_type not in valid_dtypes[column_name]
-        ):  # TODO allow for `strict` validation
+        if polars_type not in valid_dtypes[column_name]:
             errors.append(
                 ErrorWrapper(
                     ColumnDTypeError(
@@ -311,7 +324,11 @@ def _find_errors(  # noqa: C901
 
 
 def validate(
-    dataframe: Union["pd.DataFrame", pl.DataFrame], schema: Type[Model]
+    dataframe: Union["pd.DataFrame", pl.DataFrame],
+    schema: Type[Model],
+    columns: Optional[Sequence[str]] = None,
+    allow_missing_columns: bool = False,
+    allow_superfluous_columns: bool = False,
 ) -> None:
     """
     Validate the given dataframe.
@@ -319,6 +336,8 @@ def validate(
     Args:
         dataframe: Polars DataFrame to be validated.
         schema: Patito model which specifies how the dataframe should be structured.
+        allow_missing_columns: If True, missing columns will not be considered an error.
+        allow_superfluous_columns: If True, additional columns will not be considered an error.
 
     Raises:
         ValidationError: If the given dataframe does not match the given schema.
@@ -328,6 +347,12 @@ def validate(
     else:
         polars_dataframe = cast(pl.DataFrame, dataframe)
 
-    errors = _find_errors(dataframe=polars_dataframe, schema=schema)
+    errors = _find_errors(
+        dataframe=polars_dataframe,
+        schema=schema,
+        columns=columns,
+        allow_missing_columns=allow_missing_columns,
+        allow_superfluous_columns=allow_superfluous_columns,
+    )
     if errors:
         raise DataFrameValidationError(errors=errors, model=schema)

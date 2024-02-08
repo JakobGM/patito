@@ -10,6 +10,7 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    Type,
     Union,
     get_args,
     get_origin,
@@ -37,7 +38,7 @@ else:
 
 if sys.version_info < (3, 10):
 
-    def origin_is_union(tp: type[Any] | None) -> bool:
+    def origin_is_union(tp: Optional[Type[Any]]) -> bool:
         return tp is typing.Union
 
     WithArgsTypes = (TypingGenericAlias,)
