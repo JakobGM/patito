@@ -1,14 +1,17 @@
 """Tests related to polars functionality."""
 import re
 from datetime import date, datetime
+from typing import Optional
 
 import patito as pt
 import polars as pl
 import pytest
-from pydantic import ValidationError
+from pydantic import AliasChoices, AliasPath, ValidationError
+
+from tests.examples import SmallModel
 
 
-def test_dataframe_get_method():
+def test_dataframe_get_method() -> None:
     """You should be able to retrieve a single row and cast to model."""
 
     class Product(pt.Model):
@@ -45,7 +48,7 @@ def test_dataframe_get_method():
     df.filter(pl.col("product_id") == 1).get()
 
 
-def test_dataframe_set_model_method():
+def test_dataframe_set_model_method() -> None:
     """You should be able to set the associated model of a dataframe."""
 
     class MyModel(pt.Model):
@@ -56,7 +59,7 @@ def test_dataframe_set_model_method():
     assert MyModel.DataFrame.model is MyModel
 
 
-def test_fill_nan_with_defaults():
+def test_fill_nan_with_defaults() -> None:
     """You should be able to fill missing values with declared defaults."""
 
     class DefaultModel(pt.Model):
@@ -69,7 +72,45 @@ def test_fill_nan_with_defaults():
     assert filled_df.equals(correct_filled_df)
 
 
-def test_preservation_of_model():
+def test_create_missing_columns_with_defaults() -> None:
+    """columns that have default values should be created if they are missing."""
+
+    class NestedModel(pt.Model):
+        foo: int = 2
+        small_model: Optional[SmallModel] = None
+
+    class DefaultModel(pt.Model):
+        foo: int = 2
+        bar: Optional[str] = "default"
+        small_model: Optional[SmallModel] = None  # works ok on polars==0.20.3
+        nested_model: Optional[NestedModel] = None  # fails to convert on polars==0.20.3
+
+    missing_df = pt.DataFrame({"foo": [1, 2]})
+    filled_df = missing_df.set_model(DefaultModel).fill_null(strategy="defaults")
+    correct_filled_df = pl.DataFrame(
+        {
+            "foo": [1, 2],
+            "bar": ["default", "default"],
+            "small_model": [None, None],
+            "nested_model": [None, None],
+        },
+        schema=DefaultModel.dtypes,
+    )
+    assert filled_df.equals(correct_filled_df)
+
+
+def test_create_missing_columns_with_dtype() -> None:
+    class DefaultModel(pt.Model):
+        foo: int
+        bar: Optional[int] = None
+
+    missing_df = pt.DataFrame({"foo": [1, 2]})
+    filled_df = missing_df.set_model(DefaultModel).fill_null(strategy="defaults")
+    assert "bar" in filled_df.columns
+    assert filled_df.dtypes[1] == pl.Int64
+
+
+def test_preservation_of_model() -> None:
     """The model should be preserved on data frames after method invocations."""
 
     class DummyModel(pt.Model):
@@ -106,11 +147,12 @@ def test_preservation_of_model():
     assert type(pt.DataFrame().lazy().collect()) is pt.DataFrame
 
 
-def test_dataframe_model_dtype_casting():
+def test_dataframe_model_dtype_casting() -> None:
     """You should be able to cast columns according to model type annotations."""
 
     class DTypeModel(pt.Model):
-        implicit_int_2: int
+        implicit_int: int
+        explicit_uint: int = pt.Field(dtype=pl.UInt64)
         implicit_date: date
         implicit_datetime: datetime
 
@@ -118,7 +160,7 @@ def test_dataframe_model_dtype_casting():
         [
             # UInt32 is compatible with the "int" annotation, and since no explicit
             # dtype is specified, it will not be casted to the default pl.Int64
-            pl.lit(1).cast(pl.UInt32).alias("implicit_int_2"),
+            pl.lit(1).cast(pl.UInt32).alias("implicit_int"),
             # The integer will be casted to datetime 1970-01-01 00:00:00
             pl.lit(0).cast(pl.Int64).alias("implicit_date"),
             # The integer will be casted to date 1970-01-01
@@ -140,6 +182,16 @@ def test_dataframe_model_dtype_casting():
         pl.Int64,
         pl.Date,
         pl.Datetime,
+        pl.Boolean,
+    ]
+
+    some_columns_df = original_df.cast(
+        strict=True, columns=["implicit_int", "implicit_date"]
+    )
+    assert some_columns_df.dtypes == [
+        pl.Int64,
+        pl.Date,
+        pl.Int64,  # not casted
         pl.Boolean,
     ]
 
@@ -188,7 +240,7 @@ def test_correct_columns_and_dtype_on_read(tmp_path):
     )
 
 
-def test_derive_functionality():
+def test_derive_functionality() -> None:
     """Test of Field(derived_from=...) and DataFrame.derive()."""
 
     class DerivedModel(pt.Model):
@@ -197,6 +249,13 @@ def test_derive_functionality():
         column_derived: int = pt.Field(derived_from="underived")
         expr_derived: int = pt.Field(derived_from=2 * pl.col("underived"))
         second_order_derived: int = pt.Field(derived_from=2 * pl.col("expr_derived"))
+
+    assert DerivedModel.derived_columns == {
+        "const_derived",
+        "column_derived",
+        "expr_derived",
+        "second_order_derived",
+    }
 
     df = DerivedModel.DataFrame({"underived": [1, 2]})
     assert df.columns == ["underived"]
@@ -216,10 +275,100 @@ def test_derive_functionality():
     with pytest.raises(ValidationError):
 
         class InvalidModel(pt.Model):
-            incompatible: int = pt.Field(derived_from=object)  # pyright: ignore
+            incompatible: int = pt.Field(derived_from=object)
 
 
-def test_drop_method():
+def test_recursive_derive() -> None:
+    """Data.Frame.derive() infers proper derivation order and executes it, then returns columns in the order given by the model."""
+
+    class DerivedModel(pt.Model):
+        underived: int
+        const_derived: int = pt.Field(derived_from=pl.lit(3))
+        second_order_derived: int = pt.Field(
+            derived_from=2 * pl.col("expr_derived")
+        )  # requires expr_derived to be derived first
+        column_derived: int = pt.Field(derived_from="underived")
+        expr_derived: int = pt.Field(derived_from=2 * pl.col("underived"))
+
+    df = DerivedModel.DataFrame({"underived": [1, 2]})
+    assert df.columns == ["underived"]
+    derived_df = df.derive()
+
+    correct_derived_df = DerivedModel.DataFrame(
+        {
+            "underived": [1, 2],
+            "const_derived": [3, 3],
+            "second_order_derived": [4, 8],
+            "column_derived": [1, 2],
+            "expr_derived": [
+                2,
+                4,
+            ],  # derived before second_order_derived, but remains in last position in output df according to the model
+        }
+    )
+    assert derived_df.equals(correct_derived_df)
+
+
+def test_derive_subset() -> None:
+    class DerivedModel(pt.Model):
+        underived: int
+        derived: Optional[int] = pt.Field(default=None, derived_from="underived")
+        expr_derived: int = pt.Field(
+            derived_from=2 * pl.col("derived")
+        )  # depends on derived
+
+    df = DerivedModel.DataFrame({"underived": [1, 2]})
+    correct_derived_df = DerivedModel.DataFrame(
+        {
+            "underived": [1, 2],
+            "expr_derived": [2, 4],
+        }
+    )
+    assert df.derive(
+        columns=["expr_derived"]
+    ).equals(
+        correct_derived_df
+    )  # only include "expr_derived" in output, but ensure that "derived" was derived recursively
+
+
+def test_derive_on_defaults() -> None:
+    class DerivedModel(pt.Model):
+        underived: int
+        derived: Optional[int] = pt.Field(default=None, derived_from="underived")
+
+    df = DerivedModel.DataFrame([DerivedModel(underived=1), DerivedModel(underived=2)])
+    derived_df = df.derive()
+
+    correct_derived_df = DerivedModel.DataFrame(
+        {
+            "underived": [1, 2],
+            "derived": [1, 2],
+        }
+    )
+    assert derived_df.equals(correct_derived_df)
+
+
+def test_lazy_derive() -> None:
+    class DerivedModel(pt.Model):
+        underived: int
+        derived: Optional[int] = pt.Field(default=None, derived_from="underived")
+
+    ldf = DerivedModel.DataFrame({"underived": [1, 2]}).lazy()
+    assert ldf.columns == ["underived"]
+    derived_ldf = ldf.derive()
+    assert derived_ldf.columns == ["underived", "derived"]
+    df = derived_ldf.collect()
+
+    correct_derived_df = DerivedModel.DataFrame(
+        {
+            "underived": [1, 2],
+            "derived": [1, 2],
+        }
+    )
+    assert df.equals(correct_derived_df)
+
+
+def test_drop_method() -> None:
     """We should be able to drop columns not specified by the data frame model."""
 
     class Model(pt.Model):
@@ -239,3 +388,75 @@ def test_drop_method():
 
     # Or a list of columns
     assert df.drop(["column_1", "column_2"]).columns == []
+
+
+def test_polars_conversion():
+    """You should be able to convert a DataFrame to a polars DataFrame."""
+
+    class Model(pt.Model):
+        a: int
+        b: str
+
+    df = Model.DataFrame({"a": [1, 2], "b": ["foo", "bar"]})
+    polars_df = df.as_polars()
+    assert isinstance(polars_df, pl.DataFrame)
+    assert not isinstance(polars_df, pt.DataFrame)
+    assert polars_df.shape == (2, 2)
+    assert polars_df.columns == ["a", "b"]
+    assert polars_df.dtypes == [pl.Int64, pl.Utf8]
+
+
+def test_validation_alias() -> None:
+    class AliasModel(pt.Model):
+        my_val_a: int = pt.Field(validation_alias="myValA")
+        my_val_b: int = pt.Field(
+            validation_alias=AliasChoices("my_val_b", "myValB", "myValB2")
+        )
+        my_val_c: int
+        first_name: str = pt.Field(validation_alias=AliasPath("names", 0))
+        last_name: str = pt.Field(
+            validation_alias=AliasChoices("lastName", AliasPath("names", 1))
+        )
+
+    examples = [
+        {"myValA": 1, "myValB": 1, "my_val_c": 1, "names": ["fname1", "lname1"]},
+        {"myValA": 2, "myValB": 2, "my_val_c": 2, "names": ["fname2", "lname2"]},
+        {
+            "my_val_a": 3,
+            "myValB2": 3,
+            "my_val_c": 3,
+            "names": ["fname3"],
+            "last_name": "lname3",
+        },
+        {
+            "my_val_a": 4,
+            "my_val_b": 4,
+            "my_val_c": 4,
+            "first_name": "fname4",
+            "last_name": "lname4",
+        },
+    ]
+
+    # check record with all aliases
+    df = (
+        AliasModel.LazyFrame([examples[0]])
+        .unalias()
+        .cast(strict=True)
+        .collect()
+        .validate()
+    )
+    assert df.columns == AliasModel.columns
+
+    # check record with no aliases
+    df = (
+        AliasModel.LazyFrame([examples[3]])
+        .unalias()
+        .cast(strict=True)
+        .collect()
+        .validate()
+    )
+    assert df.columns == AliasModel.columns
+
+    # check records with mixed aliases
+    df = AliasModel.LazyFrame(examples).unalias().cast(strict=True).collect().validate()
+    assert df.columns == AliasModel.columns

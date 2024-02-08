@@ -5,26 +5,25 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Collection,
+    Dict,
     Generic,
     Iterable,
     Optional,
+    Sequence,
+    Tuple,
     Type,
     TypeVar,
     Union,
     cast,
-    Dict,
-    Sequence,
-    Mapping,
-    Tuple
 )
 
 import polars as pl
 from polars.type_aliases import IntoExpr
-from pydantic import create_model
+from pydantic import AliasChoices, AliasPath, create_model
 from typing_extensions import Literal
 
-from patito.exceptions import MultipleRowsReturned, RowDoesNotExist
 from patito._pydantic.column_info import ColumnInfo
+from patito.exceptions import MultipleRowsReturned, RowDoesNotExist
 
 if TYPE_CHECKING:
     import numpy as np
@@ -137,6 +136,54 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
             )
         derived_columns.append(column_name)
         return df, derived_columns
+
+    def unalias(self: LDF) -> LDF:
+        if not any(fi.validation_alias for fi in self.model.model_fields.values()):
+            return self
+        exprs = []
+
+        def to_expr(va: str | AliasPath | AliasChoices) -> Optional[pl.Expr]:
+            if isinstance(va, str):
+                return pl.col(va) if va in self.columns else None
+            elif isinstance(va, AliasPath):
+                if len(va.path) != 2 or not isinstance(va.path[1], int):
+                    raise NotImplementedError(
+                        f"TODO figure out how this AliasPath behaves ({va})"
+                    )
+                return (
+                    pl.col(va.path[0]).list.get(va.path[1])
+                    if va.path[0] in self.columns
+                    else None
+                )
+            elif isinstance(va, AliasChoices):
+                local_expr: Optional[pl.Expr] = None
+                for choice in va.choices:
+                    if (part := to_expr(choice)) is not None:
+                        local_expr = (
+                            local_expr.fill_null(value=part)
+                            if local_expr is not None
+                            else part
+                        )
+                return local_expr
+            else:
+                raise NotImplementedError(
+                    f"unknown validation_alias type {field_info.validation_alias}"
+                )
+
+        for name, field_info in self.model.model_fields.items():
+            if field_info.validation_alias is None:
+                exprs.append(pl.col(name))
+            else:
+                expr = to_expr(field_info.validation_alias)
+                if name in self.columns:
+                    if expr is None:
+                        exprs.append(pl.col(name))
+                    else:
+                        exprs.append(pl.col(name).fill_null(value=expr))
+                elif expr is not None:
+                    exprs.append(expr.alias(name))
+
+        return self.select(exprs)
 
     def cast(
         self: LDF, strict: bool = False, columns: Optional[Sequence[str]] = None
@@ -298,7 +345,23 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             cls._from_pydf(self._df),
         )
 
-    def cast(self: DF, strict: bool = False, columns: Optional[Sequence[str]] = None) -> DF:
+    def unalias(self: DF) -> DF:
+        """
+        Un-aliases column names using information from pydantic validation_alias.
+
+        In order of preference - model field name then validation_aliases in order of occurrence
+
+        limitation - AliasChoice validation type only supports selecting a single element of an array
+
+        Returns:
+            DataFrame[Model]: A dataframe with columns normalized to model names.
+
+        """
+        return self.lazy().unalias().collect()
+
+    def cast(
+        self: DF, strict: bool = False, columns: Optional[Sequence[str]] = None
+    ) -> DF:
         """
         Cast columns to `dtypes` specified by the associated Patito model.
 
@@ -380,7 +443,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         else:
             return self.drop(list(set(self.columns) - set(self.model.columns)))
 
-    def validate(self: DF) -> DF:
+    def validate(
+        self: DF, columns: Optional[Sequence[str]] = None, **kwargs: Any
+    ) -> DF:
         """
         Validate the schema and content of the dataframe.
 
@@ -432,7 +497,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 f"You must invoke {self.__class__.__name__}.set_model() "
                 f"before invoking {self.__class__.__name__}.validate()."
             )
-        self.model.validate(dataframe=self)
+        self.model.validate(dataframe=self, columns=columns, **kwargs)
         return self
 
     def derive(self: DF, columns: list[str] | None = None) -> DF:
@@ -535,7 +600,14 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             )
         return self.with_columns(
             [
-                pl.col(column).fill_null(pl.lit(default_value))
+                pl.col(column).fill_null(
+                    pl.lit(default_value, self.model.dtypes[column])
+                )
+                if column in self.columns
+                else pl.Series(
+                    column, [default_value], self.model.dtypes[column]
+                )  # NOTE: hack to get around polars bug https://github.com/pola-rs/polars/issues/13602
+                # else pl.lit(default_value, self.model.dtypes[column]).alias(column)
                 for column, default_value in self.model.defaults.items()
             ]
         ).set_model(self.model)
@@ -641,6 +713,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 **pydantic_annotations,  # pyright: ignore
             ),
         )
+
+    def as_polars(self) -> pl.DataFrame:
+        return pl.DataFrame._from_pydf(self._df)
 
     @classmethod
     def read_csv(  # type: ignore[no-untyped-def]

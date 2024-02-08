@@ -23,7 +23,9 @@ if TYPE_CHECKING:
 
 
 @cache
-def valid_dtypes_for_model(cls: Type[ModelType]) -> Mapping[str, FrozenSet[DataTypeClass]]:
+def valid_dtypes_for_model(
+    cls: Type[ModelType],
+) -> Mapping[str, FrozenSet[DataTypeClass]]:
     return {
         column: DtypeResolver(cls.model_fields[column].annotation).valid_polars_dtypes()
         if cls.column_infos[column].dtype is None

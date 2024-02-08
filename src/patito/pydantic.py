@@ -4,6 +4,8 @@ from __future__ import annotations
 import itertools
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
+from functools import partial
+from inspect import getfullargspec
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -120,7 +122,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return schema_for_model(cls)
 
     @property
-    def columns(cls: Type[ModelType]) -> List[str]:
+    def columns(cls: Type[ModelType]) -> List[str]:  # type: ignore
         """
         Return the name of the dataframe columns specified by the fields of the model.
 
@@ -136,7 +138,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
             >>> Product.columns
             ['name', 'price']
         """
-        return list(cls.model_json_schema()["properties"].keys())
+        return list(cls.model_fields.keys())
 
     @property
     def dtypes(  # type: ignore
@@ -219,8 +221,9 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
             {'price': 0, 'temperature_zone': 'dry'}
         """
         return {
-            field_name: cls.model_fields[field_name].default
-            for field_name in cls.columns
+            field_name: props["default"]
+            for field_name, props in cls._schema_properties().items()
+            if "default" in props
         }
 
     @property
@@ -441,12 +444,16 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     def validate(
         cls,
         dataframe: Union["pd.DataFrame", pl.DataFrame],
+        columns: Optional[Sequence[str]] = None,
+        **kwargs,
     ) -> None:
         """
         Validate the schema and content of the given dataframe.
 
         Args:
             dataframe: Polars DataFrame to be validated.
+            columns: Optional list of columns to validate. If not provided, all columns
+                of the dataframe will be validated.
 
         Raises:
             patito.exceptions.ValidationError: If the given dataframe does not match
@@ -482,7 +489,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             temperature_zone
               Rows with invalid values: {'oven'}. (type=value_error.rowvalue)
         """
-        validate(dataframe=dataframe, schema=cls)
+        validate(dataframe=dataframe, columns=columns, schema=cls, **kwargs)
 
     @classmethod
     def example_value(  # noqa: C901
@@ -861,7 +868,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             else:
                 series.append(pl.lit(value, dtype=dtype).alias(column_name))
 
-        return DataFrame().with_columns(series).with_columns(unique_series)
+        return cls.DataFrame().with_columns(series).with_columns(unique_series)
 
     @classmethod
     def join(
@@ -1228,16 +1235,32 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         return field_type, field_new
 
 
-def Field(
-    *args,
-    dtype: DataTypeClass
-    | DataType
-    | None = None,  # TODO figure out how to make nice signature
-    constraints: pl.Expr | Sequence[pl.Expr] | None = None,
-    derived_from: str | pl.Expr | None = None,
-    unique: bool | None = None,
-    **kwargs,
-) -> Any:
+FIELD_KWARGS = getfullargspec(fields.Field)
+
+
+def FieldCI(
+    column_info: CI, *args: Any, **kwargs: Any
+) -> Any:  # annotate with Any to make the downstream type annotations happy
+    ci = column_info(**kwargs)
+    for field in ci.model_fields_set:
+        kwargs.pop(field)
+    if kwargs.pop("modern_kwargs_only", True):
+        for kwarg in kwargs:
+            if kwarg not in FIELD_KWARGS.kwonlyargs and kwarg not in FIELD_KWARGS.args:
+                raise ValueError(
+                    f"unexpected kwarg {kwarg}={kwargs[kwarg]}.  Add modern_kwargs_only=False to ignore"
+                )
+    return fields.Field(
+        *args,
+        json_schema_extra={"column_info": ci},
+        **kwargs,
+    )
+
+
+Field = partial(FieldCI, column_info=ColumnInfo)
+
+
+class FieldDoc:
     """
     Annotate model field with additional type and validation information.
 
@@ -1252,9 +1275,10 @@ def Field(
             All rows must satisfy the given constraint. You can refer to the given column
             with ``pt.field``, which will automatically be replaced with
             ``polars.col(<field_name>)`` before evaluation.
-        unique (bool): All row values must be unique.
+        derived_from (Union[str, polars.Expr]): used to mark fields that are meant to be derived from other fields. Users can specify a polars expression that will be called to derive the column value when `pt.DataFrame.derive` is called.
         dtype (polars.datatype.DataType): The given dataframe column must have the given
             polars dtype, for instance ``polars.UInt64`` or ``pl.Float32``.
+        unique (bool): All row values must be unique.
         gt: All values must be greater than ``gt``.
         ge: All values must be greater than or equal to ``ge``.
         lt: All values must be less than ``lt``.
@@ -1306,14 +1330,6 @@ def Field(
         brand_color
           2 rows with out of bound values. (type=value_error.rowvalue)
     """
-    column_info = ColumnInfo(
-        dtype=dtype, constraints=constraints, derived_from=derived_from, unique=unique
-    )
-    field_info = fields.Field(
-        *args,
-        json_schema_extra={
-            "column_info": column_info  # pyright: ignore TODO pydantic expects JsonDict here, how to signal this is serializable?
-        },
-        **kwargs,
-    )
-    return field_info
+
+
+Field.__doc__ = FieldDoc.__doc__
