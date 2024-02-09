@@ -572,8 +572,14 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
         elif field_type in {"integer", "number"}:
             # For integer and float types we must check if there are imposed bounds
-            lower = properties.get("minimum") or properties.get("exclusiveMinimum")
-            upper = properties.get("maximum") or properties.get("exclusiveMaximum")
+
+            minimum = properties.get("minimum")
+            exclusive_minimum = properties.get("exclusiveMinimum")
+            maximum = properties.get("maximum")
+            exclusive_maximum = properties.get("exclusiveMaximum")
+
+            lower = minimum if minimum is not None else exclusive_minimum
+            upper = maximum if maximum is not None else exclusive_maximum
 
             # If the dtype is an unsigned integer type, we must return a positive value
             if info.dtype:
@@ -615,9 +621,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 if "column_info" in properties:
                     dtype_str = properties["column_info"]["dtype"]
                     dtype = dtype_from_string(dtype_str)
-                    return datetime(
-                        year=1970, month=1, day=1, tzinfo=ZoneInfo(dtype.time_zone)
-                    )
+                    if getattr(dtype, "time_zone", None) is not None:
+                        tzinfo = ZoneInfo(dtype.time_zone)
+                    else:
+                        tzinfo = None
+                    return datetime(year=1970, month=1, day=1, tzinfo=tzinfo)
                 return datetime(year=1970, month=1, day=1)
             elif "format" in properties and properties["format"] == "time":
                 return time(12, 30)

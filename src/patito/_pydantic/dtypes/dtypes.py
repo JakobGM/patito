@@ -52,7 +52,9 @@ def default_dtypes_for_model(
             else:
                 default_dtypes[column] = default_dtype
         else:
-            default_dtypes[column] = dtype
+            default_dtypes[column] = (
+                dtype if isinstance(dtype, DataType) else dtype()
+            )  # if dtype is not instantiated, instantiate it
     return default_dtypes
 
 

@@ -52,6 +52,7 @@ def test_examples() -> None:
         c: Optional[int]
         d: Optional[List[str]] = pt.Field(dtype=pl.List(pl.Utf8))
         e: List[int]
+        f: int = pt.Field(ge=0)
 
     df = MyModel.examples({"a": [1, 2]})
     assert isinstance(df, pl.DataFrame)
@@ -61,8 +62,11 @@ def test_examples() -> None:
         pl.Int64,
         pl.List(pl.Utf8),
         pl.List(pl.Int64),
+        pl.Int64,
     ]
-    assert df.columns == ["a", "b", "c", "d", "e"]
+    assert df.columns == ["a", "b", "c", "d", "e", "f"]
+    assert (df["f"] >= 0).all()
+    MyModel.validate(df)
 
     # A TypeError should be raised when you provide no column names
     with pytest.raises(

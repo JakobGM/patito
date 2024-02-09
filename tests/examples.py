@@ -40,6 +40,7 @@ class CompleteModel(pt.Model):
 
     date_column: date
     datetime_column: datetime
+    datetime_column2: datetime = pt.Field(dtype=pl.Datetime)
     aware_datetime_column: AwareDatetime = pt.Field(dtype=pl.Datetime(time_zone="UTC"))
     duration_column: timedelta
     time_column: time
