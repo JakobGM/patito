@@ -74,7 +74,7 @@ class PydanticStringFormat(Enum):
     TIME = "time"
 
 
-def is_optional(type_annotation: type[Any] | None) -> bool:
+def is_optional(type_annotation: type[Any] | Any | None) -> bool:
     """Return True if the given type annotation is an Optional annotation.
 
     Args:

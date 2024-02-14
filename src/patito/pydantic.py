@@ -86,6 +86,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
             name: Name of model class.
             bases: Tuple of superclasses.
             clsdict: Dictionary containing class properties.
+            **kwargs: Additional keyword arguments.
 
         """
         super().__init__(name, bases, clsdict, **kwargs)
@@ -348,7 +349,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def validate_schema(cls: Type[ModelType]):
-        """Users should run this after defining or edit a model. We withhold the checks at model definition time to avoid expensive queries of the model schema"""
+        """Users should run this after defining or edit a model. We withhold the checks at model definition time to avoid expensive queries of the model schema."""
         for column in cls.columns:
             col_info = cls.column_infos[column]
             field_info = cls.model_fields[column]

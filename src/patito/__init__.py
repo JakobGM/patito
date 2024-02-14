@@ -20,7 +20,6 @@ __all__ = [
     "col",
     "exceptions",
     "field",
-    "sql",
 ]
 
 try:

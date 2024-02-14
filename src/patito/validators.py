@@ -1,7 +1,7 @@
 """Module for validating datastructures with respect to model specifications."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Sequence, Type, Union, cast
+from typing import TYPE_CHECKING, Optional, Sequence, Type, Union, cast, Any
 
 import polars as pl
 from typing_extensions import get_args
@@ -46,7 +46,7 @@ VALID_POLARS_TYPES = {
 }
 
 
-def _dewrap_optional(type_annotation: Type) -> Type:
+def _dewrap_optional(type_annotation: Type[Any] | Any) -> Type:
     """Return the inner, wrapped type of an Optional.
 
     Is a no-op for non-Optional types.
