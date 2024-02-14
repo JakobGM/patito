@@ -22,6 +22,7 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
     """patito-side model for storing column metadata
 
     Args:
+    ----
         constraints (Union[polars.Expression, List[polars.Expression]): A single
             constraint or list of constraints, expressed as a polars expression objects.
             All rows must satisfy the given constraint. You can refer to the given column
@@ -31,6 +32,7 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
         dtype (polars.datatype.DataType): The given dataframe column must have the given
             polars dtype, for instance ``polars.UInt64`` or ``pl.Float32``.
         unique (bool): All row values must be unique.
+
     """
 
     dtype: Optional[Union[DataTypeClass, DataType]] = None
@@ -61,10 +63,10 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
 
     @field_serializer("dtype")
     def serialize_dtype(self, dtype: DataTypeClass | DataType | None) -> Any:
-        """
-        References
+        """References
         ----------
             [1] https://stackoverflow.com/questions/76572310/how-to-serialize-deserialize-polars-datatypes
+
         """
         if dtype is None:
             return None

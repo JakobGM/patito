@@ -5,7 +5,6 @@ python:
     - method: pip
       path: .
       extra_requirements:
-        - duckdb
         - pandas
         - docs
 

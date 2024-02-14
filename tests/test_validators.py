@@ -11,14 +11,15 @@ import patito as pt
 import polars as pl
 import pytest
 from patito import DataFrameValidationError
-from patito.validators import _dewrap_optional, _is_optional, validate
+from patito._pydantic.dtypes import is_optional
+from patito.validators import _dewrap_optional, validate
 
 
 def test_is_optional() -> None:
     """It should return True for optional types."""
-    assert _is_optional(Optional[int])
-    assert _is_optional(Union[int, None])
-    assert not _is_optional(int)
+    assert is_optional(Optional[int])
+    assert is_optional(Union[int, None])
+    assert not is_optional(int)
 
 
 @pytest.mark.skipif(
@@ -27,7 +28,7 @@ def test_is_optional() -> None:
 )
 def test_is_optional_with_pipe_operator() -> None:
     """It should return True for optional types."""
-    assert _is_optional(int | None)  # typing: ignore  # pragma: noqa  # pyright: ignore
+    assert is_optional(int | None)  # typing: ignore  # pragma: noqa  # pyright: ignore
 
 
 def test_dewrap_optional() -> None:
@@ -267,14 +268,12 @@ def test_uniqueness_validation() -> None:
 
 
 def test_datetime_validation() -> None:
-    """
-    Test for date(time) validation.
+    """Test for date(time) validation.
 
     Both strings, dates, and datetimes are assigned type "string" in the OpenAPI JSON
     schema spec, so this needs to be specifically tested for since the implementation
     needs to check the "format" property on the field schema.
     """
-
     string_df = pl.DataFrame().with_columns(pl.lit("string", dtype=pl.Utf8).alias("c"))
     date_df = pl.DataFrame().with_columns(
         pl.lit(date.today(), dtype=pl.Date).alias("c")
@@ -621,7 +620,7 @@ def test_validation_of_list_dtypes() -> None:
 
 
 def test_nested_field_attrs() -> None:
-    """ensure that constraints are respected even when embedded inside 'anyOf'"""
+    """Ensure that constraints are respected even when embedded inside 'anyOf'"""
 
     class Test(pt.Model):
         foo: Optional[int] = pt.Field(
@@ -641,7 +640,7 @@ def test_nested_field_attrs() -> None:
 
 
 def test_validation_column_subset() -> None:
-    """ensure that columns are only validated if they are in the subset"""
+    """Ensure that columns are only validated if they are in the subset"""
 
     class Test(pt.Model):
         a: int

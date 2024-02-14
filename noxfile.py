@@ -1,16 +1,18 @@
-"""Nox sessions."""
+"""Nox sessions.
+
+Run with `nox -fb venv`
+"""
 import tempfile
 
 import nox  # type: ignore
 
 nox.options.sessions = "lint", "test", "type_check"
 locations = "src", "tests", "noxfile.py", "docs/conf.py"
-supported_python_versions = "3.8", "3.9", "3.10", "3.11"
+supported_python_versions = "3.9", "3.10", "3.11"
 
 
 def install_with_constraints(session, *args, **kwargs):
-    """
-    Install packages constrained by Poetry's lock file.
+    """Install packages constrained by Poetry's lock file.
 
     This function is a wrapper for nox.sessions.Session.install. It
     invokes pip to install packages inside of the session's virtualenv.
@@ -20,9 +22,11 @@ def install_with_constraints(session, *args, **kwargs):
     packages as Poetry development dependencies.
 
     Args:
+    ----
         session: The Session object.
         *args: Command-line arguments for pip.
         **kwargs: Additional keyword arguments for Session.install.
+
     """
     with tempfile.NamedTemporaryFile() as requirements:
         session.run(
@@ -51,7 +55,7 @@ def test(session):
         "install",
         "--only=main",
         "--extras",
-        "caching duckdb pandas",
+        "caching pandas",
         external=True,
     )
     install_with_constraints(
@@ -81,7 +85,7 @@ def type_check(session):
         "install",
         "--only=main",
         "--extras",
-        "caching duckdb pandas",
+        "caching pandas",
         external=True,
     )
     install_with_constraints(
@@ -100,22 +104,21 @@ def lint(session):
         "flake8",
         "flake8-annotations",
         "flake8-bandit",
-        "flake8-black",
         "flake8-bugbear",
         "flake8-docstrings",
-        "flake8-isort",
         "darglint",
+        "ruff",
     )
     session.run("flake8", *args)
+    session.run("ruff check", *args)
 
 
 @nox.session(python="3.11")
 def format(session):
-    """Run the black formatter on the entire code base."""
+    """Run the ruff formatter on the entire code base."""
     args = session.posargs or locations
-    install_with_constraints(session, "black", "isort")
-    session.run("black", *args)
-    session.run("isort", *args)
+    install_with_constraints(session, "ruff")
+    session.run("ruff format", *args)
 
 
 @nox.session(python="3.9")
@@ -126,7 +129,7 @@ def docs(session) -> None:
         "install",
         "--only=main",
         "--extras",
-        "caching duckdb pandas",
+        "caching pandas",
         external=True,
     )
     install_with_constraints(
@@ -135,6 +138,8 @@ def docs(session) -> None:
         "sphinx-autodoc-typehints",
         "sphinx-rtd-theme",
         "sphinx-autobuild",
+        "sphinx-toolbox",
+        "sphinxcontrib-mermaid",
     )
     if "--serve" in session.posargs:
         session.run("sphinx-autobuild", "docs", "docs/_build/html")

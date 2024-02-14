@@ -52,8 +52,7 @@ else:
 
 
 class Representation:
-    """
-    Mixin to provide __str__, __repr__, and __pretty__ methods. See #884 for more details.
+    """Mixin to provide __str__, __repr__, and __pretty__ methods. See #884 for more details.
 
     __pretty__ is used by [devtools](https://python-devtools.helpmanual.io/) to provide human readable representations
     of objects.
@@ -62,8 +61,7 @@ class Representation:
     __slots__: Tuple[str, ...] = tuple()
 
     def __repr_args__(self) -> "ReprArgs":
-        """
-        Returns the attributes to show in __str__, __repr__, and __pretty__ this is generally overridden.
+        """Returns the attributes to show in __str__, __repr__, and __pretty__ this is generally overridden.
 
         Can either return:
         * name - value pairs, e.g.: `[('foo_name', 'foo'), ('bar_name', ['b', 'a', 'r'])]`
@@ -73,9 +71,7 @@ class Representation:
         return [(a, v) for a, v in attrs if v is not None]
 
     def __repr_name__(self) -> str:
-        """
-        Name of the instance's class, used in __repr__.
-        """
+        """Name of the instance's class, used in __repr__."""
         return self.__class__.__name__
 
     def __repr_str__(self, join_str: str) -> str:
@@ -86,9 +82,7 @@ class Representation:
     def __pretty__(
         self, fmt: Callable[[Any], Any], **kwargs: Any
     ) -> Generator[Any, None, None]:
-        """
-        Used by devtools (https://python-devtools.helpmanual.io/) to provide a human readable representations of objects
-        """
+        """Used by devtools (https://python-devtools.helpmanual.io/) to provide a human readable representations of objects"""
         yield self.__repr_name__() + "("
         yield 1
         for name, value in self.__repr_args__():

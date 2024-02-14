@@ -8,6 +8,7 @@ from patito._pydantic.dtypes.dtypes import (
 from patito._pydantic.dtypes.utils import (
     PYTHON_TO_PYDANTIC_TYPES,
     dtype_from_string,
+    is_optional,
     parse_composite_dtype,
 )
 
@@ -20,4 +21,5 @@ __all__ = [
     "valid_dtypes_for_model",
     "default_dtypes_for_model",
     "PYTHON_TO_PYDANTIC_TYPES",
+    "is_optional",
 ]

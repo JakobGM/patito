@@ -14,17 +14,19 @@ if TYPE_CHECKING:
 
 @cache
 def schema_for_model(cls: Type[ModelType]) -> Dict[str, Dict[str, Any]]:
-    """
-    Return schema properties where definition references have been resolved.
+    """Return schema properties where definition references have been resolved.
 
-    Returns:
+    Returns
+    -------
         Field information as a dictionary where the keys are field names and the
             values are dictionaries containing metadata information about the field
             itself.
 
-    Raises:
+    Raises
+    ------
         TypeError: if a field is annotated with an enum where the values are of
             different types.
+
     """
     schema = cls.model_json_schema(by_alias=False, ref_template="{model}")
     fields = {}

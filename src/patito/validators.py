@@ -1,12 +1,12 @@
 """Module for validating datastructures with respect to model specifications."""
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING, Optional, Sequence, Type, Union, cast
 
 import polars as pl
-from typing_extensions import get_args, get_origin
+from typing_extensions import get_args
 
+from patito._pydantic.dtypes import is_optional
 from patito.exceptions import (
     ColumnDTypeError,
     DataFrameValidationError,
@@ -16,13 +16,6 @@ from patito.exceptions import (
     RowValueError,
     SuperfluousColumnsError,
 )
-
-if sys.version_info >= (3, 10):  # pragma: no cover
-    from types import UnionType  # pyright: ignore
-
-    UNION_TYPES = (Union, UnionType)
-else:
-    UNION_TYPES = (Union,)  # pragma: no cover
 
 try:
     import pandas as pd
@@ -53,32 +46,19 @@ VALID_POLARS_TYPES = {
 }
 
 
-def _is_optional(type_annotation: Type) -> bool:
-    """
-    Return True if the given type annotation is an Optional annotation.
-
-    Args:
-        type_annotation: The type annotation to be checked.
-
-    Returns:
-        True if the outermost type is Optional.
-    """
-    return (get_origin(type_annotation) in UNION_TYPES) and (
-        type(None) in get_args(type_annotation)
-    )
-
-
 def _dewrap_optional(type_annotation: Type) -> Type:
-    """
-    Return the inner, wrapped type of an Optional.
+    """Return the inner, wrapped type of an Optional.
 
     Is a no-op for non-Optional types.
 
     Args:
+    ----
         type_annotation: The type annotation to be dewrapped.
 
     Returns:
+    -------
         The input type, but with the outermost Optional removed.
+
     """
     return (
         next(  # pragma: no cover
@@ -86,7 +66,7 @@ def _dewrap_optional(type_annotation: Type) -> Type:
             for valid_type in get_args(type_annotation)
             if valid_type is not type(None)  # noqa: E721
         )
-        if _is_optional(type_annotation)
+        if is_optional(type_annotation)
         else type_annotation
     )
 
@@ -98,10 +78,10 @@ def _find_errors(  # noqa: C901
     allow_missing_columns: bool = False,
     allow_superfluous_columns: bool = False,
 ) -> list[ErrorWrapper]:
-    """
-    Validate the given dataframe.
+    """Validate the given dataframe.
 
     Args:
+    ----
         dataframe: Polars DataFrame to be validated.
         schema: Patito model which specifies how the dataframe should be structured.
         columns: If specified, only validate the given columns. Missing columns will
@@ -112,6 +92,7 @@ def _find_errors(  # noqa: C901
         allow_superfluous_columns: If True, additional columns will not be considered an error.
 
     Returns:
+    -------
         A list of patito.exception.ErrorWrapper instances. The specific validation
         error can be retrieved from the "exc" attribute on each error wrapper instance.
 
@@ -121,6 +102,7 @@ def _find_errors(  # noqa: C901
         ColumnDTypeError: If any column has the wrong dtype.
         NotImplementedError: If validation has not been implement for the given
             type.
+
     """
     errors: list[ErrorWrapper] = []
     schema_subset = columns or schema.columns
@@ -173,7 +155,7 @@ def _find_errors(  # noqa: C901
 
         # Check if the list items themselves should be considered nullable
         item_type = get_args(list_type)[0]
-        if _is_optional(item_type):
+        if is_optional(item_type):
             continue
 
         num_missing_values = (
@@ -330,17 +312,19 @@ def validate(
     allow_missing_columns: bool = False,
     allow_superfluous_columns: bool = False,
 ) -> None:
-    """
-    Validate the given dataframe.
+    """Validate the given dataframe.
 
     Args:
+    ----
         dataframe: Polars DataFrame to be validated.
         schema: Patito model which specifies how the dataframe should be structured.
         allow_missing_columns: If True, missing columns will not be considered an error.
         allow_superfluous_columns: If True, additional columns will not be considered an error.
 
     Raises:
-        ValidationError: If the given dataframe does not match the given schema.
+    ------
+        DataFrameValidationError: If the given dataframe does not match the given schema.
+
     """
     if _PANDAS_AVAILABLE and isinstance(dataframe, pd.DataFrame):
         polars_dataframe = pl.from_pandas(dataframe)

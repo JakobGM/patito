@@ -73,7 +73,7 @@ def test_fill_nan_with_defaults() -> None:
 
 
 def test_create_missing_columns_with_defaults() -> None:
-    """columns that have default values should be created if they are missing."""
+    """Columns that have default values should be created if they are missing."""
 
     class NestedModel(pt.Model):
         foo: int = 2

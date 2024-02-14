@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from enum import Enum
 from typing import (
     Any,
@@ -9,6 +10,8 @@ from typing import (
     Sequence,
     Union,
     cast,
+    get_args,
+    get_origin,
 )
 
 import polars as pl
@@ -47,6 +50,13 @@ PT_BASE_SUPPORTED_DTYPES = DataTypeGroup(
     | TIME_DTYPES
 )
 
+if sys.version_info >= (3, 10):  # pragma: no cover
+    from types import UnionType  # pyright: ignore
+
+    UNION_TYPES = (Union, UnionType)
+else:
+    UNION_TYPES = (Union,)  # pragma: no cover
+
 
 class PydanticBaseType(Enum):
     STRING = "string"
@@ -64,8 +74,25 @@ class PydanticStringFormat(Enum):
     TIME = "time"
 
 
+def is_optional(type_annotation: type[Any] | None) -> bool:
+    """Return True if the given type annotation is an Optional annotation.
+
+    Args:
+    ----
+        type_annotation: The type annotation to be checked.
+
+    Returns:
+    -------
+        True if the outermost type is Optional.
+
+    """
+    return (get_origin(type_annotation) in UNION_TYPES) and (
+        type(None) in get_args(type_annotation)
+    )
+
+
 def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
-    """for serialization, converts polars dtype to string representation"""
+    """For serialization, converts polars dtype to string representation"""
     if dtype in pl.NESTED_DTYPES:
         if dtype == pl.Struct or isinstance(dtype, pl.Struct):
             raise NotImplementedError("Structs not yet supported by patito")
@@ -83,7 +110,7 @@ def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
 
 
 def dtype_from_string(v: str) -> Optional[Union[DataTypeClass, DataType]]:
-    """for deserialization"""
+    """For deserialization"""
     # TODO test all dtypes
     return convert.dtype_short_repr_to_dtype(v)
 

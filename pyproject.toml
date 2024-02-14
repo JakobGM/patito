@@ -11,13 +11,13 @@ documentation = "https://patito.readthedocs.io"
 keywords = ["validation", "dataframe"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 pydantic = ">=2.0.0"
 polars = ">=0.20.1"
 # Required for typing.Literal in python3.7
 typing-extensions = "*"
-pandas = {version = "*", optional = true, python = "^3.8"}
-pyarrow = {version = ">=5.0.0", optional = true, python = "^3.8"}
+pandas = {version = "*", optional = true, python = "^3.9"}
+pyarrow = {version = ">=5.0.0", optional = true, python = "^3.9"}
 # Optional docs dependencies
 Sphinx = {version = "<7", optional = true}
 sphinx-rtd-theme = {version = "*", optional = true}
@@ -59,6 +59,10 @@ types-setuptools = ">=57.4.14"
 pandas-stubs = ">=1.2.0"
 codecov = "^2.1.12"
 blackdoc = "*"
+
+
+[tool.poetry.group.docs.dependencies]
+nox = "^2023.4.22"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -133,7 +137,7 @@ module = ["tests.test_validators"]
 warn_unused_ignores = false
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "I"]
+select = ["E4", "E7", "E9", "F", "I", "B", "D"]
 ignore = []
 
 # Allow fix for all enabled rules (when `--fix`) is provided.

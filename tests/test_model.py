@@ -28,7 +28,6 @@ from tests.examples import CompleteModel, ManyTypes, SmallModel
 
 def test_model_example() -> None:
     """Test for Model.example()."""
-
     # When inheriting from Model you get a .dummy() method for generating rows with
     # default values according to the type annotation.
     SmallModel.example().model_dump()
@@ -179,7 +178,6 @@ def test_model_dataframe_class_creation() -> None:
 
 def test_mapping_to_polars_dtypes() -> None:
     """Model fields should be mappable to polars dtypes."""
-
     assert CompleteModel.dtypes == {
         "str_column": pl.Utf8(),
         "int_column": pl.Int64(),
