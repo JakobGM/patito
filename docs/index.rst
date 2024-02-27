@@ -28,12 +28,10 @@ You can simply install Patito with :code:`pip` like so:
 
    pip install patito
 
-DuckDB Integration
-~~~~~~~~~~~~~~~~~~
+Developer Notes
+---------------
 
-Patito can also integrate with `DuckDB <https://duckdb.org/>`_.
-In order to enable this integration you must explicitly specify it during installation:
-
-.. code-block:: console
-
-   pip install 'patito[duckdb]'
+To run the noxfile with pyenv, first run
+```
+pyenv local 3.8 3.9 3.10 3.11
+```

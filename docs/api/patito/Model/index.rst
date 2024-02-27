@@ -32,6 +32,5 @@ patito.Model
    suffix <suffix>
    unique_columns <unique_columns>
    valid_dtypes <valid_dtypes>
-   valid_sql_types <valid_sql_types>
    validate <validate>
    with_fields <with_fields>

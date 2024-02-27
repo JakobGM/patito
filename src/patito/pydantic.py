@@ -3,27 +3,52 @@ from __future__ import annotations
 
 import itertools
 from collections.abc import Iterable
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
+from functools import partial
+from inspect import getfullargspec
 from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
     Dict,
+    FrozenSet,
+    Generic,
     List,
+    Literal,
+    Mapping,
     Optional,
-    Set,
+    Sequence,
+    Tuple,
     Type,
     TypeVar,
     Union,
     cast,
+    get_args,
 )
 
 import polars as pl
-from polars.datatypes import PolarsDataType
-from pydantic import BaseConfig, BaseModel, Field, create_model  # noqa: F401
-from pydantic.main import ModelMetaclass as PydanticModelMetaclass
-from typing_extensions import Literal, get_args
+from polars.datatypes import DataType, DataTypeClass
+from pydantic import (  # noqa: F401
+    BaseModel,
+    create_model,
+    field_serializer,
+    fields,
+)
+from pydantic._internal._model_construction import (
+    ModelMetaclass as PydanticModelMetaclass,
+)
+from zoneinfo import ZoneInfo
 
+from patito._pydantic.column_info import CI, ColumnInfo
+from patito._pydantic.dtypes import (
+    default_dtypes_for_model,
+    dtype_from_string,
+    is_optional,
+    valid_dtypes_for_model,
+    validate_annotation,
+    validate_polars_dtype,
+)
+from patito._pydantic.schema import column_infos_for_model, schema_for_model
 from patito.polars import DataFrame, LazyFrame
 from patito.validators import validate
 
@@ -36,46 +61,35 @@ except ImportError:
 
 if TYPE_CHECKING:
     import patito.polars
-    from patito.duckdb import DuckDBSQLType
 
 # The generic type of a single row in given Relation.
 # Should be a typed subclass of Model.
 ModelType = TypeVar("ModelType", bound="Model")
 
-# A mapping from pydantic types to the equivalent type used in DuckDB
-PYDANTIC_TO_DUCKDB_TYPES = {
-    "integer": "BIGINT",
-    "string": "VARCHAR",
-    "number": "DOUBLE",
-    "boolean": "BOOLEAN",
-}
 
-# A mapping from pydantic types to equivalent dtypes used in polars
-PYDANTIC_TO_POLARS_TYPES = {
-    "integer": pl.Int64,
-    "string": pl.Utf8,
-    "number": pl.Float64,
-    "boolean": pl.Boolean,
-}
-
-
-class ModelMetaclass(PydanticModelMetaclass):
-    """
-    Metclass used by patito.Model.
+class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
+    """Metclass used by patito.Model.
 
     Responsible for setting any relevant model-dependent class properties.
     """
 
-    def __init__(cls, name: str, bases: tuple, clsdict: dict) -> None:
-        """
-        Construct new patito model.
+    column_info_class: ClassVar[Type[ColumnInfo]] = ColumnInfo
+
+    if TYPE_CHECKING:
+        model_fields: ClassVar[Dict[str, fields.FieldInfo]]
+
+    def __init__(cls, name: str, bases: tuple, clsdict: dict, **kwargs) -> None:
+        """Construct new patito model.
 
         Args:
+        ----
             name: Name of model class.
             bases: Tuple of superclasses.
             clsdict: Dictionary containing class properties.
+            **kwargs: Additional keyword arguments.
+
         """
-        super().__init__(name, bases, clsdict)
+        super().__init__(name, bases, clsdict, **kwargs)
         # Add a custom subclass of patito.DataFrame to the model class,
         # where .set_model() has been implicitly set.
         cls.DataFrame = DataFrame._construct_dataframe_model_class(
@@ -86,19 +100,41 @@ class ModelMetaclass(PydanticModelMetaclass):
             model=cls,  # type: ignore
         )
 
-    # --- Class properties ---
-    # These properties will only be available on Model *classes*, not instantiated
-    # objects This is backwards compatible to python versions before python 3.9,
-    # unlike a combination of @classmethod and @property.
+    def __hash__(self) -> int:
+        return super().__hash__()
+
+    @property
+    def column_infos(cls: Type[ModelType]) -> Mapping[str, ColumnInfo]:
+        return column_infos_for_model(cls)
+
+    @property
+    def model_schema(cls: Type[ModelType]) -> Mapping[str, Mapping[str, Any]]:
+        """Return schema properties where definition references have been resolved.
+
+        Returns
+        -------
+            Field information as a dictionary where the keys are field names and the
+                values are dictionaries containing metadata information about the field
+                itself.
+
+        Raises
+        ------
+            TypeError: if a field is annotated with an enum where the values are of
+                different types.
+
+        """
+        return schema_for_model(cls)
+
     @property
     def columns(cls: Type[ModelType]) -> List[str]:  # type: ignore
-        """
-        Return the name of the dataframe columns specified by the fields of the model.
+        """Return the name of the dataframe columns specified by the fields of the model.
 
         Returns:
+        -------
             List of column names.
 
         Example:
+        -------
             >>> import patito as pt
             >>> class Product(pt.Model):
             ...     name: str
@@ -106,23 +142,25 @@ class ModelMetaclass(PydanticModelMetaclass):
             ...
             >>> Product.columns
             ['name', 'price']
+
         """
-        return list(cls.schema()["properties"].keys())
+        return list(cls.model_fields.keys())
 
     @property
     def dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, Type[pl.DataType]]:
-        """
-        Return the polars dtypes of the dataframe.
+    ) -> dict[str, DataTypeClass | DataType]:
+        """Return the polars dtypes of the dataframe.
 
         Unless Field(dtype=...) is specified, the highest signed column dtype
         is chosen for integer and float columns.
 
         Returns:
+        -------
             A dictionary mapping string column names to polars dtype classes.
 
         Example:
+        -------
             >>> import patito as pt
             >>> class Product(pt.Model):
             ...     name: str
@@ -130,29 +168,30 @@ class ModelMetaclass(PydanticModelMetaclass):
             ...     price: float
             ...
             >>> Product.dtypes
-            {'name': Utf8, 'ideal_temperature': Int64, 'price': Float64}
+            {'name': String, 'ideal_temperature': Int64, 'price': Float64}
+
         """
-        return {
-            column: valid_dtypes[0] for column, valid_dtypes in cls.valid_dtypes.items()
-        }
+        return default_dtypes_for_model(cls)
 
     @property
     def valid_dtypes(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, List[Union[pl.PolarsDataType, pl.List]]]:
-        """
-        Return a list of polars dtypes which Patito considers valid for each field.
+    ) -> Mapping[str, FrozenSet[DataTypeClass | DataType]]:
+        """Return a list of polars dtypes which Patito considers valid for each field.
 
         The first item of each list is the default dtype chosen by Patito.
 
         Returns:
+        -------
             A dictionary mapping each column string name to a list of valid dtypes.
 
         Raises:
+        ------
             NotImplementedError: If one or more model fields are annotated with types
                 not compatible with polars.
 
         Example:
+        -------
             >>> from pprint import pprint
             >>> import patito as pt
 
@@ -163,265 +202,35 @@ class ModelMetaclass(PydanticModelMetaclass):
             ...     float_column: float
             ...
             >>> pprint(MyModel.valid_dtypes)
-            {'bool_column': [Boolean],
-             'float_column': [Float64, Float32],
-             'int_column': [Int64, Int32, Int16, Int8, UInt64, UInt32, UInt16, UInt8],
-             'str_column': [Utf8]}
+            {'bool_column': DataTypeGroup({Boolean}),
+            'float_column': DataTypeGroup({Float32, Float64}),
+            'int_column': DataTypeGroup({Int8,
+                                        Int16,
+                                        Int32,
+                                        Int64,
+                                        UInt8,
+                                        UInt16,
+                                        UInt32,
+                                        UInt64,
+                                        Float32,
+                                        Float64}),
+            'str_column': DataTypeGroup({String})}
+
         """
-        valid_dtypes = {}
-        for column, props in cls._schema_properties().items():
-            column_dtypes: List[Union[PolarsDataType, pl.List]]
-            if props.get("type") == "array":
-                array_props = props["items"]
-                item_dtypes = cls._valid_dtypes(props=array_props)
-                if item_dtypes is None:
-                    raise NotImplementedError(
-                        f"No valid dtype mapping found for column '{column}'."
-                    )
-                column_dtypes = [pl.List(dtype) for dtype in item_dtypes]
-            else:
-                column_dtypes = cls._valid_dtypes(props=props)  # pyright: ignore
-
-            if column_dtypes is None:
-                raise NotImplementedError(
-                    f"No valid dtype mapping found for column '{column}'."
-                )
-            valid_dtypes[column] = column_dtypes
-
-        return valid_dtypes
-
-    @staticmethod
-    def _valid_dtypes(  # noqa: C901
-        props: Dict,
-    ) -> Optional[List[pl.PolarsDataType]]:
-        """
-        Map schema property to list of valid polars data types.
-
-        Args:
-            props: Dictionary value retrieved from BaseModel._schema_properties().
-
-        Returns:
-            List of valid dtypes. None if no mapping exists.
-        """
-        if "dtype" in props:
-            return [
-                props["dtype"],
-            ]
-        elif "enum" in props and props["type"] == "string":
-            return [pl.Categorical, pl.Utf8]
-        elif "type" not in props:
-            return None
-        elif props["type"] == "integer":
-            return [
-                pl.Int64,
-                pl.Int32,
-                pl.Int16,
-                pl.Int8,
-                pl.UInt64,
-                pl.UInt32,
-                pl.UInt16,
-                pl.UInt8,
-            ]
-        elif props["type"] == "number":
-            if props.get("format") == "time-delta":
-                return [pl.Duration]
-            else:
-                return [pl.Float64, pl.Float32]
-        elif props["type"] == "boolean":
-            return [pl.Boolean]
-        elif props["type"] == "string":
-            string_format = props.get("format")
-            if string_format is None:
-                return [pl.Utf8]
-            elif string_format == "date":
-                return [pl.Date]
-            # TODO: Find out why this branch is not being hit
-            elif string_format == "date-time":  # pragma: no cover
-                return [pl.Datetime]
-            else:
-                return None  # pragma: no cover
-        elif props["type"] == "null":
-            return [pl.Null]
-        else:  # pragma: no cover
-            return None
-
-    @property
-    def valid_sql_types(  # type: ignore  # noqa: C901
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, List["DuckDBSQLType"]]:
-        """
-        Return a list of DuckDB SQL types which Patito considers valid for each field.
-
-        The first item of each list is the default dtype chosen by Patito.
-
-        Returns:
-            A dictionary mapping each column string name to a list of DuckDB SQL types
-            represented as strings.
-
-        Raises:
-            NotImplementedError: If one or more model fields are annotated with types
-                not compatible with DuckDB.
-
-        Example:
-            >>> import patito as pt
-            >>> from pprint import pprint
-
-            >>> class MyModel(pt.Model):
-            ...     bool_column: bool
-            ...     str_column: str
-            ...     int_column: int
-            ...     float_column: float
-            ...
-            >>> pprint(MyModel.valid_sql_types)
-            {'bool_column': ['BOOLEAN', 'BOOL', 'LOGICAL'],
-             'float_column': ['DOUBLE',
-                                                'FLOAT8',
-                                                'NUMERIC',
-                                                'DECIMAL',
-                                                'REAL',
-                                                'FLOAT4',
-                                                'FLOAT'],
-              'int_column': ['INTEGER',
-                                             'INT4',
-                                             'INT',
-                                             'SIGNED',
-                                             'BIGINT',
-                                             'INT8',
-                                             'LONG',
-                                             'HUGEINT',
-                                             'SMALLINT',
-                                             'INT2',
-                                             'SHORT',
-                                             'TINYINT',
-                                             'INT1',
-                                             'UBIGINT',
-                                             'UINTEGER',
-                                             'USMALLINT',
-                                             'UTINYINT'],
-              'str_column': ['VARCHAR', 'CHAR', 'BPCHAR', 'TEXT', 'STRING']}
-        """
-        valid_dtypes: Dict[str, List["DuckDBSQLType"]] = {}
-        for column, props in cls._schema_properties().items():
-            if "sql_type" in props:
-                valid_dtypes[column] = [
-                    props["sql_type"],
-                ]
-            elif "enum" in props and props["type"] == "string":
-                from patito.duckdb import _enum_type_name
-
-                # fmt: off
-                valid_dtypes[column] = [  # pyright: ignore
-                    _enum_type_name(field_properties=props),  # type: ignore
-                    "VARCHAR", "CHAR", "BPCHAR", "TEXT", "STRING",
-                ]
-                # fmt: on
-            elif "type" not in props:
-                raise NotImplementedError(
-                    f"No valid sql_type mapping found for column '{column}'."
-                )
-            elif props["type"] == "integer":
-                # fmt: off
-                valid_dtypes[column] = [
-                    "INTEGER", "INT4", "INT", "SIGNED",
-                    "BIGINT", "INT8", "LONG",
-                    "HUGEINT",
-                    "SMALLINT", "INT2", "SHORT",
-                    "TINYINT", "INT1",
-                    "UBIGINT",
-                    "UINTEGER",
-                    "USMALLINT",
-                    "UTINYINT",
-                ]
-                # fmt: on
-            elif props["type"] == "number":
-                if props.get("format") == "time-delta":
-                    valid_dtypes[column] = [
-                        "INTERVAL",
-                    ]
-                else:
-                    # fmt: off
-                    valid_dtypes[column] = [
-                        "DOUBLE", "FLOAT8", "NUMERIC", "DECIMAL",
-                        "REAL", "FLOAT4", "FLOAT",
-                    ]
-                    # fmt: on
-            elif props["type"] == "boolean":
-                # fmt: off
-                valid_dtypes[column] = [
-                    "BOOLEAN", "BOOL", "LOGICAL",
-                ]
-                # fmt: on
-            elif props["type"] == "string":
-                string_format = props.get("format")
-                if string_format is None:
-                    # fmt: off
-                    valid_dtypes[column] = [
-                        "VARCHAR", "CHAR", "BPCHAR", "TEXT", "STRING",
-                    ]
-                    # fmt: on
-                elif string_format == "date":
-                    valid_dtypes[column] = ["DATE"]
-                # TODO: Find out why this branch is not being hit
-                elif string_format == "date-time":  # pragma: no cover
-                    # fmt: off
-                    valid_dtypes[column] = [
-                        "TIMESTAMP", "DATETIME",
-                        "TIMESTAMP WITH TIMEZONE", "TIMESTAMPTZ",
-                    ]
-                    # fmt: on
-            elif props["type"] == "null":
-                valid_dtypes[column] = [
-                    "INTEGER",
-                ]
-            else:  # pragma: no cover
-                raise NotImplementedError(
-                    f"No valid sql_type mapping found for column '{column}'"
-                )
-
-        return valid_dtypes
-
-    @property
-    def sql_types(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, str]:
-        """
-        Return compatible DuckDB SQL types for all model fields.
-
-        Returns:
-            Dictionary with column name keys and SQL type identifier strings.
-
-        Example:
-            >>> from typing import Literal
-            >>> import patito as pt
-
-            >>> class MyModel(pt.Model):
-            ...     int_column: int
-            ...     str_column: str
-            ...     float_column: float
-            ...     literal_column: Literal["a", "b", "c"]
-            ...
-            >>> MyModel.sql_types
-            {'int_column': 'INTEGER',
-             'str_column': 'VARCHAR',
-             'float_column': 'DOUBLE',
-             'literal_column': 'enum__4a496993dde04060df4e15a340651b45'}
-        """
-        return {
-            column: valid_types[0]
-            for column, valid_types in cls.valid_sql_types.items()
-        }
+        return valid_dtypes_for_model(cls)
 
     @property
     def defaults(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
     ) -> dict[str, Any]:
-        """
-        Return default field values specified on the model.
+        """Return default field values specified on the model.
 
         Returns:
+        -------
             Dictionary containing fields with their respective default values.
 
         Example:
+        -------
             >>> from typing_extensions import Literal
             >>> import patito as pt
             >>> class Product(pt.Model):
@@ -431,6 +240,7 @@ class ModelMetaclass(PydanticModelMetaclass):
             ...
             >>> Product.defaults
             {'price': 0, 'temperature_zone': 'dry'}
+
         """
         return {
             field_name: props["default"]
@@ -442,47 +252,58 @@ class ModelMetaclass(PydanticModelMetaclass):
     def non_nullable_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
     ) -> set[str]:
-        """
-        Return names of those columns that are non-nullable in the schema.
+        """Return names of those columns that are non-nullable in the schema.
 
         Returns:
+        -------
             Set of column name strings.
 
         Example:
+        -------
             >>> from typing import Optional
             >>> import patito as pt
             >>> class MyModel(pt.Model):
             ...     nullable_field: Optional[int]
-            ...     inferred_nullable_field: int = None
+            ...     another_nullable_field: Optional[int] = None
             ...     non_nullable_field: int
             ...     another_non_nullable_field: str
             ...
             >>> sorted(MyModel.non_nullable_columns)
             ['another_non_nullable_field', 'non_nullable_field']
+
         """
-        return set(cls.schema().get("required", {}))
+        return set(
+            k
+            for k in cls.columns
+            if not (
+                is_optional(cls.model_fields[k].annotation)
+                or cls.model_fields[k].annotation == type(None)
+            )
+        )
 
     @property
     def nullable_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
     ) -> set[str]:
-        """
-        Return names of those columns that are nullable in the schema.
+        """Return names of those columns that are nullable in the schema.
 
         Returns:
+        -------
             Set of column name strings.
 
         Example:
+        -------
             >>> from typing import Optional
             >>> import patito as pt
             >>> class MyModel(pt.Model):
             ...     nullable_field: Optional[int]
-            ...     inferred_nullable_field: int = None
+            ...     another_nullable_field: Optional[int] = None
             ...     non_nullable_field: int
             ...     another_non_nullable_field: str
             ...
             >>> sorted(MyModel.nullable_columns)
-            ['inferred_nullable_field', 'nullable_field']
+            ['another_nullable_field', 'nullable_field']
+
         """
         return set(cls.columns) - cls.non_nullable_columns
 
@@ -490,13 +311,14 @@ class ModelMetaclass(PydanticModelMetaclass):
     def unique_columns(  # type: ignore
         cls: Type[ModelType],  # pyright: ignore
     ) -> set[str]:
-        """
-        Return columns with uniqueness constraint.
+        """Return columns with uniqueness constraint.
 
         Returns:
+        -------
             Set of column name strings.
 
         Example:
+        -------
             >>> from typing import Optional
             >>> import patito as pt
 
@@ -507,70 +329,60 @@ class ModelMetaclass(PydanticModelMetaclass):
             ...
             >>> sorted(Product.unique_columns)
             ['barcode', 'product_id']
+
         """
-        props = cls._schema_properties()
-        return {column for column in cls.columns if props[column].get("unique", False)}
+        infos = cls.column_infos
+        return {column for column in cls.columns if infos[column].unique}
+
+    @property
+    def derived_columns(
+        cls: Type[ModelType],  # type: ignore[misc]
+    ) -> set[str]:
+        infos = cls.column_infos
+        return {
+            column for column in cls.columns if infos[column].derived_from is not None
+        }
 
 
 class Model(BaseModel, metaclass=ModelMetaclass):
     """Custom pydantic class for representing table schema and constructing rows."""
 
-    # -- Class properties set by model metaclass --
-    # This weird combination of a MetaClass + type annotation
-    # in order to make the following work simultaneously:
-    #     1. Make these dynamically constructed properties of the class.
-    #     2. Have the correct type information for type checkers.
-    #     3. Allow sphinx-autodoc to construct correct documentation.
-    #     4. Be compatible with python 3.7.
-    # Once we drop support for python 3.7, we can replace all of this with just a simple
-    # combination of @property and @classmethod.
-    columns: ClassVar[List[str]]
-
-    unique_columns: ClassVar[Set[str]]
-    non_nullable_columns: ClassVar[Set[str]]
-    nullable_columns: ClassVar[Set[str]]
-
-    dtypes: ClassVar[Dict[str, Type[pl.DataType]]]
-    sql_types: ClassVar[Dict[str, str]]
-    valid_dtypes: ClassVar[Dict[str, List[Type[pl.DataType]]]]
-    valid_sql_types: ClassVar[Dict[str, List["DuckDBSQLType"]]]
-
-    defaults: ClassVar[Dict[str, Any]]
-
-    @classmethod  # type: ignore[misc]
-    @property
-    def DataFrame(
-        cls: Type[ModelType],
-    ) -> Type[DataFrame[ModelType]]:  # pyright: ignore  # noqa
-        """Return DataFrame class where DataFrame.set_model() is set to self."""
-
-    @classmethod  # type: ignore[misc]
-    @property
-    def LazyFrame(
-        cls: Type[ModelType],
-    ) -> Type[LazyFrame[ModelType]]:  # pyright: ignore
-        """Return DataFrame class where DataFrame.set_model() is set to self."""
+    @classmethod
+    def validate_schema(cls: Type[ModelType]):
+        """Users should run this after defining or edit a model. We withhold the checks at model definition time to avoid expensive queries of the model schema."""
+        for column in cls.columns:
+            col_info = cls.column_infos[column]
+            field_info = cls.model_fields[column]
+            if col_info.dtype:
+                validate_polars_dtype(
+                    annotation=field_info.annotation, dtype=col_info.dtype
+                )
+            else:
+                validate_annotation(field_info.annotation)
 
     @classmethod
     def from_row(
-        cls: Type[ModelType],
+        cls: Type[ModelType],  # type: ignore[misc]
         row: Union["pd.DataFrame", pl.DataFrame],
         validate: bool = True,
     ) -> ModelType:
-        """
-        Represent a single data frame row as a Patito model.
+        """Represent a single data frame row as a Patito model.
 
         Args:
+        ----
             row: A dataframe, either polars and pandas, consisting of a single row.
             validate: If ``False``, skip pydantic validation of the given row data.
 
         Returns:
+        -------
             Model: A patito model representing the given row data.
 
         Raises:
+        ------
             TypeError: If the given type is neither a pandas or polars DataFrame.
 
         Example:
+        -------
             >>> import patito as pt
             >>> import polars as pl
 
@@ -588,6 +400,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             Product(product_id=1, name='product name', price=1.22)
             >>> Product.from_row(df, validate=False)
             Product(product_id='1', name='product name', price='1.22')
+
         """
         if isinstance(row, pl.DataFrame):
             dataframe = row
@@ -605,24 +418,27 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         dataframe: pl.DataFrame,
         validate: bool = True,
     ) -> ModelType:
-        """
-        Construct model from a single polars row.
+        """Construct model from a single polars row.
 
         Args:
+        ----
             dataframe: A polars dataframe consisting of one single row.
             validate: If ``True``, run the pydantic validators. If ``False``, pydantic
                 will not cast any types in the resulting object.
 
         Returns:
+        -------
             Model: A pydantic model object representing the given polars row.
 
         Raises:
+        ------
             TypeError: If the provided ``dataframe`` argument is not of type
                 ``polars.DataFrame``.
             ValueError: If the given ``dataframe`` argument does not consist of exactly
                 one row.
 
         Example:
+        -------
             >>> import patito as pt
             >>> import polars as pl
 
@@ -640,6 +456,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             Product(product_id=1, name='product name', price=1.22)
             >>> Product._from_polars(df, validate=False)
             Product(product_id='1', name='product name', price='1.22')
+
         """
         if not isinstance(dataframe, pl.DataFrame):
             raise TypeError(
@@ -657,24 +474,30 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         if validate:
             return cls(**dataframe.to_dicts()[0])
         else:
-            return cls.construct(**dataframe.to_dicts()[0])
+            return cls.model_construct(**dataframe.to_dicts()[0])
 
     @classmethod
     def validate(
         cls,
         dataframe: Union["pd.DataFrame", pl.DataFrame],
+        columns: Optional[Sequence[str]] = None,
+        **kwargs,
     ) -> None:
-        """
-        Validate the schema and content of the given dataframe.
+        """Validate the schema and content of the given dataframe.
 
         Args:
+        ----
             dataframe: Polars DataFrame to be validated.
+            columns: Optional list of columns to validate. If not provided, all columns
+                of the dataframe will be validated.
 
         Raises:
-            patito.exceptions.ValidationError: If the given dataframe does not match
+        ------
+            patito.exceptions.DataFrameValidationError: If the given dataframe does not match
                 the given schema.
 
         Examples:
+        --------
             >>> import patito as pt
             >>> import polars as pl
 
@@ -693,7 +516,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             ... )
             >>> try:
             ...     Product.validate(df)
-            ... except pt.ValidationError as exc:
+            ... except pt.DataFrameValidationError as exc:
             ...     print(exc)
             ...
             3 validation errors for Product
@@ -703,27 +526,32 @@ class Model(BaseModel, metaclass=ModelMetaclass):
               2 rows with duplicated values. (type=value_error.rowvalue)
             temperature_zone
               Rows with invalid values: {'oven'}. (type=value_error.rowvalue)
+
         """
-        validate(dataframe=dataframe, schema=cls)
+        validate(dataframe=dataframe, columns=columns, schema=cls, **kwargs)
 
     @classmethod
     def example_value(  # noqa: C901
         cls,
-        field: str,
-    ) -> Union[date, datetime, float, int, str, None]:
-        """
-        Return a valid example value for the given model field.
+        field: Optional[str] = None,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> Union[date, datetime, time, timedelta, float, int, str, None, Mapping, List]:
+        """Return a valid example value for the given model field.
 
         Args:
+        ----
             field: Field name identifier.
 
         Returns:
+        -------
             A single value which is consistent with the given field definition.
 
         Raises:
+        ------
             NotImplementedError: If the given field has no example generator.
 
         Example:
+        -------
             >>> from typing import Literal
             >>> import patito as pt
 
@@ -738,10 +566,36 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             'dummy_string'
             >>> Product.example_value("temperature_zone")
             'dry'
+
         """
-        field_data = cls._schema_properties()
-        properties = field_data[field]
-        field_type = properties["type"]
+        if field is None and properties is None:
+            raise ValueError(
+                "Either 'field' or 'properties' must be provided as argument."
+            )
+        if field is not None and properties is not None:
+            raise ValueError(
+                "Only one of 'field' or 'properties' can be provided as argument."
+            )
+        if field:
+            properties = cls._schema_properties()[field]
+            info = cls.column_infos[field]
+        else:
+            info = cls.column_info_class()
+        properties = properties or {}
+
+        if "type" in properties:
+            field_type = properties["type"]
+        elif "anyOf" in properties:
+            allowable = [x["type"] for x in properties["anyOf"] if "type" in x]
+            if "null" in allowable:
+                field_type = "null"
+            else:
+                field_type = allowable[0]
+        else:
+            raise NotImplementedError(
+                f"Field type for {properties['title']} not found."
+            )
+
         if "const" in properties:
             # The default value is the only valid value, provided as const
             return properties["const"]
@@ -750,7 +604,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             # A default value has been specified in the model field definition
             return properties["default"]
 
-        elif not properties["required"]:
+        elif not properties.get("required", True):
+            return None
+
+        elif field_type == "null":
             return None
 
         elif "enum" in properties:
@@ -758,12 +615,18 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
         elif field_type in {"integer", "number"}:
             # For integer and float types we must check if there are imposed bounds
-            lower = properties.get("minimum") or properties.get("exclusiveMinimum")
-            upper = properties.get("maximum") or properties.get("exclusiveMaximum")
+
+            minimum = properties.get("minimum")
+            exclusive_minimum = properties.get("exclusiveMinimum")
+            maximum = properties.get("maximum")
+            exclusive_maximum = properties.get("exclusiveMaximum")
+
+            lower = minimum if minimum is not None else exclusive_minimum
+            upper = maximum if maximum is not None else exclusive_maximum
 
             # If the dtype is an unsigned integer type, we must return a positive value
-            if "dtype" in properties:
-                dtype = properties["dtype"]
+            if info.dtype:
+                dtype = info.dtype
                 if dtype in (pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64):
                     lower = 0 if lower is None else max(lower, 0)
 
@@ -798,7 +661,19 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             elif "format" in properties and properties["format"] == "date":
                 return date(year=1970, month=1, day=1)
             elif "format" in properties and properties["format"] == "date-time":
+                if "column_info" in properties:
+                    dtype_str = properties["column_info"]["dtype"]
+                    dtype = dtype_from_string(dtype_str)
+                    if getattr(dtype, "time_zone", None) is not None:
+                        tzinfo = ZoneInfo(dtype.time_zone)
+                    else:
+                        tzinfo = None
+                    return datetime(year=1970, month=1, day=1, tzinfo=tzinfo)
                 return datetime(year=1970, month=1, day=1)
+            elif "format" in properties and properties["format"] == "time":
+                return time(12, 30)
+            elif "format" in properties and properties["format"] == "duration":
+                return timedelta(1)
             elif "minLength" in properties:
                 return "a" * properties["minLength"]
             elif "maxLength" in properties:
@@ -809,6 +684,18 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         elif field_type == "boolean":
             return False
 
+        elif field_type == "object":
+            try:
+                props_o = cls.model_schema["$defs"][properties["title"]]["properties"]
+                return {f: cls.example_value(properties=props_o[f]) for f in props_o}
+            except AttributeError:
+                raise NotImplementedError(
+                    "Nested example generation only supported for nested pt.Model classes."
+                )
+
+        elif field_type == "array":
+            return [cls.example_value(properties=properties["items"])]
+
         else:  # pragma: no cover
             raise NotImplementedError
 
@@ -817,8 +704,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         cls: Type[ModelType],
         **kwargs: Any,  # noqa: ANN401
     ) -> ModelType:
-        """
-        Produce model instance with filled dummy data for all unspecified fields.
+        """Produce model instance with filled dummy data for all unspecified fields.
 
         The type annotation of unspecified field is used to fill in type-correct
         dummy data, e.g. ``-1`` for ``int``, ``"dummy_string"`` for ``str``, and so
@@ -827,18 +713,22 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         The first item of ``typing.Literal`` annotations are used for dummy values.
 
         Args:
+        ----
             **kwargs: Provide explicit values for any fields which should `not` be
                 filled with dummy data.
 
         Returns:
+        -------
             Model: A pydantic model object filled with dummy data for all unspecified
             model fields.
 
         Raises:
+        ------
             TypeError: If one or more of the provided keyword arguments do not match any
                 fields on the model.
 
         Example:
+        -------
             >>> from typing import Literal
             >>> import patito as pt
 
@@ -849,6 +739,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             ...
             >>> Product.example(product_id=1)
             Product(product_id=1, name='dummy_string', temperature_zone='dry')
+
         """
         # Non-iterable values besides strings must be repeated
         wrong_columns = set(kwargs.keys()) - set(cls.columns)
@@ -870,14 +761,14 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         data: Union[dict, Iterable],
         columns: Optional[Iterable[str]] = None,
     ) -> "pd.DataFrame":
-        """
-        Generate dataframe with dummy data for all unspecified columns.
+        """Generate dataframe with dummy data for all unspecified columns.
 
         Offers the same API as the pandas.DataFrame constructor.
         Non-iterable values, besides strings, are repeated until they become as long as
         the iterable arguments.
 
         Args:
+        ----
             data: Data to populate the dummy dataframe with. If
                 not a dict, column names must also be provided.
             columns: Ignored if data is a dict. If
@@ -885,14 +776,17 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 resulting dataframe. Defaults to None.
 
         Returns:
+        -------
             A pandas DataFrame filled with dummy example data.
 
         Raises:
+        ------
             ImportError: If pandas has not been installed. You should install
                 patito[pandas] in order to integrate patito with pandas.
             TypeError: If column names have not been specified in the input data.
 
         Example:
+        -------
             >>> from typing import Literal
             >>> import patito as pt
 
@@ -903,9 +797,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             ...
 
             >>> Product.pandas_examples({"name": ["product A", "product B"]})
-               product_id       name temperature_zone
+            product_id       name temperature_zone
             0          -1  product A              dry
             1          -1  product B              dry
+
         """
         if not _PANDAS_AVAILABLE:
             # Re-trigger the import error, but this time don't catch it
@@ -932,7 +827,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         dummies = []
         for values in zip(*kwargs.values()):
             dummies.append(cls.example(**dict(zip(kwargs.keys(), values))))
-        return pd.DataFrame([dummy.dict() for dummy in dummies])
+        return pd.DataFrame([dummy.model_dump() for dummy in dummies])
 
     @classmethod
     def examples(
@@ -940,12 +835,12 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         data: Optional[Union[dict, Iterable]] = None,
         columns: Optional[Iterable[str]] = None,
     ) -> "patito.polars.DataFrame":
-        """
-        Generate polars dataframe with dummy data for all unspecified columns.
+        """Generate polars dataframe with dummy data for all unspecified columns.
 
         This constructor accepts the same data format as polars.DataFrame.
 
         Args:
+        ----
             data: Data to populate the dummy dataframe with. If given as an iterable of
                 values, then column names must also be provided. If not provided at all,
                 a dataframe with a single row populated with dummy data is provided.
@@ -954,14 +849,17 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 column names in the resulting dataframe. Defaults to None.
 
         Returns:
+        -------
             A polars dataframe where all unspecified columns have been filled with dummy
             data which should pass model validation.
 
         Raises:
+        ------
             TypeError: If one or more of the model fields are not mappable to polars
                 column dtype equivalents.
 
         Example:
+        -------
             >>> from typing import Literal
             >>> import patito as pt
 
@@ -976,9 +874,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             ┌──────────────┬──────────────────┬────────────┐
             │ name         ┆ temperature_zone ┆ product_id │
             │ ---          ┆ ---              ┆ ---        │
-            │ str          ┆ cat              ┆ i64        │
+            │ str          ┆ enum             ┆ i64        │
             ╞══════════════╪══════════════════╪════════════╡
-            │ dummy_string ┆ dry              ┆ 0          │
+            │ dummy_string ┆ dry              ┆ 1          │
             └──────────────┴──────────────────┴────────────┘
 
             >>> Product.examples({"name": ["product A", "product B"]})
@@ -986,11 +884,12 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             ┌───────────┬──────────────────┬────────────┐
             │ name      ┆ temperature_zone ┆ product_id │
             │ ---       ┆ ---              ┆ ---        │
-            │ str       ┆ cat              ┆ i64        │
+            │ str       ┆ enum             ┆ i64        │
             ╞═══════════╪══════════════════╪════════════╡
-            │ product A ┆ dry              ┆ 0          │
-            │ product B ┆ dry              ┆ 1          │
+            │ product A ┆ dry              ┆ 1          │
+            │ product B ┆ dry              ┆ 2          │
             └───────────┴──────────────────┴────────────┘
+
         """
         if data is None:
             # We should create an empty dataframe, but with the correct dtypes
@@ -1014,11 +913,13 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             if column_name not in kwargs:
                 if column_name in cls.unique_columns:
                     unique_series.append(
-                        pl.first().cumcount().cast(dtype).alias(column_name)
+                        pl.first().cum_count().cast(dtype).alias(column_name)
                     )
                 else:
                     example_value = cls.example_value(field=column_name)
-                    series.append(pl.lit(example_value, dtype=dtype).alias(column_name))
+                    series.append(
+                        pl.Series(column_name, values=[example_value], dtype=dtype)
+                    )
                 continue
 
             value = kwargs.get(column_name)
@@ -1030,7 +931,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             else:
                 series.append(pl.lit(value, dtype=dtype).alias(column_name))
 
-        return DataFrame().with_columns(series).with_columns(unique_series)
+        return cls.DataFrame().with_columns(series).with_columns(unique_series)
 
     @classmethod
     def join(
@@ -1038,8 +939,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         other: Type["Model"],
         how: Literal["inner", "left", "outer", "asof", "cross", "semi", "anti"],
     ) -> Type["Model"]:
-        """
-        Dynamically create a new model compatible with an SQL Join operation.
+        """Dynamically create a new model compatible with an SQL Join operation.
 
         For instance, ``ModelA.join(ModelB, how="left")`` will create a model containing
         all the fields of ``ModelA`` and ``ModelB``, but where all fields of ``ModelB``
@@ -1047,14 +947,17 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         SQL operation making all the columns of the right table nullable.
 
         Args:
+        ----
             other: Another patito Model class.
             how: The type of SQL Join operation.
 
         Returns:
+        -------
             A new model type compatible with the resulting schema produced by the given
             join operation.
 
         Examples:
+        --------
             >>> class A(Model):
             ...     a: int
             ...
@@ -1078,6 +981,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
             >>> A.join(B, how="anti") is A
             True
+
         """
         if how in {"semi", "anti"}:
             return cls
@@ -1087,18 +991,13 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             (cls, {"outer"}),
             (other, {"left", "outer", "asof"}),
         ):
-            for field_name, field in model.__fields__.items():
-                field_type = field.type_
-                field_default = field.default
-                if how in nullable_methods and type(None) not in get_args(field.type_):
-                    # This originally non-nullable field has become nullable
-                    field_type = Optional[field_type]
-                elif field.required and field_default is None:
-                    # We need to replace Pydantic's None default value with ... in order
-                    # to make it clear that the field is still non-nullable and
-                    # required.
-                    field_default = ...
-                kwargs[field_name] = (field_type, field_default)
+            for field_name, field in model.model_fields.items():
+                make_nullable = how in nullable_methods and type(None) not in get_args(
+                    field.annotation
+                )
+                kwargs[field_name] = cls._derive_field(
+                    field, make_nullable=make_nullable
+                )
 
         return create_model(
             f"{cls.__name__}{how.capitalize()}Join{other.__name__}",
@@ -1110,19 +1009,22 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     def select(
         cls: Type[ModelType], fields: Union[str, Iterable[str]]
     ) -> Type["Model"]:
-        """
-        Create a new model consisting of only a subset of the model fields.
+        """Create a new model consisting of only a subset of the model fields.
 
         Args:
+        ----
             fields: A single field name as a string or a collection of strings.
 
         Returns:
+        -------
             A new model containing only the fields specified by ``fields``.
 
         Raises:
+        ------
             ValueError: If one or more non-existent fields are selected.
 
         Example:
+        -------
             >>> class MyModel(Model):
             ...     a: int
             ...     b: int
@@ -1134,6 +1036,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
             >>> sorted(MyModel.select(["b", "c"]).columns)
             ['b', 'c']
+
         """
         if isinstance(fields, str):
             fields = [fields]
@@ -1152,17 +1055,19 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def drop(cls: Type[ModelType], name: Union[str, Iterable[str]]) -> Type["Model"]:
-        """
-        Return a new model where one or more fields are excluded.
+        """Return a new model where one or more fields are excluded.
 
         Args:
+        ----
             name: A single string field name, or a list of such field names,
                 which will be dropped.
 
         Returns:
+        -------
             New model class where the given fields have been removed.
 
         Examples:
+        --------
             >>> class MyModel(Model):
             ...     a: int
             ...     b: int
@@ -1177,6 +1082,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
             >>> MyModel.drop(["b", "c"]).columns
             ['a']
+
         """
         dropped_columns = {name} if isinstance(name, str) else set(name)
         mapping = {
@@ -1191,16 +1097,18 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def prefix(cls: Type[ModelType], prefix: str) -> Type["Model"]:
-        """
-        Return a new model where all field names have been prefixed.
+        """Return a new model where all field names have been prefixed.
 
         Args:
+        ----
             prefix: String prefix to add to all field names.
 
         Returns:
+        -------
             New model class with all the same fields only prefixed with the given prefix.
 
         Example:
+        -------
             >>> class MyModel(Model):
             ...     a: int
             ...     b: int
@@ -1208,6 +1116,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
             >>> MyModel.prefix("x_").columns
             ['x_a', 'x_b']
+
         """
         mapping = {f"{prefix}{field_name}": field_name for field_name in cls.columns}
         return cls._derive_model(
@@ -1217,17 +1126,19 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def suffix(cls: Type[ModelType], suffix: str) -> Type["Model"]:
-        """
-        Return a new model where all field names have been suffixed.
+        """Return a new model where all field names have been suffixed.
 
         Args:
+        ----
             suffix: String suffix to add to all field names.
 
         Returns:
+        -------
             New model class with all the same fields only suffixed with the given
             suffix.
 
         Example:
+        -------
             >>> class MyModel(Model):
             ...     a: int
             ...     b: int
@@ -1235,6 +1146,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
             >>> MyModel.suffix("_x").columns
             ['a_x', 'b_x']
+
         """
         mapping = {f"{field_name}{suffix}": field_name for field_name in cls.columns}
         return cls._derive_model(
@@ -1244,20 +1156,23 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def rename(cls: Type[ModelType], mapping: Dict[str, str]) -> Type["Model"]:
-        """
-        Return a new model class where the specified fields have been renamed.
+        """Return a new model class where the specified fields have been renamed.
 
         Args:
+        ----
             mapping: A dictionary where the keys are the old field names
                 and the values are the new names.
 
         Returns:
+        -------
             A new model class where the given fields have been renamed.
 
         Raises:
+        ------
             ValueError: If non-existent fields are renamed.
 
         Example:
+        -------
             >>> class MyModel(Model):
             ...     a: int
             ...     b: int
@@ -1265,6 +1180,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
             >>> MyModel.rename({"a": "A"}).columns
             ['b', 'A']
+
         """
         non_existent_fields = set(mapping.keys()) - set(cls.columns)
         if non_existent_fields:
@@ -1287,10 +1203,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         cls: Type[ModelType],
         **field_definitions: Any,  # noqa: ANN401
     ) -> Type["Model"]:
-        """
-        Return a new model class where the given fields have been added.
+        """Return a new model class where the given fields have been added.
 
         Args:
+        ----
             **field_definitions: the keywords are of the form:
                 ``field_name=(field_type, field_default)``.
                 Specify ``...`` if no default value is provided.
@@ -1298,10 +1214,12 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 integer field named ``"column_name"``.
 
         Returns:
+        -------
             A new model with all the original fields and the additional field
             definitions.
 
         Example:
+        -------
             >>> class MyModel(Model):
             ...     a: int
             ...
@@ -1310,6 +1228,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             ...
             >>> MyModel.with_fields(b=(int, ...)).columns == ExpandedModel.columns
             True
+
         """
         fields = {field_name: field_name for field_name in cls.columns}
         fields.update(field_definitions)
@@ -1319,49 +1238,16 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         )
 
     @classmethod
-    def _schema_properties(cls) -> Dict[str, Dict[str, Any]]:
-        """
-        Return schema properties where definition references have been resolved.
+    def _schema_properties(cls: Type[ModelType]) -> Mapping[str, Any]:
+        return cls.model_schema["properties"]
 
-        Returns:
-            Field information as a dictionary where the keys are field names and the
-                values are dictionaries containing metadata information about the field
-                itself.
-
-        Raises:
-            TypeError: if a field is annotated with an enum where the values are of
-                different types.
-        """
-        schema = cls.schema(ref_template="{model}")
-        required = schema.get("required", set())
-        fields = {}
-        for field_name, field_info in schema["properties"].items():
-            if "$ref" in field_info:
-                definition = schema["definitions"][field_info["$ref"]]
-                if "enum" in definition and "type" not in definition:
-                    enum_types = set(type(value) for value in definition["enum"])
-                    if len(enum_types) > 1:
-                        raise TypeError(
-                            "All enumerated values of enums used to annotate "
-                            "Patito model fields must have the same type. "
-                            "Encountered types: "
-                            f"{sorted(map(lambda t: t.__name__, enum_types))}."
-                        )
-                    enum_type = enum_types.pop()
-                    # TODO: Support time-delta, date, and date-time.
-                    definition["type"] = {
-                        str: "string",
-                        int: "integer",
-                        float: "number",
-                        bool: "boolean",
-                        type(None): "null",
-                    }[enum_type]
-                fields[field_name] = definition
-            else:
-                fields[field_name] = field_info
-            fields[field_name]["required"] = field_name in required
-
-        return fields
+    @classmethod
+    def _update_dfn(cls, annotation: Any, schema: Dict[str, Any]) -> None:
+        try:
+            if issubclass(annotation, Model) and annotation.__name__ != cls.__name__:
+                schema["$defs"][annotation.__name__] = annotation.model_schema
+        except TypeError:
+            pass
 
     @classmethod
     def _derive_model(
@@ -1369,10 +1255,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         model_name: str,
         field_mapping: Dict[str, Any],
     ) -> Type["Model"]:
-        """
-        Derive a new model with new field definitions.
+        """Derive a new model with new field definitions.
 
         Args:
+        ----
             model_name: Name of new model class.
             field_mapping: A mapping where the keys represent field names and the values
                 represent field definitions. String field definitions are used as
@@ -1381,36 +1267,89 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 pydantic.create_model.
 
         Returns:
+        -------
             A new model class derived from the model type of self.
+
         """
         new_fields = {}
         for new_field_name, field_definition in field_mapping.items():
             if isinstance(field_definition, str):
                 # A single string, interpreted as the name of a field on the existing
                 # model.
-                old_field = cls.__fields__[field_definition]
-                field_type = old_field.type_
-                field_default = old_field.default
-                if old_field.required and field_default is None:
-                    # The default None value needs to be replaced with ... in order to
-                    # make the field required in the new model.
-                    field_default = ...
-                new_fields[new_field_name] = (field_type, field_default)
+                old_field = cls.model_fields[field_definition]
+                new_fields[new_field_name] = cls._derive_field(old_field)
             else:
                 # We have been given a (field_type, field_default) tuple defining the
                 # new field directly.
-                new_fields[new_field_name] = field_definition
+                field_type = field_definition[0]
+                if field_definition[1] is None and type(None) not in get_args(
+                    field_type
+                ):
+                    field_type = Optional[field_type]
+                new_fields[new_field_name] = (field_type, field_definition[1])
         return create_model(  # type: ignore
             __model_name=model_name,
-            __validators__={"__validators__": cls.__validators__},
             __base__=Model,
             **new_fields,
         )
 
+    @staticmethod
+    def _derive_field(
+        field: fields.FieldInfo,
+        make_nullable: bool = False,
+    ) -> Tuple[Type | None, fields.FieldInfo]:
+        field_type = field.annotation
+        default = field.default
+        extra_attrs = {
+            x: getattr(field, x)
+            for x in field._attributes_set
+            if x in field.__slots__ and x not in ["annotation", "default"]
+        }
+        if make_nullable:
+            if field_type is None:
+                raise TypeError(
+                    "Cannot make field nullable if no type annotation is provided!"
+                )
+            else:
+                # This originally non-nullable field has become nullable
+                field_type = Optional[field_type]
+        elif field.is_required() and default is None:
+            # We need to replace Pydantic's None default value with ... in order
+            # to make it clear that the field is still non-nullable and
+            # required.
+            default = ...
+        field_new = fields.Field(default=default, **extra_attrs)
+        field_new.metadata = field.metadata
+        return field_type, field_new
+
+
+FIELD_KWARGS = getfullargspec(fields.Field)
+
+
+def FieldCI(
+    column_info: CI, *args: Any, **kwargs: Any
+) -> Any:  # annotate with Any to make the downstream type annotations happy
+    ci = column_info(**kwargs)
+    for field in ci.model_fields_set:
+        kwargs.pop(field)
+    if kwargs.pop("modern_kwargs_only", True):
+        for kwarg in kwargs:
+            if kwarg not in FIELD_KWARGS.kwonlyargs and kwarg not in FIELD_KWARGS.args:
+                raise ValueError(
+                    f"unexpected kwarg {kwarg}={kwargs[kwarg]}.  Add modern_kwargs_only=False to ignore"
+                )
+    return fields.Field(
+        *args,
+        json_schema_extra={"column_info": ci},
+        **kwargs,
+    )
+
+
+Field = partial(FieldCI, column_info=ColumnInfo)
+
 
 class FieldDoc:
-    """
-    Annotate model field with additional type and validation information.
+    """Annotate model field with additional type and validation information.
 
     This class is built on ``pydantic.Field`` and you can find its full documentation
     `here <https://pydantic-docs.helpmanual.io/usage/schema/#field-customization>`_.
@@ -1418,14 +1357,16 @@ class FieldDoc:
     these are documented here.
 
     Args:
+    ----
         constraints (Union[polars.Expression, List[polars.Expression]): A single
             constraint or list of constraints, expressed as a polars expression objects.
             All rows must satisfy the given constraint. You can refer to the given column
             with ``pt.field``, which will automatically be replaced with
             ``polars.col(<field_name>)`` before evaluation.
-        unique (bool): All row values must be unique.
+        derived_from (Union[str, polars.Expr]): used to mark fields that are meant to be derived from other fields. Users can specify a polars expression that will be called to derive the column value when `pt.DataFrame.derive` is called.
         dtype (polars.datatype.DataType): The given dataframe column must have the given
             polars dtype, for instance ``polars.UInt64`` or ``pl.Float32``.
+        unique (bool): All row values must be unique.
         gt: All values must be greater than ``gt``.
         ge: All values must be greater than or equal to ``ge``.
         lt: All values must be less than ``lt``.
@@ -1438,10 +1379,12 @@ class FieldDoc:
         max_length (int): Maximum length of all string values in a UTF-8 column.
 
     Return:
+    ------
         FieldInfo: Object used to represent additional constraints put upon the given
         field.
 
     Examples:
+    --------
         >>> import patito as pt
         >>> import polars as pl
         >>> class Product(pt.Model):
@@ -1454,28 +1397,22 @@ class FieldDoc:
         ...     # The product name should be from 3 to 128 characters long
         ...     name: str = pt.Field(min_length=3, max_length=128)
         ...
-        ...     # Represent colors in the form of upper cased hex colors
-        ...     brand_color: str = pt.Field(regex=r"^\\#[0-9A-F]{6}$")
         ...
         >>> Product.DataFrame(
         ...     {
         ...         "product_id": [1, 1],
         ...         "price": [400, 600],
-        ...         "brand_color": ["#ab00ff", "AB00FF"],
         ...     }
         ... ).validate()
         Traceback (most recent call last):
-          ...
-        patito.exceptions.ValidationError: 4 validation errors for Product
+        patito.exceptions.DataFrameValidationError: 3 validation errors for Product
         name
-          Missing column (type=type_error.missingcolumns)
+            Missing column (type=type_error.missingcolumns)
         product_id
-          2 rows with duplicated values. (type=value_error.rowvalue)
+            2 rows with duplicated values. (type=value_error.rowvalue)
         price
-          Polars dtype Int64 does not match model field type. \
-          (type=type_error.columndtype)
-        brand_color
-          2 rows with out of bound values. (type=value_error.rowvalue)
+            Polars dtype Int64 does not match model field type. (type=type_error.columndtype)
+
     """
 
 

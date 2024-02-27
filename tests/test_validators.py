@@ -1,35 +1,37 @@
 """Tests for the patito.validators module."""
+from __future__ import annotations
+
 import enum
+import re
 import sys
 from datetime import date, datetime
-from typing import List, Optional, Union
-
-import polars as pl
-import pytest
-from typing_extensions import Literal
+from typing import List, Literal, Optional, Union
 
 import patito as pt
-from patito.exceptions import ValidationError
-from patito.validators import _dewrap_optional, _is_optional, validate
+import polars as pl
+import pytest
+from patito import DataFrameValidationError
+from patito._pydantic.dtypes import is_optional
+from patito.validators import _dewrap_optional, validate
 
 
-def test_is_optional():
+def test_is_optional() -> None:
     """It should return True for optional types."""
-    assert _is_optional(Optional[int])
-    assert _is_optional(Union[int, None])
-    assert not _is_optional(int)
+    assert is_optional(Optional[int])
+    assert is_optional(Union[int, None])
+    assert not is_optional(int)
 
 
 @pytest.mark.skipif(
     sys.version_info <= (3, 10),
     reason="Using | as a type union operator is only supported from python 3.10.",
 )
-def test_is_optional_with_pipe_operator():
+def test_is_optional_with_pipe_operator() -> None:
     """It should return True for optional types."""
-    assert _is_optional(int | None)  # typing: ignore  # pragma: noqa  # pyright: ignore
+    assert is_optional(int | None)  # typing: ignore  # pragma: noqa  # pyright: ignore
 
 
-def test_dewrap_optional():
+def test_dewrap_optional() -> None:
     """It should return the inner type of Optional types."""
     assert _dewrap_optional(Optional[int]) is int
     assert _dewrap_optional(Union[int, None]) is int
@@ -40,14 +42,14 @@ def test_dewrap_optional():
     sys.version_info <= (3, 10),
     reason="Using | as a type union operator is only supported from python 3.10.",
 )
-def test_dewrap_optional_with_pipe_operator():
+def test_dewrap_optional_with_pipe_operator() -> None:
     """It should return the inner type of Optional types."""
     assert (  # typing: ignore  # pragma: noqa  # pyright: ignore
         _dewrap_optional(int | None) is int
     )
 
 
-def test_missing_column_validation():
+def test_missing_column_validation() -> None:
     """Validation should catch missing columns."""
 
     class SingleColumnModel(pt.Model):
@@ -55,7 +57,7 @@ def test_missing_column_validation():
         column_2: str
 
     # First we raise an error because we are missing column_1
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(dataframe=pl.DataFrame(), schema=SingleColumnModel)
 
     errors = e_info.value.errors()
@@ -73,22 +75,35 @@ def test_missing_column_validation():
         },
     ]
 
+    df_missing_column_2 = pl.DataFrame({"column_1": [1, 2, 3]})
+    with pytest.raises(DataFrameValidationError) as e_info:
+        validate(dataframe=df_missing_column_2, schema=SingleColumnModel)
+    validate(
+        dataframe=df_missing_column_2,
+        schema=SingleColumnModel,
+        allow_missing_columns=True,
+    )  # does not raise when allow_missing_columns=True
+    SingleColumnModel.validate(
+        df_missing_column_2, allow_missing_columns=True
+    )  # kwargs are passed via model-centric validation API
 
-def test_superflous_column_validation():
-    """Validation should catch superflous columns."""
+
+def test_superfluous_column_validation() -> None:
+    """Validation should catch superfluous columns."""
 
     class SingleColumnModel(pt.Model):
         column_1: int
 
     # We raise an error because we have added column_2
-    with pytest.raises(ValidationError) as e_info:
+    test_df = pl.DataFrame().with_columns(
+        [
+            pl.lit(1).alias("column_1"),
+            pl.lit(2).alias("column_2"),
+        ]
+    )
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(
-            dataframe=pl.DataFrame().with_columns(
-                [
-                    pl.lit(1).alias("column_1"),
-                    pl.lit(2).alias("column_2"),
-                ]
-            ),
+            dataframe=test_df,
             schema=SingleColumnModel,
         )
 
@@ -96,17 +111,24 @@ def test_superflous_column_validation():
     assert len(e_info.value.errors()) == 1
     assert errors[0] == {
         "loc": ("column_2",),
-        "msg": "Superflous column",
-        "type": "type_error.superflouscolumns",
+        "msg": "Superfluous column",
+        "type": "type_error.superfluouscolumns",
     }
 
+    validate(
+        test_df, SingleColumnModel, allow_superfluous_columns=True
+    )  # does not raise
+    SingleColumnModel.validate(
+        test_df, allow_superfluous_columns=True
+    )  # model-centric API also works
 
-def test_validate_non_nullable_columns():
+
+def test_validate_non_nullable_columns() -> None:
     """Test for validation logic related to missing values."""
 
     class SmallModel(pt.Model):
         column_1: int
-        column_2: Optional[int]
+        column_2: Optional[int] = None
 
     # We insert nulls into a non-optional column, causing an exception
     wrong_nulls_df = pl.DataFrame().with_columns(
@@ -115,7 +137,7 @@ def test_validate_non_nullable_columns():
             pl.lit(None).cast(pl.Int64).alias("column_2"),
         ]
     )
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(
             dataframe=wrong_nulls_df,
             schema=SmallModel,
@@ -130,7 +152,7 @@ def test_validate_non_nullable_columns():
     }
 
 
-def test_validate_dtype_checks():
+def test_validate_dtype_checks() -> None:
     """Test dtype-checking logic."""
 
     # An integer field may be validated against several different integer dtypes
@@ -142,11 +164,11 @@ def test_validate_dtype_checks():
         dataframe = pl.DataFrame([series])
         validate(dataframe=dataframe, schema=IntModel)
 
-    # But other types, including floating point types, must be considered invalid
-    for dtype in (pl.Utf8, pl.Date, pl.Float32, pl.Float64):
+    # But other types must be considered invalid
+    for dtype in (pl.String, pl.Date):
         series = pl.Series([], dtype=dtype).alias("column")
         dataframe = pl.DataFrame([series])
-        with pytest.raises(ValidationError) as e_info:
+        with pytest.raises(DataFrameValidationError) as e_info:
             validate(dataframe=dataframe, schema=IntModel)
 
         errors = e_info.value.errors()
@@ -170,7 +192,7 @@ def test_validate_dtype_checks():
     valid_df = pl.DataFrame().with_columns(
         [
             pl.lit(1, dtype=pl.Int16).alias("int_column"),
-            pl.lit("a", dtype=pl.Utf8).alias("string_column"),
+            pl.lit("a", dtype=pl.String).alias("string_column"),
             pl.lit(1.0, dtype=pl.Float32).alias("float_column"),
             pl.lit(datetime.now(), dtype=pl.Datetime).alias("datetime_column"),
             pl.lit(date.today(), dtype=pl.Date).alias("date_column"),
@@ -182,11 +204,11 @@ def test_validate_dtype_checks():
     # We try to hit each column dtype check
     for column in CompleteModel.columns:
         if column == "int_column":
-            dtype = pl.Float64
+            dtype = pl.String
         else:
             dtype = pl.Int64
 
-        with pytest.raises(ValidationError) as e_info:
+        with pytest.raises(DataFrameValidationError) as e_info:
             validate(
                 dataframe=valid_df.with_columns(pl.lit(1, dtype=dtype).alias(column)),
                 schema=CompleteModel,
@@ -202,24 +224,20 @@ def test_validate_dtype_checks():
         }
 
     # Anything non-compatible with polars should raise NotImplementedError
-    class NonCompatibleModel(pt.Model):
-        my_field: object
+    with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
 
-    with pytest.raises(
-        NotImplementedError,
-        match="No valid dtype mapping found for column 'my_field'.",
-    ):
-        NonCompatibleModel.valid_dtypes
+        class NonCompatibleModel(pt.Model):
+            my_field: object
+
+        NonCompatibleModel.validate_schema()
 
     # The same goes for list-annotated fields
-    class NonCompatibleListModel(pt.Model):
-        my_field: List[object]
+    with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
 
-    with pytest.raises(
-        NotImplementedError,
-        match="No valid dtype mapping found for column 'my_field'.",
-    ):
-        NonCompatibleListModel.valid_dtypes
+        class NonCompatibleListModel(pt.Model):
+            my_field: List[object]
+
+        NonCompatibleListModel.validate_schema()
 
     # It should also work with pandas data frames
     class PandasCompatibleModel(CompleteModel):
@@ -232,7 +250,7 @@ def test_validate_dtype_checks():
     )
 
 
-def test_uniqueness_validation():
+def test_uniqueness_validation() -> None:
     """It should be able to validate uniqueness."""
 
     class MyModel(pt.Model):
@@ -245,20 +263,18 @@ def test_uniqueness_validation():
     MyModel.validate(empty_df)
 
     duplicated_df = pt.DataFrame({"column": [1, 1, 2]})
-    with pytest.raises(pt.exceptions.ValidationError):
+    with pytest.raises(pt.exceptions.DataFrameValidationError):
         MyModel.validate(duplicated_df)
 
 
-def test_datetime_validation():
-    """
-    Test for date(time) validation.
+def test_datetime_validation() -> None:
+    """Test for date(time) validation.
 
     Both strings, dates, and datetimes are assigned type "string" in the OpenAPI JSON
     schema spec, so this needs to be specifically tested for since the implementation
     needs to check the "format" property on the field schema.
     """
-
-    string_df = pl.DataFrame().with_columns(pl.lit("string", dtype=pl.Utf8).alias("c"))
+    string_df = pl.DataFrame().with_columns(pl.lit("string", dtype=pl.String).alias("c"))
     date_df = pl.DataFrame().with_columns(
         pl.lit(date.today(), dtype=pl.Date).alias("c")
     )
@@ -270,31 +286,31 @@ def test_datetime_validation():
         c: str
 
     validate(dataframe=string_df, schema=StringModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=date_df, schema=StringModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=datetime_df, schema=StringModel)
 
     class DateModel(pt.Model):
         c: date
 
     validate(dataframe=date_df, schema=DateModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=string_df, schema=DateModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=datetime_df, schema=DateModel)
 
     class DateTimeModel(pt.Model):
         c: datetime
 
     validate(dataframe=datetime_df, schema=DateTimeModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=string_df, schema=DateTimeModel)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         validate(dataframe=date_df, schema=DateTimeModel)
 
 
-def test_enum_validation():
+def test_enum_validation() -> None:
     """Test validation of enum.Enum-typed fields."""
 
     class ABCEnum(enum.Enum):
@@ -309,7 +325,7 @@ def test_enum_validation():
     validate(dataframe=valid_df, schema=EnumModel)
 
     invalid_df = pl.DataFrame({"column": ["d"]})
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(dataframe=invalid_df, schema=EnumModel)
 
     errors = e_info.value.errors()
@@ -321,7 +337,7 @@ def test_enum_validation():
     }
 
 
-def test_literal_enum_validation():
+def test_literal_enum_validation() -> None:
     """Test validation of typing.Literal-typed fields."""
 
     class EnumModel(pt.Model):
@@ -331,7 +347,7 @@ def test_literal_enum_validation():
     validate(dataframe=valid_df, schema=EnumModel)
 
     invalid_df = pl.DataFrame({"column": ["d"]})
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(dataframe=invalid_df, schema=EnumModel)
 
     errors = e_info.value.errors()
@@ -343,7 +359,7 @@ def test_literal_enum_validation():
     }
 
 
-def test_uniqueness_constraint_validation():
+def test_uniqueness_constraint_validation() -> None:
     """Uniqueness constraints should be validated."""
 
     class UniqueModel(pt.Model):
@@ -351,7 +367,7 @@ def test_uniqueness_constraint_validation():
 
     validate(dataframe=pl.DataFrame({"product_id": [1, 2]}), schema=UniqueModel)
 
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         validate(dataframe=pl.DataFrame({"product_id": [1, 1]}), schema=UniqueModel)
 
     errors = e_info.value.errors()
@@ -363,7 +379,7 @@ def test_uniqueness_constraint_validation():
     }
 
 
-def test_validation_of_bounds_checks():
+def test_validation_of_bounds_checks() -> None:
     """Check if value bounds are correctly validated."""
 
     class BoundModel(pt.Model):
@@ -373,8 +389,10 @@ def test_validation_of_bounds_checks():
         gt_column: float = pt.Field(gt=42.5)
         combined_column: float = pt.Field(gt=42.5, le=43)
         multiple_column: float = pt.Field(multiple_of=0.5)
-        const_column: float = pt.Field(default=3.1415, const=True)
-        regex_column: str = pt.Field(regex=r"value [A-Z]")
+        # const fields should now use Literal instead, but pyright
+        # complains about Literal of float values
+        const_column: Literal[3.1415] = pt.Field(default=3.1415)  # type: ignore
+        regex_column: str = pt.Field(pattern=r"value [A-Z]")
         min_length_column: str = pt.Field(min_length=2)
         max_length_column: str = pt.Field(max_length=2)
 
@@ -396,7 +414,7 @@ def test_validation_of_bounds_checks():
             + valid[column_index + 1 :]
         )
         invalid_df = pl.DataFrame(data=[data], schema=BoundModel.columns)
-        with pytest.raises(ValidationError) as e_info:
+        with pytest.raises(DataFrameValidationError) as e_info:
             BoundModel.validate(invalid_df)
         errors = e_info.value.errors()
         assert len(errors) == 1
@@ -407,7 +425,7 @@ def test_validation_of_bounds_checks():
         }
 
 
-def test_validation_of_dtype_specifiers():
+def test_validation_of_dtype_specifiers() -> None:
     """Fields with specific dtype annotations should be validated."""
 
     class DTypeModel(pt.Model):
@@ -439,7 +457,7 @@ def test_validation_of_dtype_specifiers():
     DTypeModel.validate(valid_df)
 
     invalid = [
-        pl.Series([2.5]).cast(pl.Float64),
+        pl.Series(["a"]).cast(pl.String),
         pl.Series([2.5]).cast(pl.Float64),
         pl.Series([2**32]).cast(pl.Int64),
         pl.Series([-2]).cast(pl.Int64),
@@ -448,7 +466,7 @@ def test_validation_of_dtype_specifiers():
     for column_index, (column_name, dtype) in enumerate(
         zip(
             DTypeModel.columns,
-            [pl.Float64, pl.Float64, pl.Int64, pl.Int64, pl.Int64],
+            [pl.String, pl.Float64, pl.Int64, pl.Int64, pl.Int64],
         )
     ):
         data = (
@@ -457,7 +475,7 @@ def test_validation_of_dtype_specifiers():
             + valid[column_index + 1 :]
         )
         invalid_df = pl.DataFrame(data=data, schema=DTypeModel.columns)
-        with pytest.raises(ValidationError) as e_info:
+        with pytest.raises(DataFrameValidationError) as e_info:
             DTypeModel.validate(invalid_df)
         errors = e_info.value.errors()
         assert len(errors) == 1
@@ -468,7 +486,7 @@ def test_validation_of_dtype_specifiers():
         }
 
 
-def test_custom_constraint_validation():
+def test_custom_constraint_validation() -> None:
     """Users should be able to specify custom constraints."""
 
     class CustomConstraintModel(pt.Model):
@@ -478,7 +496,7 @@ def test_custom_constraint_validation():
         odd_int: int = pt.Field(constraints=pl.col("odd_int") % 2 == 1)
 
     df = CustomConstraintModel.DataFrame({"even_int": [2, 3], "odd_int": [1, 2]})
-    with pytest.raises(ValidationError) as e_info:
+    with pytest.raises(DataFrameValidationError) as e_info:
         df.validate()
     errors = e_info.value.errors()
     assert len(errors) == 2
@@ -502,11 +520,11 @@ def test_custom_constraint_validation():
     PizzaSlice.validate(whole_pizza)
 
     part_pizza = pt.DataFrame({"fraction": [0.25, 0.25]})
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         PizzaSlice.validate(part_pizza)
 
 
-def test_anonymous_column_constraints():
+def test_anonymous_column_constraints() -> None:
     """You should be able to refer to the field column with an anonymous column."""
 
     class Pair(pt.Model):
@@ -517,7 +535,7 @@ def test_anonymous_column_constraints():
 
     pairs = pt.DataFrame({"odd_number": [1, 3, 5], "even_number": [2, 4, 6]})
     Pair.validate(pairs)
-    with pytest.raises(ValidationError):
+    with pytest.raises(DataFrameValidationError):
         Pair.validate(
             pairs.select(
                 [
@@ -528,7 +546,7 @@ def test_anonymous_column_constraints():
         )
 
 
-def test_optional_enum():
+def test_optional_enum() -> None:
     """It should handle optional enums correctly."""
 
     class OptionalEnumModel(pt.Model):
@@ -543,7 +561,7 @@ def test_optional_enum():
     sys.version_info <= (3, 10),
     reason="Using | as a type union operator is only supported from python 3.10.",
 )
-def test_optional_pipe_operator():
+def test_optional_pipe_operator() -> None:
     class OptionalEnumModel(pt.Model):
         # Old type annotation syntax
         optional_enum_1: Optional[Literal["A", "B"]]
@@ -565,7 +583,7 @@ def test_optional_pipe_operator():
     raises=TypeError,
     strict=True,
 )
-def test_validation_of_list_dtypes():
+def test_validation_of_list_dtypes() -> None:
     """It should be able to validate dtypes organized in lists."""
 
     class ListModel(pt.Model):
@@ -597,5 +615,48 @@ def test_validation_of_list_dtypes():
         ("nullable_int_or_null_list", "nullable_int_list"),
     ]:
         # print(old, new)
-        with pytest.raises(ValidationError):
+        with pytest.raises(DataFrameValidationError):
             ListModel.validate(valid_df.with_columns(pl.col(old).alias(new)))
+
+
+def test_nested_field_attrs() -> None:
+    """Ensure that constraints are respected even when embedded inside 'anyOf'"""
+
+    class Test(pt.Model):
+        foo: Optional[int] = pt.Field(
+            dtype=pl.Int64, ge=0, le=100, constraints=pt.field.sum() == 100
+        )
+
+    test_df = Test.DataFrame(
+        {"foo": [110, -10]}
+    )  # meets constraint, but violates bounds (embedded in 'anyOf' in properties)
+    with pytest.raises(DataFrameValidationError) as e:
+        Test.validate(test_df)
+    pattern = re.compile(r"2 rows with out of bound values")
+    assert len(pattern.findall(str(e.value))) == 1
+
+    null_test_df = Test.DataFrame({"foo": [100, None, None]})
+    Test.validate(null_test_df)  # should not raise
+
+
+def test_validation_column_subset() -> None:
+    """Ensure that columns are only validated if they are in the subset"""
+
+    class Test(pt.Model):
+        a: int
+        b: int = pt.Field(dtype=pl.Int64, ge=0, le=100)
+
+    Test.validate(pl.DataFrame({"a": [1, 2, 3], "b": [1, 2, 3]}))  # should pass
+    with pytest.raises(DataFrameValidationError):
+        Test.validate(pl.DataFrame({"a": [1, 2, 3], "b": [101, 102, 103]}))
+
+    # should pass without validating b
+    Test.validate(pl.DataFrame({"a": [1, 2, 3], "b": [101, 102, 103]}), columns=["a"])
+
+    with pytest.raises(DataFrameValidationError):
+        Test.validate(
+            pl.DataFrame({"a": [1, 2, 3], "b": [101, 102, 103]}), columns=["b"]
+        )
+    # test asking for superfluous column
+    with pytest.raises(DataFrameValidationError):
+        Test.validate(pl.DataFrame({"a": [1, 2, 3], "b": [1, 2, 3]}), columns=["c"])
