@@ -83,7 +83,8 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         See documentation of polars.DataFrame.collect for full description of
         parameters.
         """
-        df = super().collect(*args, **kwargs)
+        background = kwargs.pop("background", False)
+        df = super().collect(*args, background=background, **kwargs)
         if getattr(self, "model", False):
             cls = DataFrame._construct_dataframe_model_class(model=self.model)
         else:
