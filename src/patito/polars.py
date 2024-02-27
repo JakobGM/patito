@@ -1,4 +1,5 @@
 """Logic related to the wrapping of the polars data frame library."""
+
 from __future__ import annotations
 
 from typing import (
@@ -90,6 +91,48 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         return cls._from_pydf(df._df)
 
     def derive(self: LDF, columns: list[str] | None = None) -> LDF:
+        """Populate columns which have ``pt.Field(derived_from=...)`` definitions.
+
+        If a column field on the data frame model has ``patito.Field(derived_from=...)``
+        specified, the given value will be used to define the column. If
+        ``derived_from`` is set to a string, the column will be derived from the given
+        column name. Alternatively, an arbitrary polars expression can be given, the
+        result of which will be used to populate the column values.
+
+        Args:
+        ----
+            columns: Optionally, a list of column names to derive. If not provided, all
+                columns are used.
+
+        Returns:
+        -------
+            DataFrame[Model]: A new dataframe where all derivable columns are provided.
+
+        Raises:
+        ------
+            TypeError: If the ``derived_from`` parameter of ``patito.Field`` is given
+                as something else than a string or polars expression.
+
+        Examples:
+        --------
+            >>> import patito as pt
+            >>> import polars as pl
+            >>> class Foo(pt.Model):
+            ...     bar: int = pt.Field(derived_from="foo")
+            ...     double_bar: int = pt.Field(derived_from=2 * pl.col("bar"))
+            ...
+            >>> Foo.DataFrame({"foo": [1, 2]}).derive()
+            shape: (2, 3)
+            ┌─────┬────────────┬─────┐
+            │ bar ┆ double_bar ┆ foo │
+            │ --- ┆ ---        ┆ --- │
+            │ i64 ┆ i64        ┆ i64 │
+            ╞═════╪════════════╪═════╡
+            │ 1   ┆ 2          ┆ 1   │
+            │ 2   ┆ 4          ┆ 2   │
+            └─────┴────────────┴─────┘
+
+        """
         derived_columns = []
         props = self.model._schema_properties()
         original_columns = set(self.columns)
@@ -620,12 +663,12 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             )
         return self.with_columns(
             [
-                pl.col(column).fill_null(
-                    pl.lit(default_value, self.model.dtypes[column])
-                )
-                if column in self.columns
-                else pl.Series(
-                    column, [default_value], self.model.dtypes[column]
+                (
+                    pl.col(column).fill_null(
+                        pl.lit(default_value, self.model.dtypes[column])
+                    )
+                    if column in self.columns
+                    else pl.Series(column, [default_value], self.model.dtypes[column])
                 )  # NOTE: hack to get around polars bug https://github.com/pola-rs/polars/issues/13602
                 # else pl.lit(default_value, self.model.dtypes[column]).alias(column)
                 for column, default_value in self.model.defaults.items()
