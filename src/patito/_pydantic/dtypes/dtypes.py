@@ -130,7 +130,7 @@ class DtypeResolver:
 
     def default_polars_dtype(self) -> DataTypeClass | DataType | None:
         if self.annotation == Any:
-            return pl.Utf8
+            return pl.String
         return self._default_polars_dtype_for_schema(self.schema)
 
     def _valid_polars_dtypes_for_schema(

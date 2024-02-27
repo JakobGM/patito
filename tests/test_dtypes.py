@@ -52,7 +52,7 @@ def test_valids_basic_annotations() -> None:
 
     assert DtypeResolver(Literal["a", "b", "c"]).valid_polars_dtypes() == {  # pyright: ignore
         pl.Enum(["a", "b", "c"]),
-        pl.Utf8,
+        pl.String,
     }
 
     # combos
@@ -78,9 +78,9 @@ def test_valids_nested_annotations() -> None:
         == DtypeResolver(Sequence).valid_polars_dtypes()
     )  # for now, these are the same
 
-    assert DtypeResolver(List[str]).valid_polars_dtypes() == {pl.List(pl.Utf8)}
+    assert DtypeResolver(List[str]).valid_polars_dtypes() == {pl.List(pl.String)}
     assert DtypeResolver(Optional[List[str]]).valid_polars_dtypes() == {
-        pl.List(pl.Utf8)
+        pl.List(pl.String)
     }
     assert len(DtypeResolver(List[int]).valid_polars_dtypes()) == len(
         DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)
@@ -92,7 +92,7 @@ def test_valids_nested_annotations() -> None:
         DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)
     )
     assert DtypeResolver(List[List[str]]).valid_polars_dtypes() == {
-        pl.List(pl.List(pl.Utf8))
+        pl.List(pl.List(pl.String))
     }  # recursion works as expected
 
     assert (
@@ -113,7 +113,7 @@ def test_dtype_validation() -> None:
     validate_polars_dtype(int, pl.Int16)  # no issue
     validate_polars_dtype(int, pl.Float64)  # no issue
     with pytest.raises(ValueError, match="Invalid dtype"):
-        validate_polars_dtype(int, pl.Utf8)
+        validate_polars_dtype(int, pl.String)
 
     with pytest.raises(ValueError, match="Invalid dtype"):
         validate_polars_dtype(List[str], pl.List(pl.Float64))
@@ -124,7 +124,7 @@ def test_dtype_validation() -> None:
 
 def test_defaults_basic_annotations() -> None:
     # base types
-    assert DtypeResolver(str).default_polars_dtype() == pl.Utf8
+    assert DtypeResolver(str).default_polars_dtype() == pl.String
     assert DtypeResolver(int).default_polars_dtype() == pl.Int64
     assert DtypeResolver(float).default_polars_dtype() == pl.Float64
     assert DtypeResolver(bool).default_polars_dtype() == pl.Boolean
@@ -136,7 +136,7 @@ def test_defaults_basic_annotations() -> None:
     assert DtypeResolver(timedelta).default_polars_dtype() == pl.Duration
 
     # combos
-    assert DtypeResolver(Optional[str]).default_polars_dtype() == pl.Utf8
+    assert DtypeResolver(Optional[str]).default_polars_dtype() == pl.String
     assert DtypeResolver(Union[int, float]).default_polars_dtype() is None
     assert DtypeResolver(Union[str, int]).default_polars_dtype() is None
 
@@ -152,8 +152,8 @@ def test_defaults_basic_annotations() -> None:
 def test_defaults_nested_annotations() -> None:
     assert DtypeResolver(List).default_polars_dtype() is None  # needs inner annotation
 
-    assert DtypeResolver(List[str]).default_polars_dtype() == pl.List(pl.Utf8)
-    assert DtypeResolver(Optional[List[str]]).default_polars_dtype() == pl.List(pl.Utf8)
+    assert DtypeResolver(List[str]).default_polars_dtype() == pl.List(pl.String)
+    assert DtypeResolver(Optional[List[str]]).default_polars_dtype() == pl.List(pl.String)
     assert DtypeResolver(List[int]).default_polars_dtype() == pl.List(pl.Int64)
     assert DtypeResolver(List[Optional[int]]).default_polars_dtype() == pl.List(
         pl.Int64
@@ -161,10 +161,10 @@ def test_defaults_nested_annotations() -> None:
     assert DtypeResolver(List[Union[int, float]]).default_polars_dtype() is None
     assert DtypeResolver(List[Union[str, int]]).default_polars_dtype() is None
     assert DtypeResolver(List[List[str]]).default_polars_dtype() == pl.List(
-        pl.List(pl.Utf8)
+        pl.List(pl.String)
     )  # recursion works as expected
     assert DtypeResolver(List[List[Optional[str]]]).default_polars_dtype() == pl.List(
-        pl.List(pl.Utf8)
+        pl.List(pl.String)
     )
 
     with pytest.raises(

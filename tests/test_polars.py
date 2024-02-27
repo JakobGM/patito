@@ -213,11 +213,11 @@ def test_correct_columns_and_dtype_on_read(tmp_path):
 
     model_df = Foo.DataFrame.read_csv(csv_path, has_header=False)
     assert model_df.columns == ["a", "b"]
-    assert model_df.dtypes == [pl.Utf8, pl.Int64]
+    assert model_df.dtypes == [pl.String, pl.Int64]
 
     csv_path.write_text("b,a\n1,2")
     colum_specified_df = Foo.DataFrame.read_csv(csv_path, has_header=True)
-    assert colum_specified_df.schema == {"b": pl.Int64, "a": pl.Utf8}
+    assert colum_specified_df.schema == {"b": pl.Int64, "a": pl.String}
 
     dtype_specified_df = Foo.DataFrame.read_csv(
         csv_path, has_header=True, dtypes=[pl.Float64, pl.Float64]
@@ -228,7 +228,7 @@ def test_correct_columns_and_dtype_on_read(tmp_path):
     csv_path.write_text("1,2,3.1")
     unspecified_column_df = Foo.DataFrame.read_csv(csv_path, has_header=False)
     assert unspecified_column_df.columns == ["a", "b", "column_3"]
-    assert unspecified_column_df.dtypes == [pl.Utf8, pl.Int64, pl.Float64]
+    assert unspecified_column_df.dtypes == [pl.String, pl.Int64, pl.Float64]
 
     class DerivedModel(pt.Model):
         cents: int = pt.Field(derived_from=100 * pl.col("dollars"))
@@ -403,7 +403,7 @@ def test_polars_conversion():
     assert not isinstance(polars_df, pt.DataFrame)
     assert polars_df.shape == (2, 2)
     assert polars_df.columns == ["a", "b"]
-    assert polars_df.dtypes == [pl.Int64, pl.Utf8]
+    assert polars_df.dtypes == [pl.Int64, pl.String]
 
 
 def test_validation_alias() -> None:

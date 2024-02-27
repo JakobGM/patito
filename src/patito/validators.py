@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 VALID_POLARS_TYPES = {
     "enum": {pl.Categorical},
     "boolean": {pl.Boolean},
-    "string": {pl.Utf8, pl.Datetime, pl.Date},
+    "string": {pl.String, pl.Datetime, pl.Date},
     "number": {pl.Float32, pl.Float64},
     "integer": {
         pl.Int8,

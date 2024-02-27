@@ -50,7 +50,7 @@ def test_examples() -> None:
         a: int
         b: Optional[str]
         c: Optional[int]
-        d: Optional[List[str]] = pt.Field(dtype=pl.List(pl.Utf8))
+        d: Optional[List[str]] = pt.Field(dtype=pl.List(pl.String))
         e: List[int]
         f: int = pt.Field(ge=0)
 
@@ -58,9 +58,9 @@ def test_examples() -> None:
     assert isinstance(df, pl.DataFrame)
     assert df.dtypes == [
         pl.Int64,
-        pl.Utf8,
+        pl.String,
         pl.Int64,
-        pl.List(pl.Utf8),
+        pl.List(pl.String),
         pl.List(pl.Int64),
         pl.Int64,
     ]
@@ -128,8 +128,8 @@ def test_enum_field_example_values() -> None:
 
     # Workaround for pl.StringCache() not working here for some reason
     assert correct_example_df.dtypes == example_df.dtypes
-    assert example_df.select(pl.all().cast(pl.Utf8)).equals(
-        correct_example_df.select(pl.all().cast(pl.Utf8))
+    assert example_df.select(pl.all().cast(pl.String)).equals(
+        correct_example_df.select(pl.all().cast(pl.String))
     )
 
     example_model = DefaultEnumModel.example()

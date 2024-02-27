@@ -35,7 +35,7 @@ PYTHON_TO_PYDANTIC_TYPES = {
 }
 
 BOOLEAN_DTYPES = DataTypeGroup([pl.Boolean])
-STRING_DTYPES = DataTypeGroup([pl.Utf8])
+STRING_DTYPES = DataTypeGroup([pl.String])
 DATE_DTYPES = DataTypeGroup([pl.Date])
 TIME_DTYPES = DataTypeGroup([pl.Time])
 
@@ -120,7 +120,7 @@ def _pyd_type_to_valid_dtypes(
 ) -> DataTypeGroup:
     if enum is not None:
         _validate_enum_values(pyd_type, enum)
-        return DataTypeGroup([pl.Enum(enum), pl.Utf8], match_base_type=False)
+        return DataTypeGroup([pl.Enum(enum), pl.String], match_base_type=False)
     if pyd_type.value == "integer":
         return DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)
     elif pyd_type.value == "number":
@@ -196,7 +196,7 @@ def _pyd_string_format_to_default_dtype(
     string_format: PydanticStringFormat | None,
 ) -> DataTypeClass | DataType:
     if string_format is None:
-        return pl.Utf8()
+        return pl.String()
     elif string_format.value == "date":
         return pl.Date()
     elif string_format.value == "date-time":

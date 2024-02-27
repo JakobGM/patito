@@ -165,7 +165,7 @@ def test_validate_dtype_checks() -> None:
         validate(dataframe=dataframe, schema=IntModel)
 
     # But other types must be considered invalid
-    for dtype in (pl.Utf8, pl.Date):
+    for dtype in (pl.String, pl.Date):
         series = pl.Series([], dtype=dtype).alias("column")
         dataframe = pl.DataFrame([series])
         with pytest.raises(DataFrameValidationError) as e_info:
@@ -192,7 +192,7 @@ def test_validate_dtype_checks() -> None:
     valid_df = pl.DataFrame().with_columns(
         [
             pl.lit(1, dtype=pl.Int16).alias("int_column"),
-            pl.lit("a", dtype=pl.Utf8).alias("string_column"),
+            pl.lit("a", dtype=pl.String).alias("string_column"),
             pl.lit(1.0, dtype=pl.Float32).alias("float_column"),
             pl.lit(datetime.now(), dtype=pl.Datetime).alias("datetime_column"),
             pl.lit(date.today(), dtype=pl.Date).alias("date_column"),
@@ -204,7 +204,7 @@ def test_validate_dtype_checks() -> None:
     # We try to hit each column dtype check
     for column in CompleteModel.columns:
         if column == "int_column":
-            dtype = pl.Utf8
+            dtype = pl.String
         else:
             dtype = pl.Int64
 
@@ -274,7 +274,7 @@ def test_datetime_validation() -> None:
     schema spec, so this needs to be specifically tested for since the implementation
     needs to check the "format" property on the field schema.
     """
-    string_df = pl.DataFrame().with_columns(pl.lit("string", dtype=pl.Utf8).alias("c"))
+    string_df = pl.DataFrame().with_columns(pl.lit("string", dtype=pl.String).alias("c"))
     date_df = pl.DataFrame().with_columns(
         pl.lit(date.today(), dtype=pl.Date).alias("c")
     )
@@ -457,7 +457,7 @@ def test_validation_of_dtype_specifiers() -> None:
     DTypeModel.validate(valid_df)
 
     invalid = [
-        pl.Series(["a"]).cast(pl.Utf8),
+        pl.Series(["a"]).cast(pl.String),
         pl.Series([2.5]).cast(pl.Float64),
         pl.Series([2**32]).cast(pl.Int64),
         pl.Series([-2]).cast(pl.Int64),
@@ -466,7 +466,7 @@ def test_validation_of_dtype_specifiers() -> None:
     for column_index, (column_name, dtype) in enumerate(
         zip(
             DTypeModel.columns,
-            [pl.Utf8, pl.Float64, pl.Int64, pl.Int64, pl.Int64],
+            [pl.String, pl.Float64, pl.Int64, pl.Int64, pl.Int64],
         )
     ):
         data = (

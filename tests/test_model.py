@@ -179,7 +179,7 @@ def test_model_dataframe_class_creation() -> None:
 def test_mapping_to_polars_dtypes() -> None:
     """Model fields should be mappable to polars dtypes."""
     assert CompleteModel.dtypes == {
-        "str_column": pl.Utf8(),
+        "str_column": pl.String(),
         "int_column": pl.Int64(),
         "float_column": pl.Float64(),
         "bool_column": pl.Boolean(),
@@ -194,19 +194,19 @@ def test_mapping_to_polars_dtypes() -> None:
         "pt_model_column": pl.Struct(
             [
                 pl.Field("a", pl.Int64),
-                pl.Field("b", pl.Utf8),
+                pl.Field("b", pl.String),
                 pl.Field("c", pl.Datetime(time_zone="UTC")),
                 pl.Field("d", pl.Datetime(time_zone="UTC")),
                 pl.Field("e", pl.Int8),
             ]
         ),
         "list_int_column": pl.List(pl.Int64),
-        "list_str_column": pl.List(pl.Utf8),
+        "list_str_column": pl.List(pl.String),
         "list_opt_column": pl.List(pl.Int64),
     }
 
     assert CompleteModel.valid_dtypes == {
-        "str_column": {pl.Utf8},
+        "str_column": {pl.String},
         "int_column": DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES),
         "float_column": FLOAT_DTYPES,
         "bool_column": {pl.Boolean},
@@ -216,14 +216,14 @@ def test_mapping_to_polars_dtypes() -> None:
         "aware_datetime_column": {pl.Datetime(time_zone="UTC")},
         "duration_column": DURATION_DTYPES,
         "time_column": TIME_DTYPES,
-        "categorical_column": {pl.Enum(["a", "b", "c"]), pl.Utf8},
+        "categorical_column": {pl.Enum(["a", "b", "c"]), pl.String},
         "null_column": {pl.Null},
         "pt_model_column": DataTypeGroup(
             [
                 pl.Struct(
                     [
                         pl.Field("a", pl.Int64),
-                        pl.Field("b", pl.Utf8),
+                        pl.Field("b", pl.String),
                         pl.Field("c", pl.Datetime(time_zone="UTC")),
                         pl.Field("d", pl.Datetime(time_zone="UTC")),
                         pl.Field("e", pl.Int8),
@@ -234,7 +234,7 @@ def test_mapping_to_polars_dtypes() -> None:
         "list_int_column": DataTypeGroup(
             [pl.List(x) for x in DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)]
         ),
-        "list_str_column": DataTypeGroup([pl.List(pl.Utf8)]),
+        "list_str_column": DataTypeGroup([pl.List(pl.String)]),
         "list_opt_column": DataTypeGroup(
             [pl.List(x) for x in DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)]
         ),
@@ -438,10 +438,10 @@ def test_model_schema() -> None:
 
 def test_nullable_columns() -> None:
     class Test1(pt.Model):
-        foo: Optional[str] = pt.Field(dtype=pl.Utf8)
+        foo: Optional[str] = pt.Field(dtype=pl.String)
 
     assert Test1.nullable_columns == {"foo"}
-    assert set(Test1.valid_dtypes["foo"]) == {pl.Utf8}
+    assert set(Test1.valid_dtypes["foo"]) == {pl.String}
 
     class Test2(pt.Model):
         foo: Optional[int] = pt.Field(dtype=pl.UInt32)
@@ -451,11 +451,11 @@ def test_nullable_columns() -> None:
 
 
 def test_conflicting_type_dtype() -> None:
-    string_dtype_alias = "Utf8" if pl.__version__ < "0.20.3" else "String"
+    string_dtype_alias = "String" if pl.__version__ < "0.20.3" else "String"
     with pytest.raises(ValueError, match=f"Invalid dtype {string_dtype_alias}") as e:
 
         class Test1(pt.Model):
-            foo: int = pt.Field(dtype=pl.Utf8)
+            foo: int = pt.Field(dtype=pl.String)
 
         Test1.validate_schema()
 
