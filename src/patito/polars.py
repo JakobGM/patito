@@ -183,6 +183,17 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         return df, derived_columns
 
     def unalias(self: LDF) -> LDF:
+        """Un-aliases column names using information from pydantic validation_alias.
+
+        In order of preference - model field name then validation_aliases in order of occurrence
+
+        limitation - AliasChoice validation type only supports selecting a single element of an array
+
+        Returns
+        -------
+            DataFrame[Model]: A dataframe with columns normalized to model names.
+
+        """
         if not any(fi.validation_alias for fi in self.model.model_fields.values()):
             return self
         exprs = []
@@ -233,6 +244,47 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
     def cast(
         self: LDF, strict: bool = False, columns: Optional[Sequence[str]] = None
     ) -> LDF:
+        """Cast columns to `dtypes` specified by the associated Patito model.
+
+        Args:
+        ----
+            strict: If set to ``False``, columns which are technically compliant with
+                the specified field type, will not be casted. For example, a column
+                annotated with ``int`` is technically compliant with ``pl.UInt8``, even
+                if ``pl.Int64`` is the default dtype associated with ``int``-annotated
+                fields. If ``strict`` is set to ``True``, the resulting dtypes will
+                be forced to the default dtype associated with each python type.
+            columns: Optionally, a list of column names to cast. If not provided, all
+                columns are casted.
+
+        Returns:
+        -------
+            LazyFrame[Model]: A dataframe with columns casted to the correct dtypes.
+
+        Examples:
+        --------
+            Create a simple model:
+
+            >>> import patito as pt
+            >>> import polars as pl
+            >>> class Product(pt.Model):
+            ...     name: str
+            ...     cent_price: int = pt.Field(dtype=pl.UInt16)
+            ...
+
+            Now we can use this model to cast some simple data:
+
+            >>> Product.LazyFrame({"name": ["apple"], "cent_price": ["8"]}).cast().collect()
+            shape: (1, 2)
+            ┌───────┬────────────┐
+            │ name  ┆ cent_price │
+            │ ---   ┆ ---        │
+            │ str   ┆ u16        │
+            ╞═══════╪════════════╡
+            │ apple ┆ 8          │
+            └───────┴────────────┘
+
+        """
         properties = self.model._schema_properties()
         valid_dtypes = self.model.valid_dtypes
         default_dtypes = self.model.dtypes
@@ -251,7 +303,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
 
     @classmethod
     def from_existing(cls: Type[LDF], lf: pl.LazyFrame) -> LDF:
-        """Constructs a patito.DataFrame object from an existing polars.DataFrame object"""
+        """Construct a patito.DataFrame object from an existing polars.DataFrame object."""
         return cls.model.LazyFrame._from_pyldf(lf._ldf).cast()
 
 
@@ -422,6 +474,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 if ``pl.Int64`` is the default dtype associated with ``int``-annotated
                 fields. If ``strict`` is set to ``True``, the resulting dtypes will
                 be forced to the default dtype associated with each python type.
+            columns: Optionally, a list of column names to cast. If not provided, all
+                columns are casted.
 
         Returns:
         -------
@@ -784,6 +838,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         )
 
     def as_polars(self) -> pl.DataFrame:
+        """Convert patito dataframe to polars dataframe."""
         return pl.DataFrame._from_pydf(self._df)
 
     @classmethod
