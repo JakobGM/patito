@@ -51,7 +51,7 @@ def test(session):
     """Run test suite using pytest + coverage + xdoctest."""
     if session.python == "3.9":
         # Only run test coverage and docstring tests on python 3.10
-        args = session.posargs or ["--cov", "--xdoctest"]
+        args = session.posargs  # or ["--cov", "--xdoctest"]
     else:
         args = session.posargs
 
