@@ -1,4 +1,5 @@
 """Logic related to wrapping logic around the pydantic library."""
+
 from __future__ import annotations
 
 import itertools
@@ -68,7 +69,7 @@ ModelType = TypeVar("ModelType", bound="Model")
 
 
 class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
-    """Metclass used by patito.Model.
+    """Metaclass used by patito.Model.
 
     Responsible for setting any relevant model-dependent class properties.
     """
@@ -101,10 +102,12 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         )
 
     def __hash__(self) -> int:
+        """Return hash of the model class."""
         return super().__hash__()
 
     @property
     def column_infos(cls: Type[ModelType]) -> Mapping[str, ColumnInfo]:
+        """Return column information for the model."""
         return column_infos_for_model(cls)
 
     @property
@@ -126,7 +129,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return schema_for_model(cls)
 
     @property
-    def columns(cls: Type[ModelType]) -> List[str]:  # type: ignore
+    def columns(cls: Type[ModelType]) -> List[str]:
         """Return the name of the dataframe columns specified by the fields of the model.
 
         Returns:
@@ -147,9 +150,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return list(cls.model_fields.keys())
 
     @property
-    def dtypes(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, DataTypeClass | DataType]:
+    def dtypes(cls: Type[ModelType]) -> dict[str, DataTypeClass | DataType]:
         """Return the polars dtypes of the dataframe.
 
         Unless Field(dtype=...) is specified, the highest signed column dtype
@@ -174,55 +175,27 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return default_dtypes_for_model(cls)
 
     @property
-    def valid_dtypes(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
+    def valid_dtypes(
+        cls: Type[ModelType],
     ) -> Mapping[str, FrozenSet[DataTypeClass | DataType]]:
         """Return a list of polars dtypes which Patito considers valid for each field.
 
         The first item of each list is the default dtype chosen by Patito.
 
-        Returns:
+        Returns
         -------
             A dictionary mapping each column string name to a list of valid dtypes.
 
-        Raises:
+        Raises
         ------
             NotImplementedError: If one or more model fields are annotated with types
                 not compatible with polars.
-
-        Example:
-        -------
-            >>> from pprint import pprint
-            >>> import patito as pt
-
-            >>> class MyModel(pt.Model):
-            ...     bool_column: bool
-            ...     str_column: str
-            ...     int_column: int
-            ...     float_column: float
-            ...
-            >>> pprint(MyModel.valid_dtypes)
-            {'bool_column': DataTypeGroup({Boolean}),
-            'float_column': DataTypeGroup({Float32, Float64}),
-            'int_column': DataTypeGroup({Int8,
-                                        Int16,
-                                        Int32,
-                                        Int64,
-                                        UInt8,
-                                        UInt16,
-                                        UInt32,
-                                        UInt64,
-                                        Float32,
-                                        Float64}),
-            'str_column': DataTypeGroup({String})}
 
         """
         return valid_dtypes_for_model(cls)
 
     @property
-    def defaults(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, Any]:
+    def defaults(cls: Type[ModelType]) -> dict[str, Any]:
         """Return default field values specified on the model.
 
         Returns:
@@ -249,9 +222,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         }
 
     @property
-    def non_nullable_columns(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> set[str]:
+    def non_nullable_columns(cls: Type[ModelType]) -> set[str]:
         """Return names of those columns that are non-nullable in the schema.
 
         Returns:
@@ -282,9 +253,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         )
 
     @property
-    def nullable_columns(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> set[str]:
+    def nullable_columns(cls: Type[ModelType]) -> set[str]:
         """Return names of those columns that are nullable in the schema.
 
         Returns:
@@ -308,9 +277,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return set(cls.columns) - cls.non_nullable_columns
 
     @property
-    def unique_columns(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> set[str]:
+    def unique_columns(cls: Type[ModelType]) -> set[str]:
         """Return columns with uniqueness constraint.
 
         Returns:
@@ -335,9 +302,8 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return {column for column in cls.columns if infos[column].unique}
 
     @property
-    def derived_columns(
-        cls: Type[ModelType],  # type: ignore[misc]
-    ) -> set[str]:
+    def derived_columns(cls: Type[ModelType]) -> set[str]:
+        """Return set of columns which are derived from other columns."""
         infos = cls.column_infos
         return {
             column for column in cls.columns if infos[column].derived_from is not None
@@ -362,7 +328,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def from_row(
-        cls: Type[ModelType],  # type: ignore[misc]
+        cls: Type[ModelType],
         row: Union["pd.DataFrame", pl.DataFrame],
         validate: bool = True,
     ) -> ModelType:
@@ -406,7 +372,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             dataframe = row
         elif _PANDAS_AVAILABLE and isinstance(row, pd.DataFrame):
             dataframe = pl.DataFrame._from_pandas(row)
-        elif _PANDAS_AVAILABLE and isinstance(row, pd.Series):  # type: ignore[unreachable]
+        elif _PANDAS_AVAILABLE and isinstance(row, pd.Series):
             return cls(**dict(row.items()))  # type: ignore[unreachable]
         else:
             raise TypeError(f"{cls.__name__}.from_row not implemented for {type(row)}.")
@@ -490,6 +456,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             dataframe: Polars DataFrame to be validated.
             columns: Optional list of columns to validate. If not provided, all columns
                 of the dataframe will be validated.
+            **kwargs: Additional keyword arguments to be passed to the validation
 
         Raises:
         ------
@@ -688,10 +655,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             try:
                 props_o = cls.model_schema["$defs"][properties["title"]]["properties"]
                 return {f: cls.example_value(properties=props_o[f]) for f in props_o}
-            except AttributeError:
+            except AttributeError as err:
                 raise NotImplementedError(
                     "Nested example generation only supported for nested pt.Model classes."
-                )
+                ) from err
 
         elif field_type == "array":
             return [cls.example_value(properties=properties["items"])]
@@ -1327,7 +1294,7 @@ FIELD_KWARGS = getfullargspec(fields.Field)
 
 
 def FieldCI(
-    column_info: CI, *args: Any, **kwargs: Any
+    column_info: Type[ColumnInfo], *args: Any, **kwargs: Any
 ) -> Any:  # annotate with Any to make the downstream type annotations happy
     ci = column_info(**kwargs)
     for field in ci.model_fields_set:

@@ -27,9 +27,11 @@ def valid_dtypes_for_model(
     cls: Type[ModelType],
 ) -> Mapping[str, FrozenSet[DataTypeClass]]:
     return {
-        column: DtypeResolver(cls.model_fields[column].annotation).valid_polars_dtypes()
-        if cls.column_infos[column].dtype is None
-        else DataTypeGroup([cls.dtypes[column]], match_base_type=False)
+        column: (
+            DtypeResolver(cls.model_fields[column].annotation).valid_polars_dtypes()
+            if cls.column_infos[column].dtype is None
+            else DataTypeGroup([cls.dtypes[column]], match_base_type=False)
+        )
         for column in cls.columns
     }
 
