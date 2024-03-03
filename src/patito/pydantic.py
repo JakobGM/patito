@@ -69,7 +69,7 @@ ModelType = TypeVar("ModelType", bound="Model")
 
 
 class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
-    """Metclass used by patito.Model.
+    """Metaclass used by patito.Model.
 
     Responsible for setting any relevant model-dependent class properties.
     """
@@ -129,7 +129,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return schema_for_model(cls)
 
     @property
-    def columns(cls: Type[ModelType]) -> List[str]:  # type: ignore
+    def columns(cls: Type[ModelType]) -> List[str]:
         """Return the name of the dataframe columns specified by the fields of the model.
 
         Returns:
@@ -150,9 +150,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return list(cls.model_fields.keys())
 
     @property
-    def dtypes(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, DataTypeClass | DataType]:
+    def dtypes(cls: Type[ModelType]) -> dict[str, DataTypeClass | DataType]:
         """Return the polars dtypes of the dataframe.
 
         Unless Field(dtype=...) is specified, the highest signed column dtype
@@ -177,8 +175,8 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return default_dtypes_for_model(cls)
 
     @property
-    def valid_dtypes(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
+    def valid_dtypes(
+        cls: Type[ModelType],
     ) -> Mapping[str, FrozenSet[DataTypeClass | DataType]]:
         """Return a list of polars dtypes which Patito considers valid for each field.
 
@@ -223,9 +221,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return valid_dtypes_for_model(cls)
 
     @property
-    def defaults(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> dict[str, Any]:
+    def defaults(cls: Type[ModelType]) -> dict[str, Any]:
         """Return default field values specified on the model.
 
         Returns:
@@ -252,9 +248,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         }
 
     @property
-    def non_nullable_columns(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> set[str]:
+    def non_nullable_columns(cls: Type[ModelType]) -> set[str]:
         """Return names of those columns that are non-nullable in the schema.
 
         Returns:
