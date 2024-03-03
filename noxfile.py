@@ -2,6 +2,7 @@
 
 Run with `nox -fb venv`
 """
+
 import tempfile
 
 import nox  # type: ignore
@@ -64,20 +65,20 @@ def test(session):
     )
     install_with_constraints(
         session,
-        "coverage[toml]",
+        # "coverage[toml]",
         "pytest",
-        "pytest-cov",
+        # "pytest-cov",
         "xdoctest",
     )
     session.run("pytest", *args)
 
 
-@nox.session(python="3.9")
-def coverage(session):
-    """Upload coverage data."""
-    install_with_constraints(session, "coverage[toml]", "codecov")
-    session.run("coverage", "xml", "--fail-under=0")
-    session.run("codecov", *session.posargs)
+# @nox.session(python="3.9")
+# def coverage(session):
+#     """Upload coverage data."""
+#     install_with_constraints(session, "coverage[toml]", "codecov")
+#     session.run("coverage", "xml", "--fail-under=0")
+#     session.run("codecov", *session.posargs)
 
 
 @nox.session(python=["3.11"])
