@@ -182,40 +182,14 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
 
         The first item of each list is the default dtype chosen by Patito.
 
-        Returns:
+        Returns
         -------
             A dictionary mapping each column string name to a list of valid dtypes.
 
-        Raises:
+        Raises
         ------
             NotImplementedError: If one or more model fields are annotated with types
                 not compatible with polars.
-
-        Example:
-        -------
-            >>> from pprint import pprint
-            >>> import patito as pt
-
-            >>> class MyModel(pt.Model):
-            ...     bool_column: bool
-            ...     str_column: str
-            ...     int_column: int
-            ...     float_column: float
-            ...
-            >>> pprint(MyModel.valid_dtypes)
-            {'bool_column': DataTypeGroup({Boolean}),
-            'float_column': DataTypeGroup({Float64, Float32}),
-            'int_column': DataTypeGroup({Int8,
-                                        Int16,
-                                        Int32,
-                                        Int64,
-                                        UInt8,
-                                        UInt16,
-                                        UInt32,
-                                        UInt64,
-                                        Float32,
-                                        Float64}),
-            'str_column': DataTypeGroup({String})}
 
         """
         return valid_dtypes_for_model(cls)
