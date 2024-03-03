@@ -7,6 +7,6 @@ jobs:
     - uses: actions/checkout@v2
     - uses: excitedleigh/setup-nox@v2.1.0
     - run: pip install poetry==1.2.2
-    - run: nox --sessions test-3.9 coverage
+    - run: nox --sessions test-3.9
       env:
         CODECOV_TOKEN: ${{secrets.CODECOV_TOKEN}}

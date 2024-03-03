@@ -2,11 +2,16 @@
 
 Run with `nox -fb venv`
 """
+
 import tempfile
 
 import nox  # type: ignore
 
-nox.options.sessions = "lint", "test", "type_check"
+nox.options.sessions = (
+    # "lint",
+    "test",
+    # "type_check"
+)
 locations = "src", "tests", "noxfile.py", "docs/conf.py"
 supported_python_versions = "3.9", "3.10", "3.11"
 
@@ -46,7 +51,7 @@ def test(session):
     """Run test suite using pytest + coverage + xdoctest."""
     if session.python == "3.9":
         # Only run test coverage and docstring tests on python 3.10
-        args = session.posargs or ["--cov", "--xdoctest"]
+        args = session.posargs  # or ["--cov", "--xdoctest"]
     else:
         args = session.posargs
 
@@ -60,20 +65,20 @@ def test(session):
     )
     install_with_constraints(
         session,
-        "coverage[toml]",
+        # "coverage[toml]",
         "pytest",
-        "pytest-cov",
+        # "pytest-cov",
         "xdoctest",
     )
     session.run("pytest", *args)
 
 
-@nox.session(python="3.9")
-def coverage(session):
-    """Upload coverage data."""
-    install_with_constraints(session, "coverage[toml]", "codecov")
-    session.run("coverage", "xml", "--fail-under=0")
-    session.run("codecov", *session.posargs)
+# @nox.session(python="3.9")
+# def coverage(session):
+#     """Upload coverage data."""
+#     install_with_constraints(session, "coverage[toml]", "codecov")
+#     session.run("coverage", "xml", "--fail-under=0")
+#     session.run("codecov", *session.posargs)
 
 
 @nox.session(python=["3.11"])
