@@ -279,9 +279,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         )
 
     @property
-    def nullable_columns(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> set[str]:
+    def nullable_columns(cls: Type[ModelType]) -> set[str]:
         """Return names of those columns that are nullable in the schema.
 
         Returns:
@@ -305,9 +303,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return set(cls.columns) - cls.non_nullable_columns
 
     @property
-    def unique_columns(  # type: ignore
-        cls: Type[ModelType],  # pyright: ignore
-    ) -> set[str]:
+    def unique_columns(cls: Type[ModelType]) -> set[str]:
         """Return columns with uniqueness constraint.
 
         Returns:
@@ -332,9 +328,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         return {column for column in cls.columns if infos[column].unique}
 
     @property
-    def derived_columns(
-        cls: Type[ModelType],  # type: ignore[misc]
-    ) -> set[str]:
+    def derived_columns(cls: Type[ModelType]) -> set[str]:
         """Return set of columns which are derived from other columns."""
         infos = cls.column_infos
         return {
@@ -360,7 +354,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def from_row(
-        cls: Type[ModelType],  # type: ignore[misc]
+        cls: Type[ModelType],
         row: Union["pd.DataFrame", pl.DataFrame],
         validate: bool = True,
     ) -> ModelType:
@@ -404,7 +398,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             dataframe = row
         elif _PANDAS_AVAILABLE and isinstance(row, pd.DataFrame):
             dataframe = pl.DataFrame._from_pandas(row)
-        elif _PANDAS_AVAILABLE and isinstance(row, pd.Series):  # type: ignore[unreachable]
+        elif _PANDAS_AVAILABLE and isinstance(row, pd.Series):
             return cls(**dict(row.items()))  # type: ignore[unreachable]
         else:
             raise TypeError(f"{cls.__name__}.from_row not implemented for {type(row)}.")
@@ -1326,7 +1320,7 @@ FIELD_KWARGS = getfullargspec(fields.Field)
 
 
 def FieldCI(
-    column_info: CI, *args: Any, **kwargs: Any
+    column_info: Type[ColumnInfo], *args: Any, **kwargs: Any
 ) -> Any:  # annotate with Any to make the downstream type annotations happy
     ci = column_info(**kwargs)
     for field in ci.model_fields_set:
