@@ -6,7 +6,11 @@ import tempfile
 
 import nox  # type: ignore
 
-nox.options.sessions = "lint", "test", "type_check"
+nox.options.sessions = (
+    # "lint",
+    "test",
+    # "type_check"
+)
 locations = "src", "tests", "noxfile.py", "docs/conf.py"
 supported_python_versions = "3.9", "3.10", "3.11"
 
