@@ -1,4 +1,6 @@
 """Patito, a data-modelling library built on top of polars and pydantic."""
+from typing import TypeVar, Type
+
 from polars import Expr, Series, col
 
 from patito import exceptions
@@ -31,3 +33,14 @@ try:
     __version__ = version(__name__)
 except PackageNotFoundError:  # pragma: no cover
     __version__ = "unknown"
+
+
+ModelType = TypeVar("ModelType", bound=Model)
+PydanticModelType = TypeVar("PydanticModelType", bound=pydantic.BaseModel)
+
+
+def from_pydantic(pydantic_model: Type[PydanticModelType]) -> Type[ModelType]:
+    class PydanticModelMixedWithPatito(pydantic_model, Model):
+        pass
+
+    return PydanticModelMixedWithPatito
