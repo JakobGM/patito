@@ -538,7 +538,11 @@ def test_custom_constraint_validation() -> None:
 
     with pytest.raises(DataFrameValidationError):
         DivisibleByTwoAndThree.validate(one_constraint_failing_df)
+
+    with pytest.raises(DataFrameValidationError):
         DivisibleByTwoAndThree.validate(other_constraint_failing_df)
+
+    with pytest.raises(DataFrameValidationError):
         DivisibleByTwoAndThree.validate(all_constraints_failing_df)
 
     all_constraints_passing_df = pt.DataFrame({"number": [6]})
