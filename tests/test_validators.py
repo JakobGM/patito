@@ -524,25 +524,26 @@ def test_custom_constraint_validation() -> None:
         PizzaSlice.validate(part_pizza)
 
     # We can validate multiple AND constraints with a list of constraints
-    class DivisibleByTwoAndFour(pt.Model):
+    class DivisibleByTwoAndThree(pt.Model):
         number: int = pt.Field(
             constraints=[
                 pt.col("number") % 2 == 0,
-                pt.col("number") % 4 == 0
+                pt.col("number") % 3 == 0
             ]
         )
 
-    all_constraints_passing_df = pt.DataFrame({"number": [8]})
-    one_constraint_failing_df = pt.DataFrame({"number": [10]})
+    one_constraint_failing_df = pt.DataFrame({"number": [3]})
+    other_constraint_failing_df = pt.DataFrame({"number": [4]})
     all_constraints_failing_df = pt.DataFrame({"number": [5]})
 
-    DivisibleByTwoAndFour.validate(all_constraints_passing_df)
-
     with pytest.raises(DataFrameValidationError):
-        DivisibleByTwoAndFour.validate(one_constraint_failing_df)
+        DivisibleByTwoAndThree.validate(one_constraint_failing_df)
+        DivisibleByTwoAndThree.validate(other_constraint_failing_df)
+        DivisibleByTwoAndThree.validate(all_constraints_failing_df)
 
-    with pytest.raises(DataFrameValidationError):
-        DivisibleByTwoAndFour.validate(all_constraints_failing_df)
+    all_constraints_passing_df = pt.DataFrame({"number": [6]})
+    DivisibleByTwoAndThree.validate(all_constraints_passing_df)
+
 
 
 def test_anonymous_column_constraints() -> None:
