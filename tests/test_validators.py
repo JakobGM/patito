@@ -545,7 +545,6 @@ def test_custom_constraint_validation() -> None:
     DivisibleByTwoAndThree.validate(all_constraints_passing_df)
 
 
-
 def test_anonymous_column_constraints() -> None:
     """You should be able to refer to the field column with an anonymous column."""
 
