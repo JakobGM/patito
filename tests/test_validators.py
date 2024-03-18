@@ -1,4 +1,5 @@
 """Tests for the patito.validators module."""
+
 from __future__ import annotations
 
 import enum
@@ -525,12 +526,7 @@ def test_custom_constraint_validation() -> None:
 
     # We can validate multiple AND constraints with a list of constraints
     class DivisibleByTwoAndThree(pt.Model):
-        number: int = pt.Field(
-            constraints=[
-                pt.col("number") % 2 == 0,
-                pt.col("number") % 3 == 0
-            ]
-        )
+        number: int = pt.Field(constraints=[pt.col("_") % 2 == 0, pt.col("_") % 3 == 0])
 
     one_constraint_failing_df = pt.DataFrame({"number": [3]})
     with pytest.raises(DataFrameValidationError):
