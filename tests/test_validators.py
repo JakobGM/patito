@@ -523,6 +523,25 @@ def test_custom_constraint_validation() -> None:
     with pytest.raises(DataFrameValidationError):
         PizzaSlice.validate(part_pizza)
 
+    # We can validate multiple AND constraints with a list of constraints
+    class DivisibleByTwoAndThree(pt.Model):
+        number: int = pt.Field(constraints=[pt.col("_") % 2 == 0, pt.col("_") % 3 == 0])
+
+    one_constraint_failing_df = pt.DataFrame({"number": [3]})
+    with pytest.raises(DataFrameValidationError):
+        DivisibleByTwoAndThree.validate(one_constraint_failing_df)
+
+    other_constraint_failing_df = pt.DataFrame({"number": [4]})
+    with pytest.raises(DataFrameValidationError):
+        DivisibleByTwoAndThree.validate(other_constraint_failing_df)
+
+    all_constraints_failing_df = pt.DataFrame({"number": [5]})
+    with pytest.raises(DataFrameValidationError):
+        DivisibleByTwoAndThree.validate(all_constraints_failing_df)
+
+    all_constraints_passing_df = pt.DataFrame({"number": [6]})
+    DivisibleByTwoAndThree.validate(all_constraints_passing_df)
+
 
 def test_anonymous_column_constraints() -> None:
     """You should be able to refer to the field column with an anonymous column."""
