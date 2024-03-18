@@ -1,5 +1,4 @@
 """Tests for the patito.validators module."""
-
 from __future__ import annotations
 
 import enum
