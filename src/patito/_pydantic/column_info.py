@@ -56,7 +56,7 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
     def _serialize_expr(self, expr: pl.Expr) -> Dict:
         if isinstance(expr, pl.Expr):
             return json.loads(
-                expr.meta.write_json(None)
+                expr.meta.serialize(None)
             )  # can we access the dictionary directly?
         else:
             raise ValueError(f"Invalid type for expr: {type(expr)}")
