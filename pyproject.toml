@@ -5,14 +5,14 @@ description = "A dataframe modelling library built on top of polars and pydantic
 authors = ["Jakob Gerhard Martinussen <jakobgm@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/kolonialno/patito"
-repository = "https://github.com/kolonialno/patito"
+homepage = "https://github.com/JakobGM/patito"
+repository = "https://github.com/JakobGM/patito"
 documentation = "https://patito.readthedocs.io"
 keywords = ["validation", "dataframe"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-pydantic = ">=2.0.0"
+pydantic = ">=2.4.1"
 polars = ">=0.20.1"
 # Required for typing.get_args backports in python3.9 and 3.10
 typing-extensions = "*"
