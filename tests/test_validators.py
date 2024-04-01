@@ -378,12 +378,12 @@ def test_struct_validation() -> None:
         Gt0StructModel.validate(bad_df)
 
     class ListGt0StructModel(pt.Model):
-        list_struct: list[Gt0Struct]
+        list_gt0_struct: list[Gt0Struct]
 
-    valid_df = pl.DataFrame({"list_struct": [[{"x": 1}, {"x": 2}, {"x": 3}]]})
+    valid_df = pl.DataFrame({"list_gt0_struct": [[{"x": 1}, {"x": 2}, {"x": 3}]]})
     ListGt0StructModel.validate(valid_df)
 
-    bad_df = pl.DataFrame({"list_struct": [[{"x": -1}, {"x": 2}, {"x": 3}]]})
+    bad_df = pl.DataFrame({"list_gt0_struct": [[{"x": -1}, {"x": 2}, {"x": 3}]]})
     with pytest.raises(DataFrameValidationError):
         ListGt0StructModel.validate(bad_df)
 
