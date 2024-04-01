@@ -368,24 +368,24 @@ def test_struct_validation() -> None:
         x: int = pt.Field(gt=0)
 
     class Gt0StructModel(pt.Model):
-        gt_struct: Gt0Struct
+        gt0_struct: Gt0Struct
 
-    valid_df = pl.DataFrame({"gt0_struct": [{"x": [1, 2, 3]}]})
+    valid_df = pl.DataFrame({"gt0_struct": [{"x": 1}, {"x": 2}, {"x": 3}]})
     Gt0StructModel.validate(valid_df)
 
-    bad_df = pl.DataFrame({"gt0_struct": [{"x": [-1, 2, 3]}]})
+    bad_df = pl.DataFrame({"gt0_struct": [{"x": -1}, {"x": 2}, {"x": 3}]})
     with pytest.raises(DataFrameValidationError):
         Gt0StructModel.validate(bad_df)
 
     class ListGt0StructModel(pt.Model):
         list_struct: list[Gt0Struct]
 
-    valid_df = pl.DataFrame({"gt0_struct": [[{"x": [1]}, {"x": [2]}, {"x": [3]}]]})
+    valid_df = pl.DataFrame({"list_struct": [[{"x": 1}, {"x": 2}, {"x": 3}]]})
     ListGt0StructModel.validate(valid_df)
 
-    bad_df = pl.DataFrame({"gt0_struct": [[{"x": [-1]}, {"x": [2]}, {"x": [3]}]]})
+    bad_df = pl.DataFrame({"list_struct": [[{"x": -1}, {"x": 2}, {"x": 3}]]})
     with pytest.raises(DataFrameValidationError):
-        Gt0StructModel.validate(bad_df)
+        ListGt0StructModel.validate(bad_df)
 
     class Interval(pt.Model):
         x_min: int
