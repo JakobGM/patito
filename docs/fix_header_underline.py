@@ -1,4 +1,5 @@
 """A simple script to fix RST headers."""
+
 import sys
 from pathlib import Path
 

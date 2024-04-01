@@ -1,4 +1,5 @@
 """Patito, a data-modelling library built on top of polars and pydantic."""
+
 from polars import Expr, Series, col
 
 from patito import exceptions
