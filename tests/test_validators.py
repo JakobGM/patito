@@ -362,6 +362,62 @@ def test_literal_enum_validation() -> None:
     }
 
 
+def test_struct_validation() -> None:
+    """Test validation of models with field constraints on struct columns."""
+    class Gt0Struct(pt.Model):
+        x: int = pt.Field(gt=0)
+
+    class Gt0StructModel(pt.Model):
+        gt_struct: Gt0Struct
+
+    valid_df = pl.DataFrame({"gt0_struct": [{"x": [1, 2, 3]}]})
+    Gt0StructModel.validate(valid_df)
+
+    bad_df = pl.DataFrame({"gt0_struct": [{"x": [-1, 2, 3]}]})
+    with pytest.raises(DataFrameValidationError):
+        Gt0StructModel.validate(bad_df)
+
+    class ListGt0StructModel(pt.Model):
+        list_struct: list[Gt0Struct]
+
+    valid_df = pl.DataFrame({"gt0_struct": [[{"x": [1]}, {"x": [2]}, {"x": [3]}]]})
+    ListGt0StructModel.validate(valid_df)
+
+    bad_df = pl.DataFrame({"gt0_struct": [[{"x": [-1]}, {"x": [2]}, {"x": [3]}]]})
+    with pytest.raises(DataFrameValidationError):
+        Gt0StructModel.validate(bad_df)
+
+    class Interval(pt.Model):
+        x_min: int
+        x_max: int = pt.Field(constraints=pt.col("x_min") <= pt.col("x_max"))
+
+    class IntervalModel(pt.Model):
+        interval: Interval
+
+    valid_df = pl.DataFrame(
+        {
+            "interval": [
+                {"x_min": 0, "x_max": 1},
+                {"x_min": 0, "x_max": 0},
+                {"x_min": -1, "x_max": 1},
+            ]
+        }
+    )
+    IntervalModel.validate(valid_df)
+
+    bad_df = pl.DataFrame(
+        {
+            "interval": [
+                {"x_min": 0, "x_max": 1},
+                {"x_min": 1, "x_max": 0},
+                {"x_min": -1, "x_max": 1},
+            ]
+        }
+    )
+    with pytest.raises(DataFrameValidationError):
+        IntervalModel.validate(bad_df)
+
+
 def test_uniqueness_constraint_validation() -> None:
     """Uniqueness constraints should be validated."""
 
