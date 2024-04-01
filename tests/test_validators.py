@@ -1,4 +1,5 @@
 """Tests for the patito.validators module."""
+
 from __future__ import annotations
 
 import enum
@@ -274,7 +275,9 @@ def test_datetime_validation() -> None:
     schema spec, so this needs to be specifically tested for since the implementation
     needs to check the "format" property on the field schema.
     """
-    string_df = pl.DataFrame().with_columns(pl.lit("string", dtype=pl.String).alias("c"))
+    string_df = pl.DataFrame().with_columns(
+        pl.lit("string", dtype=pl.String).alias("c")
+    )
     date_df = pl.DataFrame().with_columns(
         pl.lit(date.today(), dtype=pl.Date).alias("c")
     )

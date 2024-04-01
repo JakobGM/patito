@@ -50,7 +50,9 @@ def test_valids_basic_annotations() -> None:
     with pytest.raises(TypeError, match="Mixed type enums not supported"):
         DtypeResolver(Literal[1, 2, "3"]).valid_polars_dtypes()  # pyright: ignore
 
-    assert DtypeResolver(Literal["a", "b", "c"]).valid_polars_dtypes() == {  # pyright: ignore
+    assert DtypeResolver(
+        Literal["a", "b", "c"]
+    ).valid_polars_dtypes() == {  # pyright: ignore
         pl.Enum(["a", "b", "c"]),
         pl.String,
     }
@@ -153,7 +155,9 @@ def test_defaults_nested_annotations() -> None:
     assert DtypeResolver(List).default_polars_dtype() is None  # needs inner annotation
 
     assert DtypeResolver(List[str]).default_polars_dtype() == pl.List(pl.String)
-    assert DtypeResolver(Optional[List[str]]).default_polars_dtype() == pl.List(pl.String)
+    assert DtypeResolver(Optional[List[str]]).default_polars_dtype() == pl.List(
+        pl.String
+    )
     assert DtypeResolver(List[int]).default_polars_dtype() == pl.List(pl.Int64)
     assert DtypeResolver(List[Optional[int]]).default_polars_dtype() == pl.List(
         pl.Int64

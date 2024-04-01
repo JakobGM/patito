@@ -1,4 +1,5 @@
 """Test of functionality related to the generation of dummy data."""
+
 from datetime import date, datetime
 from typing import List, Literal, Optional, Sequence
 

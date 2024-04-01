@@ -1,4 +1,5 @@
 """Tests for the patito.xdg module."""
+
 import os
 from pathlib import Path
 

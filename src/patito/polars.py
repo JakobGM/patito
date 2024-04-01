@@ -9,6 +9,7 @@ from typing import (
     Dict,
     Generic,
     Iterable,
+    Literal,
     Optional,
     Sequence,
     Tuple,
@@ -21,7 +22,6 @@ from typing import (
 import polars as pl
 from polars.type_aliases import IntoExpr
 from pydantic import AliasChoices, AliasPath, create_model
-from typing_extensions import Literal
 
 from patito._pydantic.column_info import ColumnInfo
 from patito.exceptions import MultipleRowsReturned, RowDoesNotExist

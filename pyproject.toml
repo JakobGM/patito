@@ -14,7 +14,7 @@ keywords = ["validation", "dataframe"]
 python = "^3.9"
 pydantic = ">=2.0.0"
 polars = ">=0.20.1"
-# Required for typing.Literal in python3.7
+# Required for typing.get_args backports in python3.9 and 3.10
 typing-extensions = "*"
 pandas = {version = "*", optional = true, python = "^3.9"}
 pyarrow = {version = ">=5.0.0", optional = true, python = "^3.9"}

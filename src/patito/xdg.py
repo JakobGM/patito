@@ -1,4 +1,5 @@
 """Module implementing the XDG directory standard."""
+
 import os
 from pathlib import Path
 from typing import Optional

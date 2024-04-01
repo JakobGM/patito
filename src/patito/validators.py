@@ -1,4 +1,5 @@
 """Module for validating datastructures with respect to model specifications."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, Sequence, Type, Union, cast, Any

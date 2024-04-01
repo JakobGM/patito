@@ -1,4 +1,5 @@
 """Tests for patito.Model."""
+
 from __future__ import annotations
 
 # pyright: reportPrivateImportUsage=false

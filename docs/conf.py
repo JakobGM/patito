@@ -1,4 +1,5 @@
 """Sphinx configuration."""
+
 import patito as pt
 
 project = "Patito"
