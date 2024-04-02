@@ -584,6 +584,8 @@ def test_optional_enum() -> None:
     reason="Using | as a type union operator is only supported from python 3.10.",
 )
 def test_optional_pipe_operator() -> None:
+    """Ensure that pipe operator works as expected."""
+
     class OptionalEnumModel(pt.Model):
         # Old type annotation syntax
         optional_enum_1: Optional[Literal["A", "B"]]
@@ -636,7 +638,6 @@ def test_validation_of_list_dtypes() -> None:
         ("nullable_int_or_null_list", "int_or_null_list"),
         ("nullable_int_or_null_list", "nullable_int_list"),
     ]:
-        # print(old, new)
         with pytest.raises(DataFrameValidationError):
             ListModel.validate(valid_df.with_columns(pl.col(old).alias(new)))
 

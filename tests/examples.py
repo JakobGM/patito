@@ -1,3 +1,5 @@
+"""Testing examples."""
+
 from datetime import date, datetime, time, timedelta
 from typing import List, Literal, Optional
 
@@ -7,6 +9,8 @@ from pydantic import AwareDatetime
 
 
 class SmallModel(pt.Model):
+    """Small model for testing."""
+
     a: int
     b: str
     c: AwareDatetime = pt.Field(
@@ -19,6 +23,8 @@ class SmallModel(pt.Model):
 
 
 class ManyTypes(pt.Model):
+    """Medium model for testing."""
+
     int_value: int
     float_value: float
     str_value: str
@@ -33,6 +39,8 @@ class ManyTypes(pt.Model):
 
 
 class CompleteModel(pt.Model):
+    """Model containing all combinations of python types."""
+
     str_column: str
     int_column: int
     float_column: float

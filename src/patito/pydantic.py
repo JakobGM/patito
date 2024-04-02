@@ -508,6 +508,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         Args:
         ----
             field: Field name identifier.
+            properties: Pydantic v2-style properties dict
 
         Returns:
         -------
@@ -1296,6 +1297,7 @@ FIELD_KWARGS = getfullargspec(fields.Field)
 def FieldCI(
     column_info: Type[ColumnInfo], *args: Any, **kwargs: Any
 ) -> Any:  # annotate with Any to make the downstream type annotations happy
+    """Helper class for patito Field."""
     ci = column_info(**kwargs)
     for field in ci.model_fields_set:
         kwargs.pop(field)

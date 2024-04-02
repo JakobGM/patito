@@ -47,6 +47,8 @@ def test_model_example_df() -> None:
 
 
 def test_examples() -> None:
+    """Test model.examples()."""
+
     class MyModel(pt.Model):
         a: int
         b: Optional[str]
@@ -151,9 +153,12 @@ def test_nested_models() -> None:
         nested_model: NestedModel
 
     example_model = ParentModel1.example()
-    ParentModel1.examples()
+    example_df = ParentModel1.examples()
     assert isinstance(example_model.nested_model, NestedModel)
     assert example_model.nested_model.nested_field is not None
+
+    example_df = ParentModel1.examples()
+    assert isinstance(example_df, pl.DataFrame)
 
     # inheritance also works
     class ParentModel2(NestedModel):

@@ -115,26 +115,13 @@ exclude = [
   "noxfile.py",
 ]
 
-[[tool.mypy.overrides]]
-module = ["tests.*", "noxfile"]
-allow_untyped_defs = true
-check_untyped_defs = true
-disallow_incomplete_defs = false
-# TODO: Go through and remove those we want to check in tests
-disable_error_code = [
-  "var-annotated",
-  "override",
-  "attr-defined",
-  "call-arg",
-  "type-var",
-  "misc",
-  "arg-type",
-  "assignment",
-]
 
 [[tool.mypy.overrides]]
 module = ["tests.test_validators"]
 warn_unused_ignores = false
+
+[tool.ruff]
+extend-exclude= ["tests/__init__.py"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "B", "D"]

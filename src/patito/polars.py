@@ -552,9 +552,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         else:
             return self.drop(list(set(self.columns) - set(self.model.columns)))
 
-    def validate(
-        self: DF, columns: Optional[Sequence[str]] = None, **kwargs: Any
-    ) -> DF:
+    def validate(self, columns: Optional[Sequence[str]] = None, **kwargs: Any):
         """Validate the schema and content of the dataframe.
 
         You must invoke ``.set_model()`` before invoking ``.validate()`` in order

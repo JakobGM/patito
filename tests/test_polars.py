@@ -101,6 +101,8 @@ def test_create_missing_columns_with_defaults() -> None:
 
 
 def test_create_missing_columns_with_dtype() -> None:
+    """Ensure optional columns are created by model."""
+
     class DefaultModel(pt.Model):
         foo: int
         bar: Optional[int] = None
@@ -108,7 +110,7 @@ def test_create_missing_columns_with_dtype() -> None:
     missing_df = pt.DataFrame({"foo": [1, 2]})
     filled_df = missing_df.set_model(DefaultModel).fill_null(strategy="defaults")
     assert "bar" in filled_df.columns
-    assert filled_df.dtypes[1] == pl.Int64
+    assert filled_df["bar"].dtype == pl.Int64
 
 
 def test_preservation_of_model() -> None:
@@ -311,6 +313,8 @@ def test_recursive_derive() -> None:
 
 
 def test_derive_subset() -> None:
+    """Test derived columns."""
+
     class DerivedModel(pt.Model):
         underived: int
         derived: Optional[int] = pt.Field(default=None, derived_from="underived")
@@ -333,6 +337,8 @@ def test_derive_subset() -> None:
 
 
 def test_derive_on_defaults() -> None:
+    """Test derive with default values."""
+
     class DerivedModel(pt.Model):
         underived: int
         derived: Optional[int] = pt.Field(default=None, derived_from="underived")
@@ -350,11 +356,13 @@ def test_derive_on_defaults() -> None:
 
 
 def test_lazy_derive() -> None:
+    """Test derive with LazyFrame."""
+
     class DerivedModel(pt.Model):
         underived: int
         derived: Optional[int] = pt.Field(default=None, derived_from="underived")
 
-    ldf = DerivedModel.DataFrame({"underived": [1, 2]}).lazy()
+    ldf = DerivedModel.LazyFrame({"underived": [1, 2]})
     assert ldf.columns == ["underived"]
     derived_ldf = ldf.derive()
     assert derived_ldf.columns == ["underived", "derived"]
@@ -408,6 +416,8 @@ def test_polars_conversion():
 
 
 def test_validation_alias() -> None:
+    """Ensure validation_alias allows multiple column names to be parsed for one field."""
+
     class AliasModel(pt.Model):
         my_val_a: int = pt.Field(validation_alias="myValA")
         my_val_b: int = pt.Field(

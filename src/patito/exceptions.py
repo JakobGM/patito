@@ -1,3 +1,5 @@
+"""Exceptions used by patito."""
+
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -34,19 +36,24 @@ __all__ = "ErrorWrapper", "DataFrameValidationError"
 
 
 class ErrorWrapper(Representation):
+    """Error handler for nicely accumulating errors."""
+
     __slots__ = "exc", "_loc"
 
     def __init__(self, exc: Exception, loc: Union[str, "Loc"]) -> None:
+        """Wrap an error in an ErrorWrapper."""
         self.exc = exc
         self._loc = loc
 
     def loc_tuple(self) -> "Loc":
+        """Represent error as tuple."""
         if isinstance(self._loc, tuple):
             return self._loc
         else:
             return (self._loc,)
 
     def __repr_args__(self) -> "ReprArgs":
+        """Pydantic repr."""
         return [("exc", self.exc), ("loc", self.loc_tuple())]
 
 
@@ -56,19 +63,24 @@ ErrorList = Union[Sequence[Any], ErrorWrapper]
 
 
 class DataFrameValidationError(Representation, ValueError):
+    """Parent error for DataFrame validation errors."""
+
     __slots__ = "raw_errors", "model", "_error_cache"
 
     def __init__(self, errors: Sequence[ErrorList], model: Type["BaseModel"]) -> None:
+        """Create a dataframe validation error."""
         self.raw_errors = errors
         self.model = model
         self._error_cache: Optional[List["ErrorDict"]] = None
 
     def errors(self) -> List["ErrorDict"]:
+        """Get list of errors."""
         if self._error_cache is None:
             self._error_cache = list(flatten_errors(self.raw_errors))
         return self._error_cache
 
     def __str__(self) -> str:
+        """String reprentation of error."""
         errors = self.errors()
         no_errors = len(errors)
         return (
@@ -77,6 +89,7 @@ class DataFrameValidationError(Representation, ValueError):
         )
 
     def __repr_args__(self) -> "ReprArgs":
+        """Pydantic repr."""
         return [("model", self.model.__name__), ("errors", self.errors())]
 
 
