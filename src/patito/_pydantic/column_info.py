@@ -19,7 +19,7 @@ from patito._pydantic.dtypes import parse_composite_dtype
 
 
 class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
-    """patito-side model for storing column metadata
+    """patito-side model for storing column metadata.
 
     Args:
     ----
@@ -63,10 +63,11 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
 
     @field_serializer("dtype")
     def serialize_dtype(self, dtype: DataTypeClass | DataType | None) -> Any:
-        """References
+        """Serialize a polars dtype.
+
+        References:
         ----------
             [1] https://stackoverflow.com/questions/76572310/how-to-serialize-deserialize-polars-datatypes
-
         """
         if dtype is None:
             return None

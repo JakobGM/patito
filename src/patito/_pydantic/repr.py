@@ -82,7 +82,7 @@ class Representation:
     def __pretty__(
         self, fmt: Callable[[Any], Any], **kwargs: Any
     ) -> Generator[Any, None, None]:
-        """Used by devtools (https://python-devtools.helpmanual.io/) to provide a human readable representations of objects"""
+        """Used by devtools (https://python-devtools.helpmanual.io/) to provide a human readable representations of objects."""
         yield self.__repr_name__() + "("
         yield 1
         for name, value in self.__repr_args__():
@@ -101,7 +101,7 @@ class Representation:
         return f'{self.__repr_name__()}({self.__repr_str__(", ")})'
 
     def __rich_repr__(self) -> "RichReprResult":
-        """Get fields for Rich library"""
+        """Get fields for Rich library."""
         for name, field_repr in self.__repr_args__():
             if name is None:
                 yield field_repr

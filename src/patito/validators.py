@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Sequence, Type, Union, cast, Any
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union, cast
 
 import polars as pl
+from pydantic.aliases import AliasGenerator
 from typing_extensions import get_args
 
 from patito._pydantic.dtypes import is_optional
@@ -70,6 +71,31 @@ def _dewrap_optional(type_annotation: Type[Any] | Any) -> Type:
         if is_optional(type_annotation)
         else type_annotation
     )
+
+
+def _transform_df(dataframe: pl.DataFrame, schema: type[Model]) -> pl.DataFrame:
+    """Transform any properties of the dataframe according to the model.
+
+    Args:
+    ----
+        dataframe: Polars DataFrame to be validated.
+        schema: Patito model which specifies how the dataframe should be structured.
+
+    """
+    if alias_gen := schema.model_config.get("alias_generator"):
+        if isinstance(alias_gen, AliasGenerator):
+            alias_func = alias_gen.validation_alias or alias_gen.alias
+            assert (
+                alias_func is not None
+            ), "An AliasGenerator must contain a transforming function"
+        else:  # alias_gen is a function
+            alias_func = alias_gen
+
+        new_cols: list[str] = [
+            alias_func(field_name) for field_name in dataframe.columns
+        ]  # type: ignore
+        dataframe.columns = new_cols
+    return dataframe
 
 
 def _find_errors(  # noqa: C901
@@ -233,15 +259,15 @@ def _find_errors(  # noqa: C901
         # Check for bounded value fields
         col = pl.col(column_name)
         filters = {
-            "maximum": lambda v: col <= v,
-            "exclusiveMaximum": lambda v: col < v,
-            "minimum": lambda v: col >= v,
-            "exclusiveMinimum": lambda v: col > v,
-            "multipleOf": lambda v: (col == 0) | ((col % v) == 0),
-            "const": lambda v: col == v,
-            "pattern": lambda v: col.str.contains(v),
-            "minLength": lambda v: col.str.len_chars() >= v,
-            "maxLength": lambda v: col.str.len_chars() <= v,
+            "maximum": lambda v, col=col: col <= v,
+            "exclusiveMaximum": lambda v, col=col: col < v,
+            "minimum": lambda v, col=col: col >= v,
+            "exclusiveMinimum": lambda v, col=col: col > v,
+            "multipleOf": lambda v, col=col: (col == 0) | ((col % v) == 0),
+            "const": lambda v, col=col: col == v,
+            "pattern": lambda v, col=col: col.str.contains(v),
+            "minLength": lambda v, col=col: col.str.len_chars() >= v,
+            "maxLength": lambda v, col=col: col.str.len_chars() <= v,
         }
         if "anyOf" in column_properties:
             checks = [
@@ -319,6 +345,7 @@ def validate(
     ----
         dataframe: Polars DataFrame to be validated.
         schema: Patito model which specifies how the dataframe should be structured.
+        columns: Optionally limit which columns to validate.
         allow_missing_columns: If True, missing columns will not be considered an error.
         allow_superfluous_columns: If True, additional columns will not be considered an error.
 
@@ -332,6 +359,7 @@ def validate(
     else:
         polars_dataframe = cast(pl.DataFrame, dataframe)
 
+    polars_dataframe = _transform_df(polars_dataframe, schema)
     errors = _find_errors(
         dataframe=polars_dataframe,
         schema=schema,

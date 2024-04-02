@@ -1,3 +1,5 @@
+"""Test polars and python dtypes."""
+
 from __future__ import annotations
 
 import sys
@@ -30,6 +32,7 @@ from tests.examples import ManyTypes
 
 
 def test_valids_basic_annotations() -> None:
+    """Test type annotations match polars dtypes."""
     # base types
     assert DtypeResolver(str).valid_polars_dtypes() == STRING_DTYPES
     assert DtypeResolver(int).valid_polars_dtypes() == DataTypeGroup(
@@ -50,9 +53,7 @@ def test_valids_basic_annotations() -> None:
     with pytest.raises(TypeError, match="Mixed type enums not supported"):
         DtypeResolver(Literal[1, 2, "3"]).valid_polars_dtypes()  # pyright: ignore
 
-    assert DtypeResolver(
-        Literal["a", "b", "c"]
-    ).valid_polars_dtypes() == {  # pyright: ignore
+    assert DtypeResolver(Literal["a", "b", "c"]).valid_polars_dtypes() == {  # pyright: ignore
         pl.Enum(["a", "b", "c"]),
         pl.String,
     }
@@ -73,6 +74,7 @@ def test_valids_basic_annotations() -> None:
 
 
 def test_valids_nested_annotations() -> None:
+    """Test type annotations match nested polars types like List."""
     assert len(DtypeResolver(List).valid_polars_dtypes()) == 0  # needs inner annotation
     assert (
         DtypeResolver(Tuple).valid_polars_dtypes()
@@ -112,6 +114,7 @@ def test_valids_nested_annotations() -> None:
 
 
 def test_dtype_validation() -> None:
+    """Ensure python types match polars types."""
     validate_polars_dtype(int, pl.Int16)  # no issue
     validate_polars_dtype(int, pl.Float64)  # no issue
     with pytest.raises(ValueError, match="Invalid dtype"):
@@ -125,6 +128,7 @@ def test_dtype_validation() -> None:
 
 
 def test_defaults_basic_annotations() -> None:
+    """Ensure python types resolve to largest polars type."""
     # base types
     assert DtypeResolver(str).default_polars_dtype() == pl.String
     assert DtypeResolver(int).default_polars_dtype() == pl.Int64
@@ -152,6 +156,7 @@ def test_defaults_basic_annotations() -> None:
 
 
 def test_defaults_nested_annotations() -> None:
+    """Ensure python nested types fallback to largest nested polars type."""
     assert DtypeResolver(List).default_polars_dtype() is None  # needs inner annotation
 
     assert DtypeResolver(List[str]).default_polars_dtype() == pl.List(pl.String)
@@ -184,6 +189,7 @@ def test_defaults_nested_annotations() -> None:
 
 
 def test_annotation_validation() -> None:
+    """Check that python types are resolveable."""
     validate_annotation(int)  # no issue
     validate_annotation(Optional[int])
 

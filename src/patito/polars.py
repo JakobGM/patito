@@ -189,7 +189,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
 
         limitation - AliasChoice validation type only supports selecting a single element of an array
 
-        Returns
+        Returns:
         -------
             DataFrame[Model]: A dataframe with columns normalized to model names.
 
@@ -369,15 +369,15 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         See documentation of polars.DataFrame.lazy() for full description.
 
-        Returns
+        Returns:
         -------
             A new LazyFrame object.
 
         """
-        lazyframe_class: LazyFrame[
-            ModelType
-        ] = LazyFrame._construct_lazyframe_model_class(
-            model=getattr(self, "model", None)
+        lazyframe_class: LazyFrame[ModelType] = (
+            LazyFrame._construct_lazyframe_model_class(
+                model=getattr(self, "model", None)
+            )
         )  # type: ignore
         ldf = lazyframe_class._from_pyldf(super().lazy()._ldf)
         return ldf
@@ -454,7 +454,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         limitation - AliasChoice validation type only supports selecting a single element of an array
 
-        Returns
+        Returns:
         -------
             DataFrame[Model]: A dataframe with columns normalized to model names.
 
@@ -552,19 +552,17 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         else:
             return self.drop(list(set(self.columns) - set(self.model.columns)))
 
-    def validate(
-        self: DF, columns: Optional[Sequence[str]] = None, **kwargs: Any
-    ) -> DF:
+    def validate(self, columns: Optional[Sequence[str]] = None, **kwargs: Any):
         """Validate the schema and content of the dataframe.
 
         You must invoke ``.set_model()`` before invoking ``.validate()`` in order
         to specify how the dataframe should be validated.
 
-        Returns
+        Returns:
         -------
             DataFrame[Model]: The original dataframe, if correctly validated.
 
-        Raises
+        Raises:
         ------
             TypeError: If ``DataFrame.set_model()`` has not been invoked prior to
                 validation. Note that ``patito.Model.DataFrame`` automatically invokes
@@ -573,7 +571,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             patito.exceptions.DataFrameValidationError: If the dataframe does not match the
                 specified schema.
 
-        Examples
+        Examples:
         --------
             >>> import patito as pt
 
@@ -621,16 +619,16 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         column name. Alternatively, an arbitrary polars expression can be given, the
         result of which will be used to populate the column values.
 
-        Returns
+        Returns:
         -------
             DataFrame[Model]: A new dataframe where all derivable columns are provided.
 
-        Raises
+        Raises:
         ------
             TypeError: If the ``derived_from`` parameter of ``patito.Field`` is given
                 as something else than a string or polars expression.
 
-        Examples
+        Examples:
         --------
             >>> import patito as pt
             >>> import polars as pl
@@ -819,7 +817,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
     def _pydantic_model(self) -> Type[Model]:
         """Dynamically construct patito model compliant with dataframe.
 
-        Returns
+        Returns:
         -------
             A pydantic model class where all the rows have been specified as
                 `typing.Any` fields.
