@@ -114,13 +114,13 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
     def model_schema(cls: Type[ModelType]) -> Mapping[str, Mapping[str, Any]]:
         """Return schema properties where definition references have been resolved.
 
-        Returns
+        Returns:
         -------
             Field information as a dictionary where the keys are field names and the
                 values are dictionaries containing metadata information about the field
                 itself.
 
-        Raises
+        Raises:
         ------
             TypeError: if a field is annotated with an enum where the values are of
                 different types.
@@ -182,11 +182,11 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
 
         The first item of each list is the default dtype chosen by Patito.
 
-        Returns
+        Returns:
         -------
             A dictionary mapping each column string name to a list of valid dtypes.
 
-        Raises
+        Raises:
         ------
             NotImplementedError: If one or more model fields are annotated with types
                 not compatible with polars.

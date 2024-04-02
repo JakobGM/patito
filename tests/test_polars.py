@@ -325,7 +325,9 @@ def test_derive_subset() -> None:
             "expr_derived": [2, 4],
         }
     )
-    assert df.derive(columns=["expr_derived"]).equals(
+    assert df.derive(
+        columns=["expr_derived"]
+    ).equals(
         correct_derived_df
     )  # only include "expr_derived" in output, but ensure that "derived" was derived recursively
 

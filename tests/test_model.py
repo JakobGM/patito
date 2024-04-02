@@ -345,7 +345,7 @@ def test_model_field_renaming() -> None:
 
 
 def test_model_field_dropping() -> None:
-    """It should be able to drop a subset of its fields"""
+    """It should be able to drop a subset of its fields."""
 
     class MyModel(pt.Model):
         a: int
@@ -453,21 +453,21 @@ def test_nullable_columns() -> None:
 
 def test_conflicting_type_dtype() -> None:
     string_dtype_alias = "String" if pl.__version__ < "0.20.3" else "String"
-    with pytest.raises(ValueError, match=f"Invalid dtype {string_dtype_alias}") as e:
+    with pytest.raises(ValueError, match=f"Invalid dtype {string_dtype_alias}"):
 
         class Test1(pt.Model):
             foo: int = pt.Field(dtype=pl.String)
 
         Test1.validate_schema()
 
-    with pytest.raises(ValueError, match="Invalid dtype Float32") as e:
+    with pytest.raises(ValueError, match="Invalid dtype Float32"):
 
         class Test2(pt.Model):
             foo: str = pt.Field(dtype=pl.Float32)
 
         Test2.validate_schema()
 
-    with pytest.raises(ValueError, match="Invalid dtype UInt32") as e:
+    with pytest.raises(ValueError, match="Invalid dtype UInt32"):
 
         class Test3(pt.Model):
             foo: Optional[str] = pt.Field(dtype=pl.UInt32)
@@ -529,5 +529,5 @@ def test_validation_alias():
         my_val_b: int = pt.Field(validation_alias=AliasChoices("my_val_b", "myValB"))
 
     # code from validators _find_errors showing that we need model_json_schema without aliases
-    for column_name, column_properties in AliasModel._schema_properties().items():
+    for column_name, _column_properties in AliasModel._schema_properties().items():
         assert AliasModel.column_infos[column_name] is not None

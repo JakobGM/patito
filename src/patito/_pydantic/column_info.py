@@ -19,7 +19,7 @@ from patito._pydantic.dtypes import parse_composite_dtype
 
 
 class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
-    """patito-side model for storing column metadata
+    """patito-side model for storing column metadata.
 
     Args:
     ----

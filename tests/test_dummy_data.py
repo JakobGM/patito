@@ -151,7 +151,7 @@ def test_nested_models() -> None:
         nested_model: NestedModel
 
     example_model = ParentModel1.example()
-    example_df = ParentModel1.examples()
+    ParentModel1.examples()
     assert isinstance(example_model.nested_model, NestedModel)
     assert example_model.nested_model.nested_field is not None
 
@@ -177,4 +177,4 @@ def test_nested_models() -> None:
         nested_models: Sequence[NestedModel]
 
     example_model = ParentModel.example()
-    example_df = ParentModel.examples()
+    ParentModel.examples()

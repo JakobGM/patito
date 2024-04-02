@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Sequence, Type, Union, cast, Any
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union, cast
 
 import polars as pl
 from typing_extensions import get_args

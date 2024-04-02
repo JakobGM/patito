@@ -642,7 +642,7 @@ def test_validation_of_list_dtypes() -> None:
 
 
 def test_nested_field_attrs() -> None:
-    """Ensure that constraints are respected even when embedded inside 'anyOf'"""
+    """Ensure that constraints are respected even when embedded inside 'anyOf'."""
 
     class Test(pt.Model):
         foo: Optional[int] = pt.Field(
@@ -662,7 +662,7 @@ def test_nested_field_attrs() -> None:
 
 
 def test_validation_column_subset() -> None:
-    """Ensure that columns are only validated if they are in the subset"""
+    """Ensure that columns are only validated if they are in the subset."""
 
     class Test(pt.Model):
         a: int
