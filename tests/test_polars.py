@@ -1,7 +1,5 @@
 """Tests related to polars functionality."""
 
-from __future__ import annotations
-
 import re
 from datetime import date, datetime
 from io import StringIO
@@ -571,7 +569,7 @@ def test_alias_generator_read_csv() -> None:
         )
 
         My_Val_A: int
-        My_Val_B: int | None = None
+        My_Val_B: Optional[int] = None
 
     csv_data = StringIO("my_val_a,my_val_b\n1,")
     df = AliasGeneratorModel.DataFrame.read_csv(csv_data)
