@@ -1,5 +1,7 @@
 """Tests related to polars functionality."""
 
+from __future__ import annotations
+
 import re
 from datetime import date, datetime
 from typing import Optional
@@ -8,7 +10,13 @@ from io import StringIO
 import patito as pt
 import polars as pl
 import pytest
-from pydantic import AliasChoices, AliasGenerator, AliasPath, ConfigDict, ValidationError
+from pydantic import (
+    AliasChoices,
+    AliasGenerator,
+    AliasPath,
+    ConfigDict,
+    ValidationError,
+)
 
 from tests.examples import SmallModel
 
@@ -461,6 +469,7 @@ def test_validation_alias() -> None:
     df = AliasModel.LazyFrame(examples).unalias().cast(strict=True).collect().validate()
     assert df.columns == AliasModel.columns
 
+
 def test_alias_generator_read_csv() -> None:
     class AliasGeneratorModel(pt.Model):
         model_config = ConfigDict(
@@ -469,7 +478,7 @@ def test_alias_generator_read_csv() -> None:
 
         My_Val_A: int
         My_Val_B: int | None = None
-    
+
     csv_data = StringIO("my_val_a,my_val_b\n1,")
     df = AliasGeneratorModel.DataFrame.read_csv(csv_data)
     df.validate()
