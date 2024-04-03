@@ -380,7 +380,6 @@ def validate(
         polars_dataframe = cast(pl.DataFrame, dataframe)
 
     polars_dataframe = _transform_df(polars_dataframe, schema)
-
     errors = _find_errors(
         dataframe=polars_dataframe,
         schema=schema,
