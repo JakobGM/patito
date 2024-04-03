@@ -416,10 +416,19 @@ def test_list_struct_validation() -> None:
     class ListPositiveStructModel(pt.Model):
         list_positive_struct: list[_PositiveStruct]
 
-    valid_df = pl.DataFrame({"list_positive_struct": [[{"x": 1}, {"x": 2}, {"x": 3}]]})
+    valid_df = pl.DataFrame(
+        {"list_positive_struct": [[{"x": 1}, {"x": 2}], [{"x": 3}, {"x": 4}, {"x": 5}]]}
+    )
     ListPositiveStructModel.validate(valid_df)
 
-    bad_df = pl.DataFrame({"list_positive_struct": [[{"x": -1}, {"x": 2}, {"x": 3}]]})
+    bad_df = pl.DataFrame(
+        {
+            "list_positive_struct": [
+                [{"x": 1}, {"x": 2}],
+                [{"x": 3}, {"x": -4}, {"x": 5}],
+            ]
+        }
+    )
     with pytest.raises(DataFrameValidationError):
         ListPositiveStructModel.validate(bad_df)
 
