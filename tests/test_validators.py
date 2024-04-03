@@ -367,6 +367,7 @@ def test_struct_validation() -> None:
     class Gt0Struct(pt.Model):
         x: int = pt.Field(gt=0)
 
+    # test model with single struct column
     class Gt0StructModel(pt.Model):
         gt0_struct: Gt0Struct
 
@@ -377,6 +378,18 @@ def test_struct_validation() -> None:
     with pytest.raises(DataFrameValidationError):
         Gt0StructModel.validate(bad_df)
 
+    # test model with nested struct column
+    class NestedGt0StructModel(pt.Model):
+        gt0_struct_model: Gt0StructModel
+
+    valid_df = pl.DataFrame({"gt0_struct_model": [{"gt0_struct": {"x": 1}}, {"gt0_struct": {"x": 2}}, {"gt0_struct": {"x": 3}}]})
+    NestedGt0StructModel.validate(valid_df)
+
+    bad_df = pl.DataFrame({"gt0_struct_model": [{"gt0_struct": {"x": -1}}, {"gt0_struct": {"x": 2}}, {"gt0_struct": {"x": 3}}]})
+    with pytest.raises(DataFrameValidationError):
+        NestedGt0StructModel.validate(bad_df)
+
+    # test model with list of structs column
     class ListGt0StructModel(pt.Model):
         list_gt0_struct: list[Gt0Struct]
 
@@ -387,6 +400,7 @@ def test_struct_validation() -> None:
     with pytest.raises(DataFrameValidationError):
         ListGt0StructModel.validate(bad_df)
 
+    # test model with struct column that has polars expression constraint
     class Interval(pt.Model):
         x_min: int
         x_max: int = pt.Field(constraints=pt.col("x_min") <= pt.col("x_max"))
