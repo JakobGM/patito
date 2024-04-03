@@ -364,41 +364,41 @@ def test_literal_enum_validation() -> None:
 
 def test_struct_validation() -> None:
     """Test validation of models with field constraints on struct columns."""
-    class Gt0Struct(pt.Model):
+    class PositiveStruct(pt.Model):
         x: int = pt.Field(gt=0)
 
     # test model with single struct column
-    class Gt0StructModel(pt.Model):
-        gt0_struct: Gt0Struct
+    class PositiveStructModel(pt.Model):
+        positive_struct: PositiveStruct
 
-    valid_df = pl.DataFrame({"gt0_struct": [{"x": 1}, {"x": 2}, {"x": 3}]})
-    Gt0StructModel.validate(valid_df)
+    valid_df = pl.DataFrame({"positive_struct": [{"x": 1}, {"x": 2}, {"x": 3}]})
+    PositiveStructModel.validate(valid_df)
 
-    bad_df = pl.DataFrame({"gt0_struct": [{"x": -1}, {"x": 2}, {"x": 3}]})
+    bad_df = pl.DataFrame({"positive_struct": [{"x": -1}, {"x": 2}, {"x": 3}]})
     with pytest.raises(DataFrameValidationError):
-        Gt0StructModel.validate(bad_df)
+        PositiveStructModel.validate(bad_df)
 
     # test model with nested struct column
-    class NestedGt0StructModel(pt.Model):
-        gt0_struct_model: Gt0StructModel
+    class NestedPositiveStructModel(pt.Model):
+        positive_struct_model: PositiveStructModel
 
-    valid_df = pl.DataFrame({"gt0_struct_model": [{"gt0_struct": {"x": 1}}, {"gt0_struct": {"x": 2}}, {"gt0_struct": {"x": 3}}]})
-    NestedGt0StructModel.validate(valid_df)
+    valid_df = pl.DataFrame({"positive_struct_model": [{"positive_struct": {"x": 1}}, {"positive_struct": {"x": 2}}, {"positive_struct": {"x": 3}}]})
+    NestedPositiveStructModel.validate(valid_df)
 
-    bad_df = pl.DataFrame({"gt0_struct_model": [{"gt0_struct": {"x": -1}}, {"gt0_struct": {"x": 2}}, {"gt0_struct": {"x": 3}}]})
+    bad_df = pl.DataFrame({"positive_struct_model": [{"positive_struct": {"x": -1}}, {"positive_struct": {"x": 2}}, {"positive_struct": {"x": 3}}]})
     with pytest.raises(DataFrameValidationError):
-        NestedGt0StructModel.validate(bad_df)
+        NestedPositiveStructModel.validate(bad_df)
 
     # test model with list of structs column
-    class ListGt0StructModel(pt.Model):
-        list_gt0_struct: list[Gt0Struct]
+    class ListPositiveStructModel(pt.Model):
+        list_positive_struct: list[PositiveStruct]
 
-    valid_df = pl.DataFrame({"list_gt0_struct": [[{"x": 1}, {"x": 2}, {"x": 3}]]})
-    ListGt0StructModel.validate(valid_df)
+    valid_df = pl.DataFrame({"list_positive_struct": [[{"x": 1}, {"x": 2}, {"x": 3}]]})
+    ListPositiveStructModel.validate(valid_df)
 
-    bad_df = pl.DataFrame({"list_gt0_struct": [[{"x": -1}, {"x": 2}, {"x": 3}]]})
+    bad_df = pl.DataFrame({"list_positive_struct": [[{"x": -1}, {"x": 2}, {"x": 3}]]})
     with pytest.raises(DataFrameValidationError):
-        ListGt0StructModel.validate(bad_df)
+        ListPositiveStructModel.validate(bad_df)
 
     # test model with struct column that has polars expression constraint
     class Interval(pt.Model):

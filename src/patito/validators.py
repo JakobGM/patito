@@ -256,6 +256,26 @@ def _find_errors(  # noqa: C901
                     )
                 )
 
+
+
+        # intercept struct columns, and get errors seperately
+        if schema.dtypes[column_name] == pl.Struct:
+            struct_errors = _find_errors(
+                dataframe=dataframe.select(column_name).unnest(column_name),
+                schema=schema.model_fields[column_name].annotation,
+            )
+            for error in struct_errors:
+                error._loc = f"{column_name}.{error._loc}"
+            errors.extend(struct_errors)
+        elif schema.dtypes[column_name] == pl.List(pl.Struct):
+            list_struct_errors = _find_errors(
+                dataframe=dataframe.select(column_name).explode(column_name).unnest(column_name),
+                schema=schema.model_fields[column_name].annotation.__args__[0]
+            )
+            for error in list_struct_errors:
+                error._loc = f"{column_name}.{error._loc}"
+            errors.extend(list_struct_errors)
+
         # Check for bounded value fields
         col = pl.col(column_name)
         filters = {
@@ -361,42 +381,10 @@ def validate(
 
     polars_dataframe = _transform_df(polars_dataframe, schema)
 
-    # take out any struct columns, and call this function again
-    # TODO: move to _find_errors so we can properly collect errors, and use both dataframe and schema column subsets
-    if columns is None:
-        columns = schema.columns
-
-    column_set = set(columns)
-
-    struct_columns_to_revalidate = set()
-    list_struct_columns_to_revalidate = set()
-    for c in column_set:
-        if schema.dtypes[c] == pl.Struct:
-            struct_columns_to_revalidate.add(c)
-        elif schema.dtypes[c] == pl.List(pl.Struct):
-            list_struct_columns_to_revalidate.add(c)
-
-    for c in struct_columns_to_revalidate:
-        column_set.remove(c)
-        validate(
-            dataframe=dataframe.select(c).unnest(c),
-            schema=schema.model_fields[c].annotation,
-        )
-
-    for c in list_struct_columns_to_revalidate:
-        column_set.remove(c)
-        validate(
-            dataframe=dataframe.select(c).explode(c).unnest(c),
-            schema=schema.model_fields[c].annotation.__args__[0]
-        )
-
-    if len(column_set) == 0:
-        return
-
     errors = _find_errors(
         dataframe=polars_dataframe,
         schema=schema,
-        columns=list(column_set),
+        columns=columns,
         allow_missing_columns=allow_missing_columns,
         allow_superfluous_columns=allow_superfluous_columns,
     )
