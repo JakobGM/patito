@@ -256,8 +256,6 @@ def _find_errors(  # noqa: C901
                     )
                 )
 
-
-
         # intercept struct columns, and get errors seperately
         if schema.dtypes[column_name] == pl.Struct:
             struct_errors = _find_errors(
@@ -269,8 +267,10 @@ def _find_errors(  # noqa: C901
             errors.extend(struct_errors)
         elif schema.dtypes[column_name] == pl.List(pl.Struct):
             list_struct_errors = _find_errors(
-                dataframe=dataframe.select(column_name).explode(column_name).unnest(column_name),
-                schema=schema.model_fields[column_name].annotation.__args__[0]
+                dataframe=dataframe.select(column_name)
+                .explode(column_name)
+                .unnest(column_name),
+                schema=schema.model_fields[column_name].annotation.__args__[0],
             )
             for error in list_struct_errors:
                 error._loc = f"{column_name}.{error._loc}"
@@ -390,4 +390,3 @@ def validate(
     )
     if errors:
         raise DataFrameValidationError(errors=errors, model=schema)
-

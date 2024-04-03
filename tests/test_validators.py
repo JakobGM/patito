@@ -364,6 +364,7 @@ def test_literal_enum_validation() -> None:
 
 def test_struct_validation() -> None:
     """Test validation of models with field constraints on struct columns."""
+
     class PositiveStruct(pt.Model):
         x: int = pt.Field(gt=0)
 
@@ -382,10 +383,26 @@ def test_struct_validation() -> None:
     class NestedPositiveStructModel(pt.Model):
         positive_struct_model: PositiveStructModel
 
-    valid_df = pl.DataFrame({"positive_struct_model": [{"positive_struct": {"x": 1}}, {"positive_struct": {"x": 2}}, {"positive_struct": {"x": 3}}]})
+    valid_df = pl.DataFrame(
+        {
+            "positive_struct_model": [
+                {"positive_struct": {"x": 1}},
+                {"positive_struct": {"x": 2}},
+                {"positive_struct": {"x": 3}},
+            ]
+        }
+    )
     NestedPositiveStructModel.validate(valid_df)
 
-    bad_df = pl.DataFrame({"positive_struct_model": [{"positive_struct": {"x": -1}}, {"positive_struct": {"x": 2}}, {"positive_struct": {"x": 3}}]})
+    bad_df = pl.DataFrame(
+        {
+            "positive_struct_model": [
+                {"positive_struct": {"x": -1}},
+                {"positive_struct": {"x": 2}},
+                {"positive_struct": {"x": 3}},
+            ]
+        }
+    )
     with pytest.raises(DataFrameValidationError):
         NestedPositiveStructModel.validate(bad_df)
 
