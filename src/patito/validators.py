@@ -76,12 +76,15 @@ def _dewrap_optional(type_annotation: Type[Any] | Any) -> Type:
 def _transform_df(dataframe: pl.DataFrame, schema: type[Model]) -> pl.DataFrame:
     """Transform any properties of the dataframe according to the model.
 
+    Currently only supports using AliasGenerator to transform column names to match a model.
+
     Args:
     ----
         dataframe: Polars DataFrame to be validated.
         schema: Patito model which specifies how the dataframe should be structured.
 
     """
+    # Check if an alias generator is present in model_config
     if alias_gen := schema.model_config.get("alias_generator"):
         if isinstance(alias_gen, AliasGenerator):
             alias_func = alias_gen.validation_alias or alias_gen.alias

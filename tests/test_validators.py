@@ -14,6 +14,8 @@ import pytest
 from patito import DataFrameValidationError
 from patito._pydantic.dtypes import is_optional
 from patito.validators import _dewrap_optional, validate
+from pydantic.aliases import AliasGenerator
+from pydantic.config import ConfigDict
 
 
 def test_is_optional() -> None:
@@ -683,3 +685,49 @@ def test_validation_column_subset() -> None:
     # test asking for superfluous column
     with pytest.raises(DataFrameValidationError):
         Test.validate(pl.DataFrame({"a": [1, 2, 3], "b": [1, 2, 3]}), columns=["c"])
+
+
+def test_alias_generator() -> None:
+    """Allow column name transformations through AliasGenerator."""
+    df = pl.DataFrame({"my_val_a": [0]})
+
+    class NoAliasGeneratorModel(pt.Model):
+        My_Val_A: int
+
+    with pytest.raises(DataFrameValidationError):
+        NoAliasGeneratorModel.validate(df)
+
+    class AliasGeneratorModel(pt.Model):
+        model_config = ConfigDict(
+            alias_generator=AliasGenerator(validation_alias=str.title),
+        )
+        My_Val_A: int
+
+    AliasGeneratorModel.validate(df)
+
+    df = pl.DataFrame({"my_incorrect_val_a": [0]})
+    with pytest.raises(DataFrameValidationError):
+        AliasGeneratorModel.validate(df)
+
+
+def test_alias_generator_func() -> None:
+    """Allow column name transformations through a string function."""
+    df = pl.DataFrame({"my_val_a": [0]})
+
+    class NoAliasGeneratorModel(pt.Model):
+        My_Val_A: int
+
+    with pytest.raises(DataFrameValidationError):
+        NoAliasGeneratorModel.validate(df)
+
+    class AliasGeneratorModel(pt.Model):
+        model_config = ConfigDict(
+            alias_generator=str.title,
+        )
+        My_Val_A: int
+
+    AliasGeneratorModel.validate(df)
+
+    df = pl.DataFrame({"my_incorrect_val_a": [0]})
+    with pytest.raises(DataFrameValidationError):
+        AliasGeneratorModel.validate(df)
