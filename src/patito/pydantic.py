@@ -447,6 +447,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         cls,
         dataframe: Union["pd.DataFrame", pl.DataFrame],
         columns: Optional[Sequence[str]] = None,
+        allow_missing_columns: bool = False,
+        allow_superfluous_columns: bool = False,
         **kwargs,
     ) -> None:
         """Validate the schema and content of the given dataframe.
@@ -456,6 +458,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             dataframe: Polars DataFrame to be validated.
             columns: Optional list of columns to validate. If not provided, all columns
                 of the dataframe will be validated.
+            allow_missing_columns: If True, missing columns will not be considered an error.
+            allow_superfluous_columns: If True, additional columns will not be considered an error.
             **kwargs: Additional keyword arguments to be passed to the validation
 
         Raises:
@@ -495,7 +499,14 @@ class Model(BaseModel, metaclass=ModelMetaclass):
               Rows with invalid values: {'oven'}. (type=value_error.rowvalue)
 
         """
-        validate(dataframe=dataframe, columns=columns, schema=cls, **kwargs)
+        validate(
+            dataframe=dataframe,
+            schema=cls,
+            columns=columns,
+            allow_missing_columns=allow_missing_columns,
+            allow_superfluous_columns=allow_superfluous_columns,
+            **kwargs,
+        )
 
     @classmethod
     def example_value(  # noqa: C901

@@ -20,7 +20,7 @@ from patito.exceptions import (
 )
 
 try:
-    import pandas as pd
+    import pandas as pd  # type: ignore
 
     _PANDAS_AVAILABLE = True
 except ImportError:
@@ -345,7 +345,8 @@ def validate(
     ----
         dataframe: Polars DataFrame to be validated.
         schema: Patito model which specifies how the dataframe should be structured.
-        columns: Optionally limit which columns to validate.
+        columns: Optional list of columns to validate. If not provided, all columns
+            of the dataframe will be validated.
         allow_missing_columns: If True, missing columns will not be considered an error.
         allow_superfluous_columns: If True, additional columns will not be considered an error.
 
