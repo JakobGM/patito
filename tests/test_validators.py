@@ -14,6 +14,8 @@ import pytest
 from patito import DataFrameValidationError
 from patito._pydantic.dtypes import is_optional
 from patito.validators import _dewrap_optional, validate
+from pydantic.aliases import AliasGenerator
+from pydantic.config import ConfigDict
 
 
 def test_is_optional() -> None:
@@ -584,6 +586,8 @@ def test_optional_enum() -> None:
     reason="Using | as a type union operator is only supported from python 3.10.",
 )
 def test_optional_pipe_operator() -> None:
+    """Ensure that pipe operator works as expected."""
+
     class OptionalEnumModel(pt.Model):
         # Old type annotation syntax
         optional_enum_1: Optional[Literal["A", "B"]]
@@ -636,13 +640,12 @@ def test_validation_of_list_dtypes() -> None:
         ("nullable_int_or_null_list", "int_or_null_list"),
         ("nullable_int_or_null_list", "nullable_int_list"),
     ]:
-        # print(old, new)
         with pytest.raises(DataFrameValidationError):
             ListModel.validate(valid_df.with_columns(pl.col(old).alias(new)))
 
 
 def test_nested_field_attrs() -> None:
-    """Ensure that constraints are respected even when embedded inside 'anyOf'"""
+    """Ensure that constraints are respected even when embedded inside 'anyOf'."""
 
     class Test(pt.Model):
         foo: Optional[int] = pt.Field(
@@ -662,7 +665,7 @@ def test_nested_field_attrs() -> None:
 
 
 def test_validation_column_subset() -> None:
-    """Ensure that columns are only validated if they are in the subset"""
+    """Ensure that columns are only validated if they are in the subset."""
 
     class Test(pt.Model):
         a: int
@@ -682,3 +685,49 @@ def test_validation_column_subset() -> None:
     # test asking for superfluous column
     with pytest.raises(DataFrameValidationError):
         Test.validate(pl.DataFrame({"a": [1, 2, 3], "b": [1, 2, 3]}), columns=["c"])
+
+
+def test_alias_generator() -> None:
+    """Allow column name transformations through AliasGenerator."""
+    df = pl.DataFrame({"my_val_a": [0]})
+
+    class NoAliasGeneratorModel(pt.Model):
+        My_Val_A: int
+
+    with pytest.raises(DataFrameValidationError):
+        NoAliasGeneratorModel.validate(df)
+
+    class AliasGeneratorModel(pt.Model):
+        model_config = ConfigDict(
+            alias_generator=AliasGenerator(validation_alias=str.title),
+        )
+        My_Val_A: int
+
+    AliasGeneratorModel.validate(df)
+
+    df = pl.DataFrame({"my_incorrect_val_a": [0]})
+    with pytest.raises(DataFrameValidationError):
+        AliasGeneratorModel.validate(df)
+
+
+def test_alias_generator_func() -> None:
+    """Allow column name transformations through a string function."""
+    df = pl.DataFrame({"my_val_a": [0]})
+
+    class NoAliasGeneratorModel(pt.Model):
+        My_Val_A: int
+
+    with pytest.raises(DataFrameValidationError):
+        NoAliasGeneratorModel.validate(df)
+
+    class AliasGeneratorModel(pt.Model):
+        model_config = ConfigDict(
+            alias_generator=str.title,
+        )
+        My_Val_A: int
+
+    AliasGeneratorModel.validate(df)
+
+    df = pl.DataFrame({"my_incorrect_val_a": [0]})
+    with pytest.raises(DataFrameValidationError):
+        AliasGeneratorModel.validate(df)

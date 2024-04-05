@@ -30,7 +30,6 @@ These schema can be used for:
 🧪 Easy generation of valid mock data frames for tests.\
 🐍 Retrieve and represent singular rows in an object-oriented manner.\
 🧠 Provide a single source of truth for the core data models in your code base. \
-🦆 Integration with DuckDB for running flexible SQL queries.
 
 Patito has first-class support for [polars]("https://github.com/pola-rs/polars"), a _"blazingly fast DataFrames library written in Rust"_.
 
@@ -39,16 +38,6 @@ Patito has first-class support for [polars]("https://github.com/pola-rs/polars")
 ```sh
 pip install patito
 ```
-
-#### DuckDB Integration
-
-Patito can also integrate with [DuckDB](https://duckdb.org/).
-In order to enable this integration you must explicitly specify it during installation:
-
-```sh
-pip install 'patito[duckdb]'
-```
-
 
 ## Documentation
 

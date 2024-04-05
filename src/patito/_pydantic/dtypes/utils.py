@@ -92,7 +92,7 @@ def is_optional(type_annotation: type[Any] | Any | None) -> bool:
 
 
 def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
-    """For serialization, converts polars dtype to string representation"""
+    """For serialization, converts polars dtype to string representation."""
     if dtype in pl.NESTED_DTYPES:
         if dtype == pl.Struct or isinstance(dtype, pl.Struct):
             raise NotImplementedError("Structs not yet supported by patito")
@@ -110,7 +110,7 @@ def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
 
 
 def dtype_from_string(v: str) -> Optional[Union[DataTypeClass, DataType]]:
-    """For deserialization"""
+    """For deserialization."""
     # TODO test all dtypes
     return convert.dtype_short_repr_to_dtype(v)
 

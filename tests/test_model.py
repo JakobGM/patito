@@ -345,7 +345,7 @@ def test_model_field_renaming() -> None:
 
 
 def test_model_field_dropping() -> None:
-    """It should be able to drop a subset of its fields"""
+    """Model should be able to drop a subset of its fields."""
 
     class MyModel(pt.Model):
         a: int
@@ -402,6 +402,8 @@ def test_enum_annotated_field() -> None:
 
 
 def test_model_schema() -> None:
+    """Ensure pt.Field properties are correctly applied to model."""
+
     class Model(pt.Model):
         a: int = pt.Field(ge=0, unique=True)
 
@@ -438,6 +440,8 @@ def test_model_schema() -> None:
 
 
 def test_nullable_columns() -> None:
+    """Ensure columns are correctly nullable."""
+
     class Test1(pt.Model):
         foo: Optional[str] = pt.Field(dtype=pl.String)
 
@@ -452,22 +456,22 @@ def test_nullable_columns() -> None:
 
 
 def test_conflicting_type_dtype() -> None:
-    string_dtype_alias = "String" if pl.__version__ < "0.20.3" else "String"
-    with pytest.raises(ValueError, match=f"Invalid dtype {string_dtype_alias}") as e:
+    """Ensure model annotation is compatible with Field dtype."""
+    with pytest.raises(ValueError, match="Invalid dtype String"):
 
         class Test1(pt.Model):
             foo: int = pt.Field(dtype=pl.String)
 
         Test1.validate_schema()
 
-    with pytest.raises(ValueError, match="Invalid dtype Float32") as e:
+    with pytest.raises(ValueError, match="Invalid dtype Float32"):
 
         class Test2(pt.Model):
             foo: str = pt.Field(dtype=pl.Float32)
 
         Test2.validate_schema()
 
-    with pytest.raises(ValueError, match="Invalid dtype UInt32") as e:
+    with pytest.raises(ValueError, match="Invalid dtype UInt32"):
 
         class Test3(pt.Model):
             foo: Optional[str] = pt.Field(dtype=pl.UInt32)
@@ -476,6 +480,8 @@ def test_conflicting_type_dtype() -> None:
 
 
 def test_polars_python_type_harmonization() -> None:
+    """Ensure datetime types are correctly transformed to polars types."""
+
     class Test(pt.Model):
         date: datetime = pt.Field(dtype=pl.Datetime(time_unit="us"))
         time: time
@@ -485,6 +491,8 @@ def test_polars_python_type_harmonization() -> None:
 
 
 def test_column_infos() -> None:
+    """Test that pt.Field and ColumnInfo properties match."""
+
     class Model(pt.Model):
         a: int
         b: int = pt.Field(constraints=[(pl.col("b") < 10)])
@@ -510,6 +518,8 @@ def test_column_infos() -> None:
 
 
 def test_missing_date_struct():
+    """Test model examples is validateable."""
+
     class SubModel(pt.Model):
         a: int
         b: AwareDatetime
@@ -524,10 +534,16 @@ def test_missing_date_struct():
 
 
 def test_validation_alias():
+    """Test that validation alias works in pt.Field.
+
+    TODO: Not sure if this actually tests anything correctly.
+    """
+
     class AliasModel(pt.Model):
         my_val_a: int = pt.Field(validation_alias="myValA")
         my_val_b: int = pt.Field(validation_alias=AliasChoices("my_val_b", "myValB"))
 
     # code from validators _find_errors showing that we need model_json_schema without aliases
-    for column_name, column_properties in AliasModel._schema_properties().items():
+    for column_name, _column_properties in AliasModel._schema_properties().items():
         assert AliasModel.column_infos[column_name] is not None
+    AliasModel.examples()
