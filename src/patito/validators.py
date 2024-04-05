@@ -257,39 +257,51 @@ def _find_errors(  # noqa: C901
                     )
                 )
 
-        # intercept struct columns, and get errors seperately
+        # Intercept struct columns, and process errors seperately
         if schema.dtypes[column_name] == pl.Struct:
             nested_schema = schema.model_fields[column_name].annotation
+
             with contextlib.suppress(AttributeError):
-                nested_schema = nested_schema.__args__[
-                    0
-                ]  # additional unpack required if struct column is optional
+                # Additional unpack required if structs column is optional
+                nested_schema = nested_schema.__args__[0]
+
             struct_errors = _find_errors(
                 dataframe=dataframe.select(column_name).unnest(column_name),
                 schema=nested_schema,
             )
+
+            # Format nested errors
             for error in struct_errors:
                 error._loc = f"{column_name}.{error._loc}"
-            errors.extend(struct_errors)
-            continue  # no need to do any more checks
 
-        # intercept list of structs columns, and get errors seperately
+            errors.extend(struct_errors)
+
+            # No need to do any more checks
+            continue
+
+        # Intercept list of structs columns, and process errors seperately
         elif schema.dtypes[column_name] == pl.List(pl.Struct):
             nested_schema = schema.model_fields[column_name].annotation.__args__[0]
+
             with contextlib.suppress(AttributeError):
-                nested_schema = nested_schema.__args__[
-                    0
-                ]  # additional unpack required if list of structs column is optional
+                # Additional unpack required if list of structs column is optional
+                nested_schema = nested_schema.__args__[0]
+
             list_struct_errors = _find_errors(
                 dataframe=dataframe.select(column_name)
                 .explode(column_name)
                 .unnest(column_name),
                 schema=nested_schema,
             )
+
+            # Format nested errors
             for error in list_struct_errors:
                 error._loc = f"{column_name}.{error._loc}"
+
             errors.extend(list_struct_errors)
-            continue  # no need to do any more checks
+
+            # No need to do any more checks
+            continue
 
         # Check for bounded value fields
         col = pl.col(column_name)
