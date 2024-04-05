@@ -527,7 +527,7 @@ def test_missing_date_struct():
     class Test(pt.Model):
         a: int
         b: int
-        c: Optional[list[SubModel]]
+        c: Optional[SubModel]
 
     df = Test.examples({"a": range(5), "c": None})
     Test.validate(df.cast())
