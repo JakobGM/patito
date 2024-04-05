@@ -517,7 +517,6 @@ def test_column_infos() -> None:
     assert infos["e"].unique is not None
 
 
-@pytest.mark.skip(reason="Test.model_fields['c'].annotation.columns does not exist")
 def test_missing_date_struct():
     """Test model examples is validateable."""
 
@@ -528,7 +527,7 @@ def test_missing_date_struct():
     class Test(pt.Model):
         a: int
         b: int
-        c: Optional[SubModel]
+        c: Optional[list[SubModel]]
 
     df = Test.examples({"a": range(5), "c": None})
     Test.validate(df.cast())

@@ -258,23 +258,35 @@ def _find_errors(  # noqa: C901
 
         # intercept struct columns, and get errors seperately
         if schema.dtypes[column_name] == pl.Struct:
+            try:
+                nested_schema = schema.model_fields[column_name].annotation.__args__[0]
+            except AttributeError:
+                nested_schema = schema.model_fields[column_name].annotation
             struct_errors = _find_errors(
                 dataframe=dataframe.select(column_name).unnest(column_name),
-                schema=schema.model_fields[column_name].annotation,
+                schema=nested_schema,
             )
             for error in struct_errors:
                 error._loc = f"{column_name}.{error._loc}"
             errors.extend(struct_errors)
+            continue
         elif schema.dtypes[column_name] == pl.List(pl.Struct):
+            try:
+                nested_schema = (
+                    schema.model_fields[column_name].annotation.__args__[0].__args__[0]
+                )
+            except AttributeError:
+                nested_schema = schema.model_fields[column_name].annotation.__args__[0]
             list_struct_errors = _find_errors(
                 dataframe=dataframe.select(column_name)
                 .explode(column_name)
                 .unnest(column_name),
-                schema=schema.model_fields[column_name].annotation.__args__[0],
+                schema=nested_schema,
             )
             for error in list_struct_errors:
                 error._loc = f"{column_name}.{error._loc}"
             errors.extend(list_struct_errors)
+            continue
 
         # Check for bounded value fields
         col = pl.col(column_name)
