@@ -257,7 +257,7 @@ def _find_errors(  # noqa: C901
                     )
                 )
 
-        # Intercept struct columns, and process errors seperately
+        # Intercept struct columns, and process errors separately
         if schema.dtypes[column_name] == pl.Struct:
             nested_schema = schema.model_fields[column_name].annotation
 
@@ -279,7 +279,7 @@ def _find_errors(  # noqa: C901
             # No need to do any more checks
             continue
 
-        # Intercept list of structs columns, and process errors seperately
+        # Intercept list of structs columns, and process errors separately
         elif schema.dtypes[column_name] == pl.List(pl.Struct):
             nested_schema = schema.model_fields[column_name].annotation.__args__[0]
 
