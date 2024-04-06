@@ -201,13 +201,13 @@ def test_dataframe_model_dtype_casting() -> None:
 
 def test_correct_columns_and_dtype_on_read_regular_inferred(tmp_path):
     """The `polars.read_csv` function should infer dtypes."""
-
     csv_path = tmp_path / "foo.csv"
     csv_path.write_text("1,2")
 
     regular_df = pl.read_csv(csv_path, has_header=False)
     assert regular_df.columns == ["column_1", "column_2"]
     assert regular_df.dtypes == [pl.Int64, pl.Int64]
+
 
 def test_correct_columns_and_dtype_on_read_model_dtypes(tmp_path):
     """A model DataFrame should read headerless CSVs with column names and dtypes."""
@@ -221,6 +221,7 @@ def test_correct_columns_and_dtype_on_read_model_dtypes(tmp_path):
     model_df = Foo.DataFrame.read_csv(csv_path, has_header=False)
     assert model_df.columns == ["a", "b"]
     assert model_df.dtypes == [pl.String, pl.Int64]
+
 
 def test_correct_columns_and_dtype_on_read_ordered(tmp_path):
     """A model DataFrame should read headered CSVs with column names and dtypes."""
@@ -237,13 +238,14 @@ def test_correct_columns_and_dtype_on_read_ordered(tmp_path):
     assert column_specified_df_ab.schema == {"a": pl.String, "b": pl.Int64}
     assert column_specified_df_ab["a"].to_list() == ["1"]
     assert column_specified_df_ab["b"].to_list() == [2]
-    
+
     # and out of order
     csv_path.write_text("b,a\n1,2")
     column_specified_df_ba = Foo.DataFrame.read_csv(csv_path, has_header=True)
     assert column_specified_df_ba.schema == {"b": pl.Int64, "a": pl.String}
     assert column_specified_df_ba["a"].to_list() == ["2"]
     assert column_specified_df_ba["b"].to_list() == [1]
+
 
 def test_correct_columns_and_dtype_on_read_ba_float_dtype_override(tmp_path):
     """A model DataFrame should aid CSV reading with column names and dtypes."""
@@ -275,6 +277,7 @@ def test_correct_columns_and_dtype_on_read_ba_float_dtype_override(tmp_path):
     assert dtype_specified_df["a"].to_list() == [2.0]
     assert dtype_specified_df["b"].to_list() == [1.0]
 
+
 def test_correct_columns_and_dtype_on_read_third_float_col(tmp_path):
     """A model DataFrame should aid CSV reading with column names and dtypes."""
 
@@ -288,9 +291,9 @@ def test_correct_columns_and_dtype_on_read_third_float_col(tmp_path):
     assert unspecified_column_df.columns == ["a", "b", "column_3"]
     assert unspecified_column_df.dtypes == [pl.String, pl.Int64, pl.Float64]
 
+
 def test_correct_columns_and_dtype_on_read_derived(tmp_path):
     """A model DataFrame should aid CSV reading with column names and dtypes."""
-
     csv_path = tmp_path / "foo.csv"
     csv_path.write_text("1,2")
 
