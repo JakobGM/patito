@@ -7,7 +7,13 @@ from typing import Optional
 import patito as pt
 import polars as pl
 import pytest
-from pydantic import AliasChoices, AliasPath, ValidationError
+from pydantic import (
+    AliasChoices,
+    AliasGenerator,
+    AliasPath,
+    ConfigDict,
+    ValidationError,
+)
 
 from tests.examples import SmallModel
 
@@ -295,16 +301,36 @@ def test_correct_columns_and_dtype_on_read_third_float_col(tmp_path):
 def test_correct_columns_and_dtype_on_read_derived(tmp_path):
     """A model DataFrame should aid CSV reading with column names and dtypes."""
     csv_path = tmp_path / "foo.csv"
-    csv_path.write_text("1,2")
+    csv_path.write_text("month,dollars\n1,2.99")
 
     class DerivedModel(pt.Model):
+        month: int = pt.Field()
+        dollars: float = pt.Field()
         cents: int = pt.Field(derived_from=100 * pl.col("dollars"))
 
-    csv_path.write_text("month,dollars\n1,2.99")
     derived_df = DerivedModel.DataFrame.read_csv(csv_path)
+    assert derived_df.columns == ["month", "dollars", "cents"]
     assert derived_df.equals(
-        DerivedModel.DataFrame({"cents": [299], "month": [1], "dollars": [2.99]})
+        DerivedModel.DataFrame({"month": [1], "dollars": [2.99], "cents": [299]})
     )
+
+
+def test_correct_columns_and_dtype_on_read_alias_gen(tmp_path):
+    """A model DataFrame should apply aliases to CSV columns."""
+    csv_path = tmp_path / "foo.csv"
+    csv_path.write_text("a,b\n1,2")
+
+    class AliasedModel(pt.Model):
+        model_config = ConfigDict(
+            alias_generator=AliasGenerator(validation_alias=str.upper)
+        )
+
+        A: int = pt.Field()
+        B: int = pt.Field()
+
+    aliased_df = AliasedModel.DataFrame.read_csv(csv_path)
+    assert aliased_df.columns == ["A", "B"]
+    assert aliased_df.equals(AliasedModel.DataFrame({"A": [1], "B": [2]}))
 
 
 def test_derive_functionality() -> None:
