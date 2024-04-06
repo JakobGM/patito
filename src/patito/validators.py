@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
-import contextlib
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Optional,
+    Sequence,
+    Type,
+    Union,
+    _UnionGenericAlias,
+    cast,
+)
 
 import polars as pl
 from pydantic.aliases import AliasGenerator
@@ -261,9 +269,15 @@ def _find_errors(  # noqa: C901
         if schema.dtypes[column_name] == pl.Struct:
             nested_schema = schema.model_fields[column_name].annotation
 
-            with contextlib.suppress(AttributeError):
-                # Additional unpack required if structs column is optional
+            # Additional unpack required if structs column is optional
+            if type(nested_schema) == _UnionGenericAlias:
                 nested_schema = nested_schema.__args__[0]
+
+                # We need to filter out any null rows, as the submodel won't
+                # know that all of a row's columns may be null
+                dataframe = dataframe.filter(pl.col(column_name).is_not_null())
+                if dataframe.is_empty():
+                    continue
 
             struct_errors = _find_errors(
                 dataframe=dataframe.select(column_name).unnest(column_name),
@@ -283,9 +297,15 @@ def _find_errors(  # noqa: C901
         elif schema.dtypes[column_name] == pl.List(pl.Struct):
             nested_schema = schema.model_fields[column_name].annotation.__args__[0]
 
-            with contextlib.suppress(AttributeError):
-                # Additional unpack required if list of structs column is optional
+            # Additional unpack required if structs column is optional
+            if type(nested_schema) == _UnionGenericAlias:
                 nested_schema = nested_schema.__args__[0]
+
+                # We need to filter out any null rows, as the submodel won't
+                # know that all of a row's columns may be null
+                dataframe = dataframe.filter(pl.col(column_name).is_not_null())
+                if dataframe.is_empty():
+                    continue
 
             list_struct_errors = _find_errors(
                 dataframe=dataframe.select(column_name)
