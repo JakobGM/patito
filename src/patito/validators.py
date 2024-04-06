@@ -273,8 +273,8 @@ def _find_errors(  # noqa: C901
             if type(nested_schema) == _UnionGenericAlias:
                 nested_schema = nested_schema.__args__[0]
 
-                # We need to filter out any null rows, as the submodel won't
-                # know that all of a row's columns may be null
+                # We need to filter out any null rows as the submodel won't know
+                # that all of a row's columns may be null
                 dataframe = dataframe.filter(pl.col(column_name).is_not_null())
                 if dataframe.is_empty():
                     continue
@@ -301,8 +301,8 @@ def _find_errors(  # noqa: C901
             if type(nested_schema) == _UnionGenericAlias:
                 nested_schema = nested_schema.__args__[0]
 
-                # We need to filter out any null rows, as the submodel won't
-                # know that all of a row's columns may be null
+                # We need to filter out any null rows as the submodel won't know
+                # that all of a row's columns may be null
                 dataframe = dataframe.filter(pl.col(column_name).is_not_null())
                 if dataframe.is_empty():
                     continue
