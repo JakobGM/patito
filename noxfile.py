@@ -13,7 +13,7 @@ nox.options.sessions = (
     # "type_check"
 )
 locations = "src", "tests", "noxfile.py", "docs/conf.py"
-supported_python_versions = "3.9", "3.10", "3.11"
+supported_python_versions = "3.9", "3.10", "3.11", "3.12"
 
 
 def install_with_constraints(session, *args, **kwargs):
