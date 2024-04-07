@@ -40,6 +40,22 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
     derived_from: Optional[Union[str, pl.Expr]] = None
     unique: Optional[bool] = None
 
+    def __repr__(self) -> str:
+        """Print only Field attributes whose values are not default (mainly None)."""
+        not_default_field = {
+            field: getattr(self, field)
+            for field in self.model_fields
+            if getattr(self, field) is not self.model_fields[field].default
+        }
+
+        string = ""
+        for field, value in not_default_field.items():
+            string += f"{field}={value}, "
+        if string:
+            # remove trailing comma and space
+            string = string[:-2]
+        return f"ColumnInfo({string})"
+
     @field_serializer("constraints", "derived_from")
     def serialize_exprs(self, exprs: str | pl.Expr | Sequence[pl.Expr] | None) -> Any:
         if exprs is None:
