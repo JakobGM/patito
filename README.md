@@ -120,7 +120,7 @@ def num_products_for_sale(products: pl.DataFrame) -> int:
     return products.filter(pl.col("is_for_sale")).height
 ```
 
-The following test would fail with a `patito.ValidationError`:
+The following test would fail with a `patito.exceptions.DataFrameValidationError`:
 
 ```py
 def test_num_products_for_sale():
