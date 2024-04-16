@@ -49,7 +49,7 @@ Patito allows you to specify the type of each column in your dataframe by creati
 
 ```py
 # models.py
-from typing import Literal, Optional
+from typing import Literal
 
 import patito as pt
 
@@ -74,7 +74,7 @@ df = pl.DataFrame(
 )
 try:
     Product.validate(df)
-except pt.ValidationError as exc:
+except pt.exceptions.DataFrameValidationError as exc:
     print(exc)
 # 3 validation errors for Product
 # is_for_sale
