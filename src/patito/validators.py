@@ -232,21 +232,14 @@ def _find_errors(  # noqa: C901
             )
 
         # Test for when only specific values are accepted
-        if "enum" in column_properties:
-            permissible_values = set(column_properties["enum"])
-            if column_name in schema.nullable_columns:
-                permissible_values.add(None)
-            actual_values = set(dataframe[column_name].unique())
-            impermissible_values = actual_values - permissible_values
-            if impermissible_values:
-                errors.append(
-                    ErrorWrapper(
-                        RowValueError(
-                            f"Rows with invalid values: {impermissible_values}."
-                        ),
-                        loc=column_name,
-                    )
-                )
+        e = _find_enum_errors(
+            df=dataframe,
+            column_name=column_name,
+            props=column_properties,
+            schema=schema,
+        )
+        if e is not None:
+            errors.append(e)
 
         if column_info.unique:
             # Coalescing to 0 in the case of dataframe of height 0
@@ -333,6 +326,29 @@ def _find_errors(  # noqa: C901
                 )
 
     return errors
+
+
+def _find_enum_errors(
+    df: pl.DataFrame, column_name: str, props: dict[str, Any], schema: Type[Model]
+) -> ErrorWrapper | None:
+    if "enum" not in props:
+        if "items" in props and "enum" in props["items"]:
+            return _find_enum_errors(df, column_name, props["items"], schema)
+        return None
+    permissible_values = set(props["enum"])
+    if column_name in schema.nullable_columns:
+        permissible_values.add(None)
+    if isinstance(df[column_name].dtype, pl.List):
+        actual_values = set(df[column_name].explode().unique())
+    else:
+        actual_values = set(df[column_name].unique())
+    impermissible_values = actual_values - permissible_values
+    if impermissible_values:
+        return ErrorWrapper(
+            RowValueError(f"Rows with invalid values: {impermissible_values}."),
+            loc=column_name,
+        )
+    return None
 
 
 def validate(

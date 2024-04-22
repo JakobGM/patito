@@ -355,13 +355,27 @@ def test_literal_enum_validation() -> None:
     with pytest.raises(DataFrameValidationError) as e_info:
         validate(dataframe=invalid_df, schema=EnumModel)
 
-    errors = e_info.value.errors()
-    assert len(errors) == 1
-    assert errors[0] == {
+    error_expected = {
         "loc": ("column",),
         "msg": "Rows with invalid values: {'d'}.",
         "type": "value_error.rowvalue",
     }
+    errors = e_info.value.errors()
+    assert len(errors) == 1
+    assert errors[0] == error_expected
+
+    class ListEnumModel(pt.Model):
+        column: List[Literal["a", "b", "c"]]
+
+    valid_df = pl.DataFrame({"column": [["a", "b"], ["b", "c"], ["a", "c"]]})
+    validate(dataframe=valid_df, schema=ListEnumModel)
+
+    invalid_df = pl.DataFrame({"column": [["a", "b"], ["b", "c"], ["a", "d"]]})
+    with pytest.raises(DataFrameValidationError) as e_info:
+        validate(dataframe=invalid_df, schema=ListEnumModel)
+    errors = e_info.value.errors()
+    assert len(errors) == 1
+    assert errors[0] == error_expected
 
 
 def test_uniqueness_constraint_validation() -> None:
