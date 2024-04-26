@@ -378,6 +378,111 @@ def test_literal_enum_validation() -> None:
     assert errors[0] == error_expected
 
 
+class _PositiveStruct(pt.Model):
+    x: int = pt.Field(gt=0)
+
+
+class _PositiveStructModel(pt.Model):
+    positive_struct: _PositiveStruct
+
+
+def test_simple_struct_validation() -> None:
+    """Test validation of model with struct column."""
+    valid_df = pl.DataFrame({"positive_struct": [{"x": 1}, {"x": 2}, {"x": 3}]})
+    _PositiveStructModel.validate(valid_df)
+
+    bad_df = pl.DataFrame({"positive_struct": [{"x": -1}, {"x": 2}, {"x": 3}]})
+    with pytest.raises(DataFrameValidationError):
+        _PositiveStructModel.validate(bad_df)
+
+
+def test_nested_struct_validation() -> None:
+    """Test validation of model with nested struct column."""
+
+    class NestedPositiveStructModel(pt.Model):
+        positive_struct_model: _PositiveStructModel
+
+    valid_df = pl.DataFrame(
+        {
+            "positive_struct_model": [
+                {"positive_struct": {"x": 1}},
+                {"positive_struct": {"x": 2}},
+                {"positive_struct": {"x": 3}},
+            ]
+        }
+    )
+    NestedPositiveStructModel.validate(valid_df)
+
+    bad_df = pl.DataFrame(
+        {
+            "positive_struct_model": [
+                {"positive_struct": {"x": -1}},
+                {"positive_struct": {"x": 2}},
+                {"positive_struct": {"x": 3}},
+            ]
+        }
+    )
+    with pytest.raises(DataFrameValidationError):
+        NestedPositiveStructModel.validate(bad_df)
+
+
+def test_list_struct_validation() -> None:
+    """Test validation of model with list of structs column."""
+
+    class ListPositiveStructModel(pt.Model):
+        list_positive_struct: list[_PositiveStruct]
+
+    valid_df = pl.DataFrame(
+        {"list_positive_struct": [[{"x": 1}, {"x": 2}], [{"x": 3}, {"x": 4}, {"x": 5}]]}
+    )
+    ListPositiveStructModel.validate(valid_df)
+
+    bad_df = pl.DataFrame(
+        {
+            "list_positive_struct": [
+                [{"x": 1}, {"x": 2}],
+                [{"x": 3}, {"x": -4}, {"x": 5}],
+            ]
+        }
+    )
+    with pytest.raises(DataFrameValidationError):
+        ListPositiveStructModel.validate(bad_df)
+
+
+def test_struct_validation_with_polars_constraint() -> None:
+    """Test validation of models with constrained struct column."""
+
+    class Interval(pt.Model):
+        x_min: int
+        x_max: int = pt.Field(constraints=pt.col("x_min") <= pt.col("x_max"))
+
+    class IntervalModel(pt.Model):
+        interval: Interval
+
+    valid_df = pl.DataFrame(
+        {
+            "interval": [
+                {"x_min": 0, "x_max": 1},
+                {"x_min": 0, "x_max": 0},
+                {"x_min": -1, "x_max": 1},
+            ]
+        }
+    )
+    IntervalModel.validate(valid_df)
+
+    bad_df = pl.DataFrame(
+        {
+            "interval": [
+                {"x_min": 0, "x_max": 1},
+                {"x_min": 1, "x_max": 0},
+                {"x_min": -1, "x_max": 1},
+            ]
+        }
+    )
+    with pytest.raises(DataFrameValidationError):
+        IntervalModel.validate(bad_df)
+
+
 def test_uniqueness_constraint_validation() -> None:
     """Uniqueness constraints should be validated."""
 
