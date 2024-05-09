@@ -8,7 +8,7 @@ You might not have encountered any of these `exact` scenarios, but perhaps simil
 A machine learning model might ingest data from a production system that changes frequently, and the author of the model wants to be notified if certain assumptions no longer hold.
 Or perhaps a data analyst might rely on a pre-processing step that removes all discontinued products from a data set, and this should be validated and communicated clearly in their Jupyter notebook.
 
-`patito <https://github.com/kolonialno/patito>`_ is a dataframe validation library built on top of `polars <https://github.com/pola-rs/polars>`_ initially open sourced by Oda, which tries to solve this problem.
+`patito <https://github.com/JakobGM/patito>`_ is a dataframe validation library built on top of `polars <https://github.com/pola-rs/polars>`_ initially open sourced by Oda, which tries to solve this problem.
 The polars dataframe library has lately been making the rounds among data scientists, and for good reasons.
 It can be considered as a total replacement of the well-known `pandas <https://github.com/pandas-dev/pandas>`_ library, initially tempting you with its advertised `top-notch performance <https://www.pola.rs/benchmarks.html>`_, but then sealing the deal with its intuitive and expressive API.
 The exact virtues of polars is a topic for another article, but suffice it to say that it is `highly` recommended and it has some great `introductory documentation <https://pola-rs.github.io/polars-book/user-guide/>`_.

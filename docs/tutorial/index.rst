@@ -5,4 +5,3 @@ Tutorials
    :maxdepth: 1
 
    dataframe-validation
-   database-integration

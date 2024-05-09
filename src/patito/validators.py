@@ -63,11 +63,9 @@ def _dewrap_optional(type_annotation: Type[Any] | Any) -> Type:
     Is a no-op for non-Optional types.
 
     Args:
-    ----
         type_annotation: The type annotation to be dewrapped.
 
     Returns:
-    -------
         The input type, but with the outermost Optional removed.
 
     """
@@ -88,7 +86,6 @@ def _transform_df(dataframe: pl.DataFrame, schema: type[Model]) -> pl.DataFrame:
     Currently only supports using AliasGenerator to transform column names to match a model.
 
     Args:
-    ----
         dataframe: Polars DataFrame to be validated.
         schema: Patito model which specifies how the dataframe should be structured.
 
@@ -120,7 +117,6 @@ def _find_errors(  # noqa: C901
     """Validate the given dataframe.
 
     Args:
-    ----
         dataframe: Polars DataFrame to be validated.
         schema: Patito model which specifies how the dataframe should be structured.
         columns: If specified, only validate the given columns. Missing columns will
@@ -131,7 +127,6 @@ def _find_errors(  # noqa: C901
         allow_superfluous_columns: If True, additional columns will not be considered an error.
 
     Returns:
-    -------
         A list of patito.exception.ErrorWrapper instances. The specific validation
         error can be retrieved from the "exc" attribute on each error wrapper instance.
 
@@ -428,7 +423,6 @@ def validate(
     """Validate the given dataframe.
 
     Args:
-    ----
         dataframe: Polars DataFrame to be validated.
         schema: Patito model which specifies how the dataframe should be structured.
         columns: Optional list of columns to validate. If not provided, all columns
@@ -437,7 +431,6 @@ def validate(
         allow_superfluous_columns: If True, additional columns will not be considered an error.
 
     Raises:
-    ------
         DataFrameValidationError: If the given dataframe does not match the given schema.
 
     """

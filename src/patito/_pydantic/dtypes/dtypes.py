@@ -61,7 +61,6 @@ def validate_polars_dtype(
     """Check that the polars dtype is valid for the given annotation. Raises ValueError if not.
 
     Args:
-    ----
         annotation (type[Any] | None): python type annotation
         dtype (DataType | DataTypeClass | None): polars dtype
         column (Optional[str], optional): column name. Defaults to None.
@@ -89,7 +88,6 @@ def validate_annotation(
     """Check that the provided annotation has polars/patito support (we can resolve it to a default dtype). Raises ValueError if not.
 
     Args:
-    ----
         annotation (type[Any] | None): python type annotation
         column (Optional[str], optional): column name. Defaults to None.
 

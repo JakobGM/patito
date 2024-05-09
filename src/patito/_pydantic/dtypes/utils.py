@@ -78,11 +78,9 @@ def is_optional(type_annotation: type[Any] | Any | None) -> bool:
     """Return True if the given type annotation is an Optional annotation.
 
     Args:
-    ----
         type_annotation: The type annotation to be checked.
 
     Returns:
-    -------
         True if the outermost type is Optional.
 
     """

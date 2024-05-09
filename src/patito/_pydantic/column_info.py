@@ -22,7 +22,6 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
     """patito-side model for storing column metadata.
 
     Args:
-    ----
         constraints (Union[polars.Expression, List[polars.Expression]): A single
             constraint or list of constraints, expressed as a polars expression objects.
             All rows must satisfy the given constraint. You can refer to the given column
@@ -82,7 +81,6 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
         """Serialize a polars dtype.
 
         References:
-        ----------
             [1] https://stackoverflow.com/questions/76572310/how-to-serialize-deserialize-polars-datatypes
         """
         if dtype is None:

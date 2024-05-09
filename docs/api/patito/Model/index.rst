@@ -28,7 +28,6 @@ patito.Model
    prefix <prefix>
    rename <rename>
    select <select>
-   sql_types <sql_types>
    suffix <suffix>
    unique_columns <unique_columns>
    valid_dtypes <valid_dtypes>

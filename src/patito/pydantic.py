@@ -83,7 +83,6 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         """Construct new patito model.
 
         Args:
-        ----
             name: Name of model class.
             bases: Tuple of superclasses.
             clsdict: Dictionary containing class properties.
@@ -115,13 +114,11 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         """Return schema properties where definition references have been resolved.
 
         Returns:
-        -------
             Field information as a dictionary where the keys are field names and the
                 values are dictionaries containing metadata information about the field
                 itself.
 
         Raises:
-        ------
             TypeError: if a field is annotated with an enum where the values are of
                 different types.
 
@@ -133,11 +130,9 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         """Return the name of the dataframe columns specified by the fields of the model.
 
         Returns:
-        -------
             List of column names.
 
         Example:
-        -------
             >>> import patito as pt
             >>> class Product(pt.Model):
             ...     name: str
@@ -157,11 +152,9 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         is chosen for integer and float columns.
 
         Returns:
-        -------
             A dictionary mapping string column names to polars dtype classes.
 
         Example:
-        -------
             >>> import patito as pt
             >>> class Product(pt.Model):
             ...     name: str
@@ -183,11 +176,9 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         The first item of each list is the default dtype chosen by Patito.
 
         Returns:
-        -------
             A dictionary mapping each column string name to a list of valid dtypes.
 
         Raises:
-        ------
             NotImplementedError: If one or more model fields are annotated with types
                 not compatible with polars.
 
@@ -199,11 +190,9 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         """Return default field values specified on the model.
 
         Returns:
-        -------
             Dictionary containing fields with their respective default values.
 
         Example:
-        -------
             >>> from typing_extensions import Literal
             >>> import patito as pt
             >>> class Product(pt.Model):
@@ -226,11 +215,9 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         """Return names of those columns that are non-nullable in the schema.
 
         Returns:
-        -------
             Set of column name strings.
 
         Example:
-        -------
             >>> from typing import Optional
             >>> import patito as pt
             >>> class MyModel(pt.Model):
@@ -257,11 +244,9 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         """Return names of those columns that are nullable in the schema.
 
         Returns:
-        -------
             Set of column name strings.
 
         Example:
-        -------
             >>> from typing import Optional
             >>> import patito as pt
             >>> class MyModel(pt.Model):
@@ -281,11 +266,9 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
         """Return columns with uniqueness constraint.
 
         Returns:
-        -------
             Set of column name strings.
 
         Example:
-        -------
             >>> from typing import Optional
             >>> import patito as pt
 
@@ -335,20 +318,16 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """Represent a single data frame row as a Patito model.
 
         Args:
-        ----
             row: A dataframe, either polars and pandas, consisting of a single row.
             validate: If ``False``, skip pydantic validation of the given row data.
 
         Returns:
-        -------
             Model: A patito model representing the given row data.
 
         Raises:
-        ------
             TypeError: If the given type is neither a pandas or polars DataFrame.
 
         Example:
-        -------
             >>> import patito as pt
             >>> import polars as pl
 
@@ -387,24 +366,20 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """Construct model from a single polars row.
 
         Args:
-        ----
             dataframe: A polars dataframe consisting of one single row.
             validate: If ``True``, run the pydantic validators. If ``False``, pydantic
                 will not cast any types in the resulting object.
 
         Returns:
-        -------
             Model: A pydantic model object representing the given polars row.
 
         Raises:
-        ------
             TypeError: If the provided ``dataframe`` argument is not of type
                 ``polars.DataFrame``.
             ValueError: If the given ``dataframe`` argument does not consist of exactly
                 one row.
 
         Example:
-        -------
             >>> import patito as pt
             >>> import polars as pl
 
@@ -454,7 +429,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """Validate the schema and content of the given dataframe.
 
         Args:
-        ----
             dataframe: Polars DataFrame to be validated.
             columns: Optional list of columns to validate. If not provided, all columns
                 of the dataframe will be validated.
@@ -462,16 +436,16 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             allow_superfluous_columns: If True, additional columns will not be considered an error.
             **kwargs: Additional keyword arguments to be passed to the validation
 
+        Returns:
+            ``None``:
+
         Raises:
-        ------
             patito.exceptions.DataFrameValidationError: If the given dataframe does not match
                 the given schema.
 
         Examples:
-        --------
             >>> import patito as pt
             >>> import polars as pl
-
 
             >>> class Product(pt.Model):
             ...     product_id: int = pt.Field(unique=True)
@@ -517,20 +491,16 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """Return a valid example value for the given model field.
 
         Args:
-        ----
             field: Field name identifier.
             properties: Pydantic v2-style properties dict
 
         Returns:
-        -------
             A single value which is consistent with the given field definition.
 
         Raises:
-        ------
             NotImplementedError: If the given field has no example generator.
 
         Example:
-        -------
             >>> from typing import Literal
             >>> import patito as pt
 
@@ -692,22 +662,18 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         The first item of ``typing.Literal`` annotations are used for dummy values.
 
         Args:
-        ----
             **kwargs: Provide explicit values for any fields which should `not` be
                 filled with dummy data.
 
         Returns:
-        -------
             Model: A pydantic model object filled with dummy data for all unspecified
             model fields.
 
         Raises:
-        ------
             TypeError: If one or more of the provided keyword arguments do not match any
                 fields on the model.
 
         Example:
-        -------
             >>> from typing import Literal
             >>> import patito as pt
 
@@ -747,7 +713,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         the iterable arguments.
 
         Args:
-        ----
             data: Data to populate the dummy dataframe with. If
                 not a dict, column names must also be provided.
             columns: Ignored if data is a dict. If
@@ -755,17 +720,14 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 resulting dataframe. Defaults to None.
 
         Returns:
-        -------
             A pandas DataFrame filled with dummy example data.
 
         Raises:
-        ------
             ImportError: If pandas has not been installed. You should install
                 patito[pandas] in order to integrate patito with pandas.
             TypeError: If column names have not been specified in the input data.
 
         Example:
-        -------
             >>> from typing import Literal
             >>> import patito as pt
 
@@ -819,7 +781,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         This constructor accepts the same data format as polars.DataFrame.
 
         Args:
-        ----
             data: Data to populate the dummy dataframe with. If given as an iterable of
                 values, then column names must also be provided. If not provided at all,
                 a dataframe with a single row populated with dummy data is provided.
@@ -828,17 +789,14 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 column names in the resulting dataframe. Defaults to None.
 
         Returns:
-        -------
             A polars dataframe where all unspecified columns have been filled with dummy
             data which should pass model validation.
 
         Raises:
-        ------
             TypeError: If one or more of the model fields are not mappable to polars
                 column dtype equivalents.
 
         Example:
-        -------
             >>> from typing import Literal
             >>> import patito as pt
 
@@ -926,17 +884,14 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         SQL operation making all the columns of the right table nullable.
 
         Args:
-        ----
             other: Another patito Model class.
             how: The type of SQL Join operation.
 
         Returns:
-        -------
             A new model type compatible with the resulting schema produced by the given
             join operation.
 
         Examples:
-        --------
             >>> class A(Model):
             ...     a: int
             ...
@@ -991,19 +946,15 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """Create a new model consisting of only a subset of the model fields.
 
         Args:
-        ----
             fields: A single field name as a string or a collection of strings.
 
         Returns:
-        -------
             A new model containing only the fields specified by ``fields``.
 
         Raises:
-        ------
             ValueError: If one or more non-existent fields are selected.
 
         Example:
-        -------
             >>> class MyModel(Model):
             ...     a: int
             ...     b: int
@@ -1037,16 +988,13 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """Return a new model where one or more fields are excluded.
 
         Args:
-        ----
             name: A single string field name, or a list of such field names,
                 which will be dropped.
 
         Returns:
-        -------
             New model class where the given fields have been removed.
 
         Examples:
-        --------
             >>> class MyModel(Model):
             ...     a: int
             ...     b: int
@@ -1079,15 +1027,12 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """Return a new model where all field names have been prefixed.
 
         Args:
-        ----
             prefix: String prefix to add to all field names.
 
         Returns:
-        -------
             New model class with all the same fields only prefixed with the given prefix.
 
         Example:
-        -------
             >>> class MyModel(Model):
             ...     a: int
             ...     b: int
@@ -1108,16 +1053,13 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """Return a new model where all field names have been suffixed.
 
         Args:
-        ----
             suffix: String suffix to add to all field names.
 
         Returns:
-        -------
             New model class with all the same fields only suffixed with the given
             suffix.
 
         Example:
-        -------
             >>> class MyModel(Model):
             ...     a: int
             ...     b: int
@@ -1138,20 +1080,16 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """Return a new model class where the specified fields have been renamed.
 
         Args:
-        ----
             mapping: A dictionary where the keys are the old field names
                 and the values are the new names.
 
         Returns:
-        -------
             A new model class where the given fields have been renamed.
 
         Raises:
-        ------
             ValueError: If non-existent fields are renamed.
 
         Example:
-        -------
             >>> class MyModel(Model):
             ...     a: int
             ...     b: int
@@ -1185,7 +1123,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """Return a new model class where the given fields have been added.
 
         Args:
-        ----
             **field_definitions: the keywords are of the form:
                 ``field_name=(field_type, field_default)``.
                 Specify ``...`` if no default value is provided.
@@ -1193,12 +1130,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 integer field named ``"column_name"``.
 
         Returns:
-        -------
             A new model with all the original fields and the additional field
             definitions.
 
         Example:
-        -------
             >>> class MyModel(Model):
             ...     a: int
             ...
@@ -1237,7 +1172,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         """Derive a new model with new field definitions.
 
         Args:
-        ----
             model_name: Name of new model class.
             field_mapping: A mapping where the keys represent field names and the values
                 represent field definitions. String field definitions are used as
@@ -1246,7 +1180,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 pydantic.create_model.
 
         Returns:
-        -------
             A new model class derived from the model type of self.
 
         """
@@ -1305,45 +1238,29 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 FIELD_KWARGS = getfullargspec(fields.Field)
 
 
+# Helper function for patito Field.
+
 def FieldCI(
     column_info: Type[ColumnInfo], *args: Any, **kwargs: Any
 ) -> Any:  # annotate with Any to make the downstream type annotations happy
-    """Helper class for patito Field."""
-    ci = column_info(**kwargs)
-    for field in ci.model_fields_set:
-        kwargs.pop(field)
-    if kwargs.pop("modern_kwargs_only", True):
-        for kwarg in kwargs:
-            if kwarg not in FIELD_KWARGS.kwonlyargs and kwarg not in FIELD_KWARGS.args:
-                raise ValueError(
-                    f"unexpected kwarg {kwarg}={kwargs[kwarg]}.  Add modern_kwargs_only=False to ignore"
-                )
-    return fields.Field(
-        *args,
-        json_schema_extra={"column_info": ci},
-        **kwargs,
-    )
-
-
-Field = partial(FieldCI, column_info=ColumnInfo)
-
-
-class FieldDoc:
     """Annotate model field with additional type and validation information.
 
-    This class is built on ``pydantic.Field`` and you can find its full documentation
-    `here <https://pydantic-docs.helpmanual.io/usage/schema/#field-customization>`_.
+    This class is built on ``pydantic.Field`` and you can find the list of parameters
+    in the `API reference <https://docs.pydantic.dev/latest/api/fields/>`_.
     Patito adds additional parameters which are used when validating dataframes,
-    these are documented here.
+    these are documented here along with the main parameters which can be used for
+    validation. Pydantic's `usage documentation <https://docs.pydantic.dev/latest/concepts/fields/>`_
+    can be read with the below examples.
 
     Args:
-    ----
         constraints (Union[polars.Expression, List[polars.Expression]): A single
             constraint or list of constraints, expressed as a polars expression objects.
             All rows must satisfy the given constraint. You can refer to the given column
             with ``pt.field``, which will automatically be replaced with
             ``polars.col(<field_name>)`` before evaluation.
-        derived_from (Union[str, polars.Expr]): used to mark fields that are meant to be derived from other fields. Users can specify a polars expression that will be called to derive the column value when `pt.DataFrame.derive` is called.
+        derived_from (Union[str, polars.Expr]): used to mark fields that are meant to be
+            derived from other fields. Users can specify a polars expression that will
+            be called to derive the column value when `pt.DataFrame.derive` is called.
         dtype (polars.datatype.DataType): The given dataframe column must have the given
             polars dtype, for instance ``polars.UInt64`` or ``pl.Float32``.
         unique (bool): All row values must be unique.
@@ -1359,12 +1276,10 @@ class FieldDoc:
         max_length (int): Maximum length of all string values in a UTF-8 column.
 
     Return:
-    ------
-        FieldInfo: Object used to represent additional constraints put upon the given
-        field.
+        `FieldInfo <https://docs.pydantic.dev/latest/api/fields/#pydantic.fields.FieldInfo>`_:
+            Object used to represent additional constraints put upon the given field.
 
     Examples:
-    --------
         >>> import patito as pt
         >>> import polars as pl
         >>> class Product(pt.Model):
@@ -1394,6 +1309,20 @@ class FieldDoc:
             Polars dtype Int64 does not match model field type. (type=type_error.columndtype)
 
     """
+    ci = column_info(**kwargs)
+    for field in ci.model_fields_set:
+        kwargs.pop(field)
+    if kwargs.pop("modern_kwargs_only", True):
+        for kwarg in kwargs:
+            if kwarg not in FIELD_KWARGS.kwonlyargs and kwarg not in FIELD_KWARGS.args:
+                raise ValueError(
+                    f"unexpected kwarg {kwarg}={kwargs[kwarg]}.  Add modern_kwargs_only=False to ignore"
+                )
+    return fields.Field(
+        *args,
+        json_schema_extra={"column_info": ci},
+        **kwargs,
+    )
 
 
-Field.__doc__ = FieldDoc.__doc__
+Field = partial(FieldCI, column_info=ColumnInfo)
