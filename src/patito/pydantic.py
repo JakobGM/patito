@@ -436,6 +436,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             allow_superfluous_columns: If True, additional columns will not be considered an error.
             **kwargs: Additional keyword arguments to be passed to the validation
 
+        Returns:
+            ``None``:
+
         Raises:
             patito.exceptions.DataFrameValidationError: If the given dataframe does not match
                 the given schema.
@@ -1235,36 +1238,19 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 FIELD_KWARGS = getfullargspec(fields.Field)
 
 
+# Helper function for patito Field.
+
 def FieldCI(
     column_info: Type[ColumnInfo], *args: Any, **kwargs: Any
 ) -> Any:  # annotate with Any to make the downstream type annotations happy
-    """Helper class for patito Field."""
-    ci = column_info(**kwargs)
-    for field in ci.model_fields_set:
-        kwargs.pop(field)
-    if kwargs.pop("modern_kwargs_only", True):
-        for kwarg in kwargs:
-            if kwarg not in FIELD_KWARGS.kwonlyargs and kwarg not in FIELD_KWARGS.args:
-                raise ValueError(
-                    f"unexpected kwarg {kwarg}={kwargs[kwarg]}.  Add modern_kwargs_only=False to ignore"
-                )
-    return fields.Field(
-        *args,
-        json_schema_extra={"column_info": ci},
-        **kwargs,
-    )
-
-
-Field = partial(FieldCI, column_info=ColumnInfo)
-
-
-class FieldDoc:
     """Annotate model field with additional type and validation information.
 
-    This class is built on ``pydantic.Field`` and you can find its full documentation
-    `here <https://pydantic-docs.helpmanual.io/usage/schema/#field-customization>`_.
+    This class is built on ``pydantic.Field`` and you can find the list of parameters
+    in the `API reference <https://docs.pydantic.dev/latest/api/fields/>`_.
     Patito adds additional parameters which are used when validating dataframes,
-    these are documented here.
+    these are documented here along with the main parameters which can be used for
+    validation. Pydantic's `usage documentation <https://docs.pydantic.dev/latest/concepts/fields/>`_
+    can be read with the below examples.
 
     Args:
         constraints (Union[polars.Expression, List[polars.Expression]): A single
@@ -1272,7 +1258,9 @@ class FieldDoc:
             All rows must satisfy the given constraint. You can refer to the given column
             with ``pt.field``, which will automatically be replaced with
             ``polars.col(<field_name>)`` before evaluation.
-        derived_from (Union[str, polars.Expr]): used to mark fields that are meant to be derived from other fields. Users can specify a polars expression that will be called to derive the column value when `pt.DataFrame.derive` is called.
+        derived_from (Union[str, polars.Expr]): used to mark fields that are meant to be
+            derived from other fields. Users can specify a polars expression that will
+            be called to derive the column value when `pt.DataFrame.derive` is called.
         dtype (polars.datatype.DataType): The given dataframe column must have the given
             polars dtype, for instance ``polars.UInt64`` or ``pl.Float32``.
         unique (bool): All row values must be unique.
@@ -1288,8 +1276,8 @@ class FieldDoc:
         max_length (int): Maximum length of all string values in a UTF-8 column.
 
     Return:
-        FieldInfo: Object used to represent additional constraints put upon the given
-        field.
+        `FieldInfo <https://docs.pydantic.dev/latest/api/fields/#pydantic.fields.FieldInfo>`_:
+            Object used to represent additional constraints put upon the given field.
 
     Examples:
         >>> import patito as pt
@@ -1321,6 +1309,20 @@ class FieldDoc:
             Polars dtype Int64 does not match model field type. (type=type_error.columndtype)
 
     """
+    ci = column_info(**kwargs)
+    for field in ci.model_fields_set:
+        kwargs.pop(field)
+    if kwargs.pop("modern_kwargs_only", True):
+        for kwarg in kwargs:
+            if kwarg not in FIELD_KWARGS.kwonlyargs and kwarg not in FIELD_KWARGS.args:
+                raise ValueError(
+                    f"unexpected kwarg {kwarg}={kwargs[kwarg]}.  Add modern_kwargs_only=False to ignore"
+                )
+    return fields.Field(
+        *args,
+        json_schema_extra={"column_info": ci},
+        **kwargs,
+    )
 
 
-Field.__doc__ = FieldDoc.__doc__
+Field = partial(FieldCI, column_info=ColumnInfo)
