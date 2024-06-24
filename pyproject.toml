@@ -13,7 +13,7 @@ keywords = ["validation", "dataframe"]
 [tool.poetry.dependencies]
 python = ">=3.9"
 pydantic = ">=2.4.1"
-polars = ">=0.20.1"
+polars = ">=1.0.0.rc1"
 # Required for typing.get_args backports in python3.9 and 3.10
 typing-extensions = "*"
 pandas = {version = "*", optional = true}
