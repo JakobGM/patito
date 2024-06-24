@@ -541,7 +541,7 @@ def test_validation_of_bounds_checks() -> None:
         with pytest.raises(DataFrameValidationError) as e_info:
             BoundModel.validate(invalid_df)
         errors = e_info.value.errors()
-        print(column_name, len(errors))
+
         if column_name == 'const_column':
             assert len(errors) == 2
         else:
