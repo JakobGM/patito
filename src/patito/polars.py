@@ -201,7 +201,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
                     )
                 return (
                     pl.col(va.path[0]).list.get(va.path[1], null_on_oob=True)
-                    if va.path[0] in self.collect_schema().names() 
+                    if va.path[0] in self.collect_schema()
                     else None
                 )
             elif isinstance(va, AliasChoices):
@@ -280,7 +280,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         default_dtypes = self.model.dtypes
         columns = columns or self.collect_schema().names() 
         exprs = []
-        for column, current_dtype in zip(self.collect_schema().names() , self.collect_schema().dtypes()):
+        for column, current_dtype in self.collect_schema().items():
             if (column not in columns) or (column not in properties):
                 exprs.append(pl.col(column))
             elif "dtype" in properties[column]:
