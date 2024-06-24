@@ -130,7 +130,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         """
         derived_columns = []
         props = self.model._schema_properties()
-        original_columns = set(self.columns)
+        original_columns = set(self.collect_schema().names())
         to_derive = self.model.derived_columns if columns is None else columns
         for column_name in to_derive:
             if column_name not in derived_columns:
@@ -193,15 +193,15 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
 
         def to_expr(va: str | AliasPath | AliasChoices) -> Optional[pl.Expr]:
             if isinstance(va, str):
-                return pl.col(va) if va in self.columns else None
+                return pl.col(va) if va in self.collect_schema().names() else None
             elif isinstance(va, AliasPath):
                 if len(va.path) != 2 or not isinstance(va.path[1], int):
                     raise NotImplementedError(
                         f"TODO figure out how this AliasPath behaves ({va})"
                     )
                 return (
-                    pl.col(va.path[0]).list.get(va.path[1])
-                    if va.path[0] in self.columns
+                    pl.col(va.path[0]).list.get(va.path[1], null_on_oob=True)
+                    if va.path[0] in self.collect_schema().names() 
                     else None
                 )
             elif isinstance(va, AliasChoices):
@@ -224,7 +224,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
                 exprs.append(pl.col(name))
             else:
                 expr = to_expr(field_info.validation_alias)
-                if name in self.columns:
+                if name in self.collect_schema().names():
                     if expr is None:
                         exprs.append(pl.col(name))
                     else:
@@ -278,9 +278,9 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         properties = self.model._schema_properties()
         valid_dtypes = self.model.valid_dtypes
         default_dtypes = self.model.dtypes
-        columns = columns or self.columns
+        columns = columns or self.collect_schema().names() 
         exprs = []
-        for column, current_dtype in zip(self.columns, self.dtypes):
+        for column, current_dtype in zip(self.collect_schema().names() , self.collect_schema().dtypes()):
             if (column not in columns) or (column not in properties):
                 exprs.append(pl.col(column))
             elif "dtype" in properties[column]:
