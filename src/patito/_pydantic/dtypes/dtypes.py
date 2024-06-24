@@ -223,6 +223,8 @@ class DtypeResolver:
                 )
             return None
         pyd_type = props.get("type")
+        if pyd_type == 'numeric':
+            pyd_type = 'number'
         if pyd_type == "array":
             if "items" not in props:
                 raise NotImplementedError(

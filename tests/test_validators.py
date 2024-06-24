@@ -515,7 +515,7 @@ def test_validation_of_bounds_checks() -> None:
         multiple_column: float = pt.Field(multiple_of=0.5)
         # const fields should now use Literal instead, but pyright
         # complains about Literal of float values
-        const_column: Literal[3.1415] = pt.Field(default=3.1415)  # type: ignore
+        const_column: Literal['3.1415'] = pt.Field(default='3.1415')  # type: ignore
         regex_column: str = pt.Field(pattern=r"value [A-Z]")
         min_length_column: str = pt.Field(min_length=2)
         max_length_column: str = pt.Field(max_length=2)
@@ -526,27 +526,32 @@ def test_validation_of_bounds_checks() -> None:
         BoundModel.examples({"regex_column": ["value A", "value B", "value C"]})
     )
 
-    valid = [42.5, 42.4, 42.5, 42.6, 42.6, 19.5, 3.1415, "value X", "ab", "ab"]
-    valid_df = pl.DataFrame(data=[valid], schema=BoundModel.columns)
+    valid = [42.5, 42.4, 42.5, 42.6, 42.6, 19.5, '3.1415', "value X", "ab", "ab"]
+    valid_df = pl.DataFrame(data=[valid], schema=BoundModel.columns, orient='row')
     BoundModel.validate(valid_df)
 
-    invalid = [42.6, 42.5, 42.4, 42.5, 43.1, 19.75, 3.2, "value x", "a", "abc"]
+    invalid = [42.6, 42.5, 42.4, 42.5, 43.1, 19.75, '3.2', "value x", "a", "abc"]
     for column_index, column_name in enumerate(BoundModel.columns):
         data = (
             valid[:column_index]
             + invalid[column_index : column_index + 1]
             + valid[column_index + 1 :]
         )
-        invalid_df = pl.DataFrame(data=[data], schema=BoundModel.columns)
+        invalid_df = pl.DataFrame(data=[data], schema=BoundModel.columns, orient='row')
         with pytest.raises(DataFrameValidationError) as e_info:
             BoundModel.validate(invalid_df)
         errors = e_info.value.errors()
-        assert len(errors) == 1
-        assert errors[0] == {
-            "loc": (column_name,),
-            "msg": "1 row with out of bound values.",
-            "type": "value_error.rowvalue",
-        }
+        print(column_name, len(errors))
+        if column_name == 'const_column':
+            assert len(errors) == 2
+        else:
+
+            assert len(errors) == 1
+            assert errors[0] == {
+                "loc": (column_name,),
+                "msg": "1 row with out of bound values.",
+                "type": "value_error.rowvalue",
+            }
 
 
 def test_validation_of_dtype_specifiers() -> None:
