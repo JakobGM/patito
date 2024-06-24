@@ -130,7 +130,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         """
         derived_columns = []
         props = self.model._schema_properties()
-        original_columns = set(self.collect_schema().names())
+        original_columns = set(self.collect_schema())
         to_derive = self.model.derived_columns if columns is None else columns
         for column_name in to_derive:
             if column_name not in derived_columns:
