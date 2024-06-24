@@ -21,8 +21,6 @@ from polars.datatypes.group import (
     DURATION_DTYPES,
     FLOAT_DTYPES,
     INTEGER_DTYPES,
-    NESTED_DTYPES,
-    TEMPORAL_DTYPES,
     DataTypeGroup,
 )
 from polars.polars import (
@@ -94,7 +92,7 @@ def is_optional(type_annotation: type[Any] | Any | None) -> bool:
 
 def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
     """For serialization, converts polars dtype to string representation."""
-    if dtype in NESTED_DTYPES:
+    if dtype.is_nested():
         if dtype == pl.Struct or isinstance(dtype, pl.Struct):
             raise NotImplementedError("Structs not yet supported by patito")
         if not isinstance(dtype, pl.List) or isinstance(dtype, pl.Array):
@@ -104,7 +102,7 @@ def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
         if dtype.inner is None:
             return convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype.base_type()]
         return f"{convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype.base_type()]}[{parse_composite_dtype(dtype.inner)}]"
-    elif dtype in TEMPORAL_DTYPES:
+    elif dtype.is_temporal():
         return cast(str, dtype_str_repr(dtype))
     else:
         return convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype]
