@@ -193,7 +193,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
 
         def to_expr(va: str | AliasPath | AliasChoices) -> Optional[pl.Expr]:
             if isinstance(va, str):
-                return pl.col(va) if va in self.collect_schema().names() else None
+                return pl.col(va) if va in self.collect_schema() else None
             elif isinstance(va, AliasPath):
                 if len(va.path) != 2 or not isinstance(va.path[1], int):
                     raise NotImplementedError(
