@@ -15,12 +15,13 @@ from typing import (
 )
 
 import polars as pl
-from polars.datatypes import DataType, DataTypeClass, DataTypeGroup, convert
-from polars.datatypes.constants import (
+from polars.datatypes import DataType, DataTypeClass, convert
+from polars.datatypes.group import (
     DATETIME_DTYPES,
     DURATION_DTYPES,
     FLOAT_DTYPES,
     INTEGER_DTYPES,
+    DataTypeGroup,
 )
 from polars.polars import (
     dtype_str_repr,  # TODO: this is a rust function, can we implement our own string parser for Time/Duration/Datetime?
