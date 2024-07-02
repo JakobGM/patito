@@ -20,7 +20,7 @@ from typing import (
 )
 
 import polars as pl
-from polars.type_aliases import IntoExpr
+from polars._typing import IntoExpr
 from pydantic import AliasChoices, AliasPath, create_model
 
 from patito._pydantic.column_info import ColumnInfo
