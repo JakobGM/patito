@@ -363,9 +363,9 @@ def test_lazy_derive() -> None:
         derived: Optional[int] = pt.Field(default=None, derived_from="underived")
 
     ldf = DerivedModel.LazyFrame({"underived": [1, 2]})
-    assert ldf.columns == ["underived"]
+    assert ldf.collect_schema().names() == ["underived"]
     derived_ldf = ldf.derive()
-    assert derived_ldf.columns == ["underived", "derived"]
+    assert derived_ldf.collect_schema().names() == ["underived", "derived"]
     df = derived_ldf.collect()
 
     correct_derived_df = DerivedModel.DataFrame(
