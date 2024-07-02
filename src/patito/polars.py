@@ -278,7 +278,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         properties = self.model._schema_properties()
         valid_dtypes = self.model.valid_dtypes
         default_dtypes = self.model.dtypes
-        columns = columns or self.collect_schema().names() 
+        columns = columns or self.collect_schema().names()
         exprs = []
         for column, current_dtype in self.collect_schema().items():
             if (column not in columns) or (column not in properties):
