@@ -331,6 +331,7 @@ def _find_errors(  # noqa: C901
             "pattern": lambda v, col=col: col.str.contains(v),
             "minLength": lambda v, col=col: col.str.len_chars() >= v,
             "maxLength": lambda v, col=col: col.str.len_chars() <= v,
+            "enum": lambda v: col.is_in(v),
         }
         if "anyOf" in column_properties:
             checks = [
