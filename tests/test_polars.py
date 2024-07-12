@@ -265,7 +265,7 @@ def test_correct_columns_and_dtype_on_read_ba_float_dtype_override(tmp_path):
     # in fkield order
     csv_path.write_text("a,b\n1,2")
     dtype_specified_df = Foo.DataFrame.read_csv(
-        csv_path, has_header=True, dtypes=[pl.Float64, pl.Float64]
+        csv_path, has_header=True, schema_overrides=[pl.Float64, pl.Float64]
     )
     assert dtype_specified_df.columns == ["a", "b"]
     assert dtype_specified_df.dtypes == [pl.Float64, pl.Float64]
@@ -276,7 +276,7 @@ def test_correct_columns_and_dtype_on_read_ba_float_dtype_override(tmp_path):
     # and reverse order
     csv_path.write_text("b,a\n1,2")
     dtype_specified_df = Foo.DataFrame.read_csv(
-        csv_path, has_header=True, dtypes=[pl.Float64, pl.Float64]
+        csv_path, has_header=True, schema_overrides=[pl.Float64, pl.Float64]
     )
     assert dtype_specified_df.columns == ["a", "b"]
     assert dtype_specified_df.dtypes == [pl.Float64, pl.Float64]

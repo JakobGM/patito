@@ -865,7 +865,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             # └─────┴─────┘
 
         """
-        kwargs.setdefault("dtypes", cls.model.dtypes)
+        kwargs.setdefault("schema_overrides", cls.model.dtypes)
         has_header = kwargs.get("has_header", True)
         if not has_header and "columns" not in kwargs:
             kwargs.setdefault("new_columns", cls.model.columns)
@@ -877,9 +877,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 field_name: alias_func(field_name)
                 for field_name in cls.model.model_fields
             }
-            kwargs["dtypes"] = {
+            kwargs["schema_overrides"] = {
                 fields_to_cols.get(field, field): dtype
-                for field, dtype in kwargs["dtypes"].items()
+                for field, dtype in kwargs["schema_overrides"].items()
             }
             # TODO: other forms of alias setting like in Field
         df = cls.model.DataFrame._from_pydf(pl.read_csv(*args, **kwargs)._df)
