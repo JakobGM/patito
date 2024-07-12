@@ -53,12 +53,10 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         DataFrame.set_model(model) is implicitly invoked at collection.
 
         Args:
-        ----
             model: A patito model which should be used to validate the final dataframe.
                 If None is provided, the regular LazyFrame class will be returned.
 
         Returns:
-        -------
             A custom LazyFrame model class where LazyFrame.model has been correctly
                 "hard-coded" to the given model.
 
@@ -101,21 +99,17 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         result of which will be used to populate the column values.
 
         Args:
-        ----
             columns: Optionally, a list of column names to derive. If not provided, all
                 columns are used.
 
         Returns:
-        -------
             DataFrame[Model]: A new dataframe where all derivable columns are provided.
 
         Raises:
-        ------
             TypeError: If the ``derived_from`` parameter of ``patito.Field`` is given
                 as something else than a string or polars expression.
 
         Examples:
-        --------
             >>> import patito as pt
             >>> import polars as pl
             >>> class Foo(pt.Model):
@@ -190,7 +184,6 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         limitation - AliasChoice validation type only supports selecting a single element of an array
 
         Returns:
-        -------
             DataFrame[Model]: A dataframe with columns normalized to model names.
 
         """
@@ -247,7 +240,6 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         """Cast columns to `dtypes` specified by the associated Patito model.
 
         Args:
-        ----
             strict: If set to ``False``, columns which are technically compliant with
                 the specified field type, will not be casted. For example, a column
                 annotated with ``int`` is technically compliant with ``pl.UInt8``, even
@@ -258,11 +250,9 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
                 columns are casted.
 
         Returns:
-        -------
             LazyFrame[Model]: A dataframe with columns casted to the correct dtypes.
 
         Examples:
-        --------
             Create a simple model:
 
             >>> import patito as pt
@@ -348,11 +338,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         DataFrame.set_model(model) is implicitly invoked at instantiation.
 
         Args:
-        ----
             model: A patito model which should be used to validate the dataframe.
 
         Returns:
-        -------
             A custom DataFrame model class where DataFrame._model has been correctly
                 "hard-coded" to the given model.
 
@@ -370,7 +358,6 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         See documentation of polars.DataFrame.lazy() for full description.
 
         Returns:
-        -------
             A new LazyFrame object.
 
         """
@@ -392,17 +379,14 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         ``DataFrame(...).set_model(Model)`` is equivalent with ``Model.DataFrame(...)``.
 
         Args:
-        ----
             model (Model): Sub-class of ``patito.Model`` declaring the schema of the
                 dataframe.
 
         Returns:
-        -------
             DataFrame[Model]: Returns the same dataframe, but with an attached model
             that is required for certain model-specific dataframe methods to work.
 
         Examples:
-        --------
             >>> from typing_extensions import Literal
             >>> import patito as pt
             >>> import polars as pl
@@ -455,7 +439,6 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         limitation - AliasChoice validation type only supports selecting a single element of an array
 
         Returns:
-        -------
             DataFrame[Model]: A dataframe with columns normalized to model names.
 
         """
@@ -467,7 +450,6 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         """Cast columns to `dtypes` specified by the associated Patito model.
 
         Args:
-        ----
             strict: If set to ``False``, columns which are technically compliant with
                 the specified field type, will not be casted. For example, a column
                 annotated with ``int`` is technically compliant with ``pl.UInt8``, even
@@ -478,11 +460,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 columns are casted.
 
         Returns:
-        -------
             DataFrame[Model]: A dataframe with columns casted to the correct dtypes.
 
         Examples:
-        --------
             Create a simple model:
 
             >>> import patito as pt
@@ -519,18 +499,15 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         :ref:`DataFrame.set_model <DataFrame.set_model>`, are dropped.
 
         Args:
-        ----
             columns: A single column string name, or list of strings, indicating
                 which columns to drop. If not specified, all columns *not*
                 specified by the associated dataframe model will be dropped.
             more_columns: Additional named columns to drop.
 
         Returns:
-        -------
             DataFrame[Model]: New dataframe without the specified columns.
 
         Examples:
-        --------
             >>> import patito as pt
             >>> class Model(pt.Model):
             ...     column_1: int
@@ -559,11 +536,9 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         to specify how the dataframe should be validated.
 
         Returns:
-        -------
             DataFrame[Model]: The original dataframe, if correctly validated.
 
         Raises:
-        ------
             TypeError: If ``DataFrame.set_model()`` has not been invoked prior to
                 validation. Note that ``patito.Model.DataFrame`` automatically invokes
                 ``DataFrame.set_model()`` for you.
@@ -572,7 +547,6 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 specified schema.
 
         Examples:
-        --------
             >>> import patito as pt
 
 
@@ -620,16 +594,13 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         result of which will be used to populate the column values.
 
         Returns:
-        -------
             DataFrame[Model]: A new dataframe where all derivable columns are provided.
 
         Raises:
-        ------
             TypeError: If the ``derived_from`` parameter of ``patito.Field`` is given
                 as something else than a string or polars expression.
 
         Examples:
-        --------
             >>> import patito as pt
             >>> import polars as pl
             >>> class Foo(pt.Model):
@@ -663,11 +634,10 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
     ) -> DF:
         """Fill null values using a filling strategy, literal, or ``Expr``.
 
-        If ``"default"`` is provided as the strategy, the model fields with default
+        If ``"defaults"`` is provided as the strategy, the model fields with default
         values are used to fill missing values.
 
         Args:
-        ----
             value: Value used to fill null values.
             strategy: Accepts the same arguments as ``polars.DataFrame.fill_null`` in
                 addition to ``"defaults"`` which will use the field's default value if
@@ -678,12 +648,10 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
 
         Returns:
-        -------
             DataFrame[Model]: A new dataframe with nulls filled in according to the
             provided ``strategy`` parameter.
 
         Example:
-        -------
             >>> import patito as pt
             >>> class Product(pt.Model):
             ...     name: str
@@ -735,7 +703,6 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         you can use ``.get()`` without any arguments to return that row.
 
         Raises:
-        ------
             RowDoesNotExist: If zero rows evaluate to true for the given predicate.
             MultipleRowsReturned: If more than one row evaluates to true for the given
                 predicate.
@@ -744,15 +711,12 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 same class.
 
         Args:
-        ----
             predicate: A polars expression defining the criteria of the filter.
 
         Returns:
-        -------
             Model: A pydantic-derived base model representing the given row.
 
         Example:
-        -------
             >>> import patito as pt
             >>> import polars as pl
             >>> df = pt.DataFrame({"product_id": [1, 2, 3], "price": [10, 10, 20]})
@@ -818,7 +782,6 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         """Dynamically construct patito model compliant with dataframe.
 
         Returns:
-        -------
             A pydantic model class where all the rows have been specified as
                 `typing.Any` fields.
 
@@ -851,16 +814,13 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         to populate the given column(s).
 
         Args:
-        ----
             *args: All positional arguments are forwarded to ``polars.read_csv``.
             **kwargs: All keyword arguments are forwarded to ``polars.read_csv``.
 
         Returns:
-        -------
             DataFrame[Model]: A dataframe representing the given CSV file data.
 
         Examples:
-        --------
             The ``DataFrame.read_csv`` method can be used to automatically set the
             correct column names when reading CSV files without headers.
 

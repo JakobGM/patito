@@ -3,4 +3,4 @@
 patito.Field
 ============
 
-.. autoclass:: patito.Field
+.. autofunction:: patito.Field

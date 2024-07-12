@@ -32,6 +32,7 @@ Developer Notes
 ---------------
 
 To run the noxfile with pyenv, first run
-```
-pyenv local 3.8 3.9 3.10 3.11
-```
+
+.. code-block:: console
+
+   pyenv local 3.8 3.9 3.10 3.11
