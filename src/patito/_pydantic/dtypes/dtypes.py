@@ -5,7 +5,8 @@ from operator import and_
 from typing import TYPE_CHECKING, Any, Dict, FrozenSet, Mapping, Optional, Type
 
 import polars as pl
-from polars.datatypes import DataType, DataTypeClass, DataTypeGroup
+from polars.datatypes import DataType, DataTypeClass
+from polars.datatypes.group import DataTypeGroup
 from pydantic import TypeAdapter
 
 from patito._pydantic.dtypes.utils import (
@@ -222,6 +223,8 @@ class DtypeResolver:
                 )
             return None
         pyd_type = props.get("type")
+        if pyd_type == "numeric":
+            pyd_type = "number"
         if pyd_type == "array":
             if "items" not in props:
                 raise NotImplementedError(

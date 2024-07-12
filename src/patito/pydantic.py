@@ -1200,7 +1200,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                     field_type = Optional[field_type]
                 new_fields[new_field_name] = (field_type, field_definition[1])
         return create_model(  # type: ignore
-            __model_name=model_name,
+            model_name,
             __base__=Model,
             **new_fields,
         )

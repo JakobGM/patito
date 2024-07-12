@@ -15,12 +15,12 @@ from patito._pydantic.dtypes.utils import (
     DATE_DTYPES,
     TIME_DTYPES,
 )
-from polars.datatypes import DataTypeGroup
-from polars.datatypes.constants import (
+from polars.datatypes.group import (
     DATETIME_DTYPES,
     DURATION_DTYPES,
     FLOAT_DTYPES,
     INTEGER_DTYPES,
+    DataTypeGroup,
 )
 from pydantic import AliasChoices, AwareDatetime, ValidationError
 

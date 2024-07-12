@@ -15,12 +15,13 @@ from typing import (
 )
 
 import polars as pl
-from polars.datatypes import DataType, DataTypeClass, DataTypeGroup, convert
-from polars.datatypes.constants import (
+from polars.datatypes import DataType, DataTypeClass, convert
+from polars.datatypes.group import (
     DATETIME_DTYPES,
     DURATION_DTYPES,
     FLOAT_DTYPES,
     INTEGER_DTYPES,
+    DataTypeGroup,
 )
 from polars.polars import (
     dtype_str_repr,  # TODO: this is a rust function, can we implement our own string parser for Time/Duration/Datetime?
@@ -91,7 +92,7 @@ def is_optional(type_annotation: type[Any] | Any | None) -> bool:
 
 def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
     """For serialization, converts polars dtype to string representation."""
-    if dtype in pl.NESTED_DTYPES:
+    if dtype.is_nested():
         if dtype == pl.Struct or isinstance(dtype, pl.Struct):
             raise NotImplementedError("Structs not yet supported by patito")
         if not isinstance(dtype, pl.List) or isinstance(dtype, pl.Array):
@@ -101,7 +102,7 @@ def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
         if dtype.inner is None:
             return convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype.base_type()]
         return f"{convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype.base_type()]}[{parse_composite_dtype(dtype.inner)}]"
-    elif dtype in pl.TEMPORAL_DTYPES:
+    elif dtype.is_temporal():
         return cast(str, dtype_str_repr(dtype))
     else:
         return convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype]
