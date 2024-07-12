@@ -11,6 +11,7 @@ nox.options.sessions = (
     # "lint",
     "test",
     # "type_check"
+    "docs",
 )
 locations = "src", "tests", "noxfile.py", "docs/conf.py"
 supported_python_versions = "3.9", "3.10", "3.11", "3.12"
@@ -81,7 +82,7 @@ def test(session):
 #     session.run("codecov", *session.posargs)
 
 
-@nox.session(python=["3.11"])
+@nox.session(python=["3.12"])
 def type_check(session):
     """Run type-checking on project using pyright."""
     args = session.posargs or locations
@@ -100,7 +101,7 @@ def type_check(session):
     session.run("mypy", *args)
 
 
-@nox.session(python=["3.11"])
+@nox.session(python=["3.12"])
 def lint(session):
     """Run linters an project using flake8++."""
     args = session.posargs or locations
@@ -118,7 +119,7 @@ def lint(session):
     session.run("ruff check", *args)
 
 
-@nox.session(python="3.11")
+@nox.session(python="3.12")
 def format(session):
     """Run the ruff formatter on the entire code base."""
     args = session.posargs or locations
@@ -126,7 +127,7 @@ def format(session):
     session.run("ruff format", *args)
 
 
-@nox.session(python="3.9")
+@nox.session(python="3.12")
 def docs(session) -> None:
     """Build the documentation."""
     session.run(
