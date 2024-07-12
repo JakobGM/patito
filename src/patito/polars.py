@@ -866,8 +866,22 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         """
         kwargs.setdefault("dtypes", cls.model.dtypes)
-        if not kwargs.get("has_header", True) and "columns" not in kwargs:
+        has_header = kwargs.get("has_header", True)
+        if not has_header and "columns" not in kwargs:
             kwargs.setdefault("new_columns", cls.model.columns)
+        alias_gen = cls.model.model_config.get("alias_generator")
+        if alias_gen:
+            alias_func = alias_gen.validation_alias or alias_gen.alias
+        if has_header and alias_gen and alias_func:
+            fields_to_cols = {
+                field_name: alias_func(field_name)
+                for field_name in cls.model.model_fields
+            }
+            kwargs["dtypes"] = {
+                fields_to_cols.get(field, field): dtype
+                for field, dtype in kwargs["dtypes"].items()
+            }
+            # TODO: other forms of alias setting like in Field
         df = cls.model.DataFrame._from_pydf(pl.read_csv(*args, **kwargs)._df)
         return df.derive()
 

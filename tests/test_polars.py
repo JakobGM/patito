@@ -2,6 +2,7 @@
 
 import re
 from datetime import date, datetime
+from io import StringIO
 from typing import Optional
 
 import patito as pt
@@ -561,3 +562,20 @@ def test_validation_alias() -> None:
     # check records with mixed aliases
     df = AliasModel.LazyFrame(examples).unalias().cast(strict=True).collect().validate()
     assert df.columns == AliasModel.columns
+
+
+def test_alias_generator_read_csv() -> None:
+    """Ensure validation alias is applied to read_csv."""
+
+    class AliasGeneratorModel(pt.Model):
+        model_config = ConfigDict(
+            alias_generator=AliasGenerator(validation_alias=str.title),
+        )
+
+        My_Val_A: int
+        My_Val_B: Optional[int] = None
+
+    csv_data = StringIO("my_val_a,my_val_b\n1,")
+    df = AliasGeneratorModel.DataFrame.read_csv(csv_data)
+    df.validate()
+    assert df.to_dicts() == [{"My_Val_A": 1, "My_Val_B": None}]

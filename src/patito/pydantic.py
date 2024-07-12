@@ -1240,6 +1240,7 @@ FIELD_KWARGS = getfullargspec(fields.Field)
 
 # Helper function for patito Field.
 
+
 def FieldCI(
     column_info: Type[ColumnInfo], *args: Any, **kwargs: Any
 ) -> Any:  # annotate with Any to make the downstream type annotations happy
@@ -1253,6 +1254,7 @@ def FieldCI(
     can be read with the below examples.
 
     Args:
+        column_info: (Type[ColumnInfo]): ColumnInfo object to pass args to.
         constraints (Union[polars.Expression, List[polars.Expression]): A single
             constraint or list of constraints, expressed as a polars expression objects.
             All rows must satisfy the given constraint. You can refer to the given column
@@ -1274,6 +1276,8 @@ def FieldCI(
         regex (str): UTF-8 string column must match regex pattern for all row values.
         min_length (int): Minimum length of all string values in a UTF-8 column.
         max_length (int): Maximum length of all string values in a UTF-8 column.
+        args (Any): additional arguments to pass to pydantic's field.
+        kwargs (Any): additional keyword arguments to pass to pydantic's field.
 
     Return:
         `FieldInfo <https://docs.pydantic.dev/latest/api/fields/#pydantic.fields.FieldInfo>`_:
