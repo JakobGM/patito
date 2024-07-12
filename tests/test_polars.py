@@ -7,7 +7,13 @@ from typing import Optional
 import patito as pt
 import polars as pl
 import pytest
-from pydantic import AliasChoices, AliasPath, ValidationError
+from pydantic import (
+    AliasChoices,
+    AliasGenerator,
+    AliasPath,
+    ConfigDict,
+    ValidationError,
+)
 
 from tests.examples import SmallModel
 
@@ -199,14 +205,8 @@ def test_dataframe_model_dtype_casting() -> None:
     ]
 
 
-@pytest.mark.xfail(strict=True)
-def test_correct_columns_and_dtype_on_read(tmp_path):
-    """A model DataFrame should aid CSV reading with column names and dtypes."""
-
-    class Foo(pt.Model):
-        a: str = pt.Field(derived_from="column_1")
-        b: int = pt.Field(derived_from="column_2")
-
+def test_correct_columns_and_dtype_on_read_regular_inferred(tmp_path):
+    """The `polars.read_csv` function should infer dtypes."""
     csv_path = tmp_path / "foo.csv"
     csv_path.write_text("1,2")
 
@@ -214,33 +214,123 @@ def test_correct_columns_and_dtype_on_read(tmp_path):
     assert regular_df.columns == ["column_1", "column_2"]
     assert regular_df.dtypes == [pl.Int64, pl.Int64]
 
+
+def test_correct_columns_and_dtype_on_read_model_dtypes(tmp_path):
+    """A model DataFrame should read headerless CSVs with column names and dtypes."""
+
+    class Foo(pt.Model):
+        a: str = pt.Field()
+        b: int = pt.Field()
+
+    csv_path = tmp_path / "foo.csv"
+    csv_path.write_text("1,2")
     model_df = Foo.DataFrame.read_csv(csv_path, has_header=False)
     assert model_df.columns == ["a", "b"]
     assert model_df.dtypes == [pl.String, pl.Int64]
 
-    csv_path.write_text("b,a\n1,2")
-    colum_specified_df = Foo.DataFrame.read_csv(csv_path, has_header=True)
-    assert colum_specified_df.schema == {"b": pl.Int64, "a": pl.String}
 
+def test_correct_columns_and_dtype_on_read_ordered(tmp_path):
+    """A model DataFrame should read headered CSVs with column names and dtypes."""
+
+    class Foo(pt.Model):
+        a: str = pt.Field()
+        b: int = pt.Field()
+
+    csv_path = tmp_path / "foo.csv"
+
+    # in model field order
+    csv_path.write_text("a,b\n1,2")
+    column_specified_df_ab = Foo.DataFrame.read_csv(csv_path, has_header=True)
+    assert column_specified_df_ab.schema == {"a": pl.String, "b": pl.Int64}
+    assert column_specified_df_ab["a"].to_list() == ["1"]
+    assert column_specified_df_ab["b"].to_list() == [2]
+
+    # and out of order
+    csv_path.write_text("b,a\n1,2")
+    column_specified_df_ba = Foo.DataFrame.read_csv(csv_path, has_header=True)
+    assert column_specified_df_ba.schema == {"b": pl.Int64, "a": pl.String}
+    assert column_specified_df_ba["a"].to_list() == ["2"]
+    assert column_specified_df_ba["b"].to_list() == [1]
+
+
+def test_correct_columns_and_dtype_on_read_ba_float_dtype_override(tmp_path):
+    """A model DataFrame should aid CSV reading with column names and dtypes."""
+
+    class Foo(pt.Model):
+        a: str = pt.Field()
+        b: int = pt.Field()
+
+    csv_path = tmp_path / "foo.csv"
+    # in fkield order
+    csv_path.write_text("a,b\n1,2")
     dtype_specified_df = Foo.DataFrame.read_csv(
         csv_path, has_header=True, dtypes=[pl.Float64, pl.Float64]
     )
-    assert dtype_specified_df.columns == ["b", "a"]
+    assert dtype_specified_df.columns == ["a", "b"]
     assert dtype_specified_df.dtypes == [pl.Float64, pl.Float64]
+    assert dtype_specified_df.schema == {"a": pl.Float64, "b": pl.Float64}
+    assert dtype_specified_df["a"].to_list() == [1.0]
+    assert dtype_specified_df["b"].to_list() == [2.0]
 
+    # and reverse order
+    csv_path.write_text("b,a\n1,2")
+    dtype_specified_df = Foo.DataFrame.read_csv(
+        csv_path, has_header=True, dtypes=[pl.Float64, pl.Float64]
+    )
+    assert dtype_specified_df.columns == ["a", "b"]
+    assert dtype_specified_df.dtypes == [pl.Float64, pl.Float64]
+    assert dtype_specified_df.schema == {"a": pl.Float64, "b": pl.Float64}
+    assert dtype_specified_df["a"].to_list() == [2.0]
+    assert dtype_specified_df["b"].to_list() == [1.0]
+
+
+def test_correct_columns_and_dtype_on_read_third_float_col(tmp_path):
+    """A model DataFrame should aid CSV reading with column names and dtypes."""
+
+    class Foo(pt.Model):
+        a: str = pt.Field()
+        b: int = pt.Field()
+
+    csv_path = tmp_path / "foo.csv"
     csv_path.write_text("1,2,3.1")
     unspecified_column_df = Foo.DataFrame.read_csv(csv_path, has_header=False)
     assert unspecified_column_df.columns == ["a", "b", "column_3"]
     assert unspecified_column_df.dtypes == [pl.String, pl.Int64, pl.Float64]
 
+
+def test_correct_columns_and_dtype_on_read_derived(tmp_path):
+    """A model DataFrame should aid CSV reading with column names and dtypes."""
+    csv_path = tmp_path / "foo.csv"
+    csv_path.write_text("month,dollars\n1,2.99")
+
     class DerivedModel(pt.Model):
+        month: int = pt.Field()
+        dollars: float = pt.Field()
         cents: int = pt.Field(derived_from=100 * pl.col("dollars"))
 
-    csv_path.write_text("month,dollars\n1,2.99")
     derived_df = DerivedModel.DataFrame.read_csv(csv_path)
+    assert derived_df.columns == ["month", "dollars", "cents"]
     assert derived_df.equals(
         DerivedModel.DataFrame({"month": [1], "dollars": [2.99], "cents": [299]})
     )
+
+
+def test_correct_columns_and_dtype_on_read_alias_gen(tmp_path):
+    """A model DataFrame should apply aliases to CSV columns."""
+    csv_path = tmp_path / "foo.csv"
+    csv_path.write_text("a,b\n1,2")
+
+    class AliasedModel(pt.Model):
+        model_config = ConfigDict(
+            alias_generator=AliasGenerator(validation_alias=str.upper)
+        )
+
+        A: int = pt.Field()
+        B: int = pt.Field()
+
+    aliased_df = AliasedModel.DataFrame.read_csv(csv_path)
+    assert aliased_df.columns == ["A", "B"]
+    assert aliased_df.equals(AliasedModel.DataFrame({"A": [1], "B": [2]}))
 
 
 def test_derive_functionality() -> None:
