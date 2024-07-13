@@ -406,7 +406,7 @@ def _find_enum_errors(
                 return _find_enum_errors(df, column_name, item, schema)
             if (
                 "$ref" in item
-            ):  # If the item is a reference to another schema pass as the properties
+            ):  # If the item is a reference to another definition pass it as the properties
                 return _find_enum_errors(
                     df,
                     column_name,
