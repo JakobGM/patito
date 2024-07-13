@@ -331,7 +331,6 @@ def _find_errors(  # noqa: C901
             "pattern": lambda v, col=col: col.str.contains(v),
             "minLength": lambda v, col=col: col.str.len_chars() >= v,
             "maxLength": lambda v, col=col: col.str.len_chars() <= v,
-            "enum": lambda v: col.is_in(v),
         }
         if "anyOf" in column_properties:
             checks = [
@@ -402,6 +401,18 @@ def _find_enum_errors(
     if "enum" not in props:
         if "items" in props and "enum" in props["items"]:
             return _find_enum_errors(df, column_name, props["items"], schema)
+        for item in props.get("anyOf", []):
+            if "enum" in item:
+                return _find_enum_errors(df, column_name, item, schema)
+            if (
+                "$ref" in item
+            ):  # If the item is a reference to another schema pass as the properties
+                return _find_enum_errors(
+                    df,
+                    column_name,
+                    schema.model_json_schema()["$defs"][item["$ref"]],
+                    schema,
+                )
         return None
     permissible_values = set(props["enum"])
     if column_name in schema.nullable_columns:

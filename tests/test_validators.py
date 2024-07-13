@@ -342,11 +342,74 @@ def test_enum_validation() -> None:
     }
 
 
+def test_optional_enum_validation() -> None:
+    """Test validation of optional enum.Enum-typed fields."""
+
+    class ABCEnum(enum.Enum):
+        ONE = "a"
+        TWO = "b"
+        THREE = "c"
+
+    class EnumModel(pt.Model):
+        column: Optional[ABCEnum]
+
+    valid_df = pl.DataFrame({"column": ["a", "b", "b", "c"]})
+    validate(dataframe=valid_df, schema=EnumModel)
+
+    invalid_df = pl.DataFrame({"column": ["d"]})
+    with pytest.raises(DataFrameValidationError) as e_info:
+        validate(dataframe=invalid_df, schema=EnumModel)
+
+    errors = e_info.value.errors()
+    assert len(errors) == 1
+    assert errors[0] == {
+        "loc": ("column",),
+        "msg": "Rows with invalid values: {'d'}.",
+        "type": "value_error.rowvalue",
+    }
+
+
 def test_literal_enum_validation() -> None:
     """Test validation of typing.Literal-typed fields."""
 
     class EnumModel(pt.Model):
         column: Literal["a", "b", "c"]
+
+    valid_df = pl.DataFrame({"column": ["a", "b", "b", "c"]})
+    validate(dataframe=valid_df, schema=EnumModel)
+
+    invalid_df = pl.DataFrame({"column": ["d"]})
+    with pytest.raises(DataFrameValidationError) as e_info:
+        validate(dataframe=invalid_df, schema=EnumModel)
+
+    error_expected = {
+        "loc": ("column",),
+        "msg": "Rows with invalid values: {'d'}.",
+        "type": "value_error.rowvalue",
+    }
+    errors = e_info.value.errors()
+    assert len(errors) == 1
+    assert errors[0] == error_expected
+
+    class ListEnumModel(pt.Model):
+        column: List[Literal["a", "b", "c"]]
+
+    valid_df = pl.DataFrame({"column": [["a", "b"], ["b", "c"], ["a", "c"]]})
+    validate(dataframe=valid_df, schema=ListEnumModel)
+
+    invalid_df = pl.DataFrame({"column": [["a", "b"], ["b", "c"], ["a", "d"]]})
+    with pytest.raises(DataFrameValidationError) as e_info:
+        validate(dataframe=invalid_df, schema=ListEnumModel)
+    errors = e_info.value.errors()
+    assert len(errors) == 1
+    assert errors[0] == error_expected
+
+
+def test_optional_literal_enum_validation() -> None:
+    """Test validation of optional typing.Literal-typed fields."""
+
+    class EnumModel(pt.Model):
+        column: Optional[Literal["a", "b", "c"]]
 
     valid_df = pl.DataFrame({"column": ["a", "b", "b", "c"]})
     validate(dataframe=valid_df, schema=EnumModel)
