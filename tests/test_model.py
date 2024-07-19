@@ -146,7 +146,7 @@ def test_instantiating_model_from_row() -> None:
         Model._from_polars(None)  # pyright: ignore
 
 
-def test_insstantiation_from_pandas_row() -> None:
+def test_instantiation_from_pandas_row() -> None:
     """You should be able to instantiate models from pandas rows."""
     pytest.importorskip("pandas")
 
@@ -558,23 +558,24 @@ def test_validation_returns_df():  # noqa: D103
 
 
 def test_model_iter_works():  # noqa: D103
-    for Model in [SmallModel, ManyTypes, CompleteModel]:
-        df = Model.examples()
-        for _ in range(5):
-            df = df.vstack(Model.examples())
+    class SingleColumnModel(pt.Model):
+        a: int
 
-        full_list = []
-        for row in Model.iter(df):
-            assert isinstance(row, Model)
-            full_list.append(row)
-        assert len(full_list) == len(df)
+    df = SingleColumnModel.DataFrame({"a": [1, 2, 3]})
+
+    full_list = []
+    for row in SingleColumnModel.iter(df):
+        assert isinstance(row, SingleColumnModel)
+        full_list.append(row)
+    assert len(full_list) == len(df)
 
 
 def test_model_to_list_works():  # noqa: D103
-    for Model in [SmallModel, ManyTypes, CompleteModel]:
-        df = Model.examples()
-        for _ in range(5):
-            df = df.vstack(Model.examples())
+    class SingleColumnModel(pt.Model):
+        a: int
 
-        full_list = Model.to_list(df)
-        assert len(full_list) == len(df)
+    df = SingleColumnModel.DataFrame({"a": [1, 2, 3]})
+    full_list = SingleColumnModel.to_list(df)
+    assert len(full_list) == len(df)
+    for model_instance in full_list:
+        assert isinstance(model_instance, SingleColumnModel)

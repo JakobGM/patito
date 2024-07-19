@@ -208,3 +208,7 @@ class RowDoesNotExist(RuntimeError):
 
 class MultipleRowsReturned(RuntimeError):
     """Exception for when a single row was expected, but several were returned."""
+
+
+class ModelRequiredError(ValueError):
+    """Exception for when a model is required but not found."""

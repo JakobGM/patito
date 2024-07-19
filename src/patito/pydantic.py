@@ -425,7 +425,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         allow_missing_columns: bool = False,
         allow_superfluous_columns: bool = False,
         filter_columns: bool = False,
-        **kwargs,
     ) -> DataFrame[ModelType]:
         """Validate the schema and content of the given dataframe.
 
@@ -436,10 +435,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             allow_missing_columns: If True, missing columns will not be considered an error.
             allow_superfluous_columns: If True, additional columns will not be considered an error.
             filter_columns: If True, only columns specified in the model will be validated.
-            **kwargs: Additional keyword arguments to be passed to the validation
 
         Returns:
-            DataFrame: A Patito DataFrame containing the validated data.
+            DataFrame: A patito DataFrame containing the validated data.
 
         Raises:
             patito.exceptions.DataFrameValidationError: If the given dataframe does not match
@@ -482,26 +480,43 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             allow_missing_columns=allow_missing_columns,
             allow_superfluous_columns=allow_superfluous_columns,
             filter_columns=filter_columns,
-            **kwargs,
         )
         return cls.DataFrame(dataframe)
 
     @classmethod
     def iter(
-        cls: Type[ModelType], dataframe: pl.DataFrame, cast_types: bool = False
+        cls: Type[ModelType], dataframe: Union["pd.DataFrame", pl.DataFrame]
     ) -> ListableIterator[ModelType]:
-        """Validate the dataframe and iterate over the rows, yielding Patito models."""
-        validated = cls.validate(dataframe, filter_columns=True)
-        if cast_types:
-            validated = validated.cast()
-        return validated.iter_models(validate=False)
+        """Validate the dataframe and iterate over the rows, yielding Patito models.
+
+        Args:
+            dataframe: Polars or pandas DataFrame to be validated.
+
+        Returns:
+            ListableIterator: An iterator of patito models over the validated data.
+
+        Raises:
+            patito.exceptions.DataFrameValidationError: If the given dataframe does not match
+                the given schema.
+
+        """
+        return cls.DataFrame(dataframe).iter_models()
 
     @classmethod
     def to_list(
-        cls: Type[ModelType], dataframe: pl.DataFrame, cast_types: bool = False
+        cls: Type[ModelType], dataframe: Union["pd.DataFrame", pl.DataFrame]
     ) -> List[ModelType]:
-        """Validate the dataframe and return a list of Patito models."""
-        return cls.iter(dataframe, cast_types=cast_types).to_list()
+        """Validate the dataframe and return a list of Patito models.
+
+        Args:
+            dataframe:
+                Polars or pandas DataFrame to be validated.
+
+        Returns:
+            List[Model]: A list of patito models over the validated data.
+
+        """
+        return cls.DataFrame(dataframe).to_list()
 
     @classmethod
     def example_value(  # noqa: C901
