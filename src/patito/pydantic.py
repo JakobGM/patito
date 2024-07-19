@@ -50,7 +50,7 @@ from patito._pydantic.dtypes import (
     validate_polars_dtype,
 )
 from patito._pydantic.schema import column_infos_for_model, schema_for_model
-from patito.polars import DataFrame, LazyFrame
+from patito.polars import DataFrame, LazyFrame, ListableIterator
 from patito.validators import validate
 
 try:
@@ -419,13 +419,14 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def validate(
-        cls,
+        cls: Type[ModelType],
         dataframe: Union["pd.DataFrame", pl.DataFrame],
         columns: Optional[Sequence[str]] = None,
         allow_missing_columns: bool = False,
         allow_superfluous_columns: bool = False,
+        filter_columns: bool = False,
         **kwargs,
-    ) -> None:
+    ) -> DataFrame[ModelType]:
         """Validate the schema and content of the given dataframe.
 
         Args:
@@ -434,6 +435,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 of the dataframe will be validated.
             allow_missing_columns: If True, missing columns will not be considered an error.
             allow_superfluous_columns: If True, additional columns will not be considered an error.
+            filter_columns: If True, only columns specified in the model will be validated.
             **kwargs: Additional keyword arguments to be passed to the validation
 
         Returns:
@@ -479,8 +481,27 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             columns=columns,
             allow_missing_columns=allow_missing_columns,
             allow_superfluous_columns=allow_superfluous_columns,
+            filter_columns=filter_columns,
             **kwargs,
         )
+        return DataFrame(dataframe).set_model(cls)
+
+    @classmethod
+    def iterate(
+        cls: Type[ModelType], dataframe: pl.DataFrame, cast_types: bool = False
+    ) -> ListableIterator[ModelType]:
+        """Validate the dataframe and iterate over the rows, yielding Patito models."""
+        validated = cls.validate(dataframe, filter_columns=True)
+        if cast_types:
+            validated = validated.cast()
+        return validated.iter_models(validate=False)
+
+    @classmethod
+    def as_list(
+        cls: Type[ModelType], dataframe: pl.DataFrame, cast_types: bool = False
+    ) -> List[ModelType]:
+        """Validate the dataframe and return a list of Patito models."""
+        return cls.iterate(dataframe, cast_types=cast_types).as_list()
 
     @classmethod
     def example_value(  # noqa: C901
