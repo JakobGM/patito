@@ -9,6 +9,7 @@ from typing import (
     Dict,
     Generic,
     Iterable,
+    Iterator,
     Literal,
     Optional,
     Sequence,
@@ -31,11 +32,34 @@ if TYPE_CHECKING:
 
     from patito.pydantic import Model
 
-
 DF = TypeVar("DF", bound="DataFrame")
 LDF = TypeVar("LDF", bound="LazyFrame")
 ModelType = TypeVar("ModelType", bound="Model")
 OtherModelType = TypeVar("OtherModelType", bound="Model")
+T = TypeVar("T")
+
+
+class ListableIterator(Iterator[T], Generic[T]):
+    """An iterator that can be converted to a list."""
+
+    def __init__(self, iterator: Iterator[T]):
+        """Construct a ListableIterator from an iterator."""
+        self._iterator = iterator
+
+    @classmethod
+    def from_iterator(cls, iterable: Iterable[T]) -> "ListableIterator[T]":
+        """Construct a ListableIterator from an iterable."""
+        return cls(iter(iterable))
+
+    def as_list(self) -> list[T]:
+        """Convert iterator to list."""
+        return list(self)
+
+    def __next__(self) -> T:  # noqa: D105
+        return next(self._iterator)
+
+    def __iter__(self) -> Iterator[T]:  # noqa: D105
+        return self
 
 
 class LazyFrame(pl.LazyFrame, Generic[ModelType]):
@@ -777,6 +801,44 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             return self.model.from_row(row)
         else:
             return self._pydantic_model().from_row(row)  # type: ignore
+
+    # TODO: check where iterator should be imported from
+    def iter_models(self, validate: bool = True) -> ListableIterator[ModelType]:
+        """Iterate over all rows in the dataframe as pydantic models.
+
+        Args:
+            validate: If set to ``True``, the dataframe will be validated before being
+                returned.
+
+        Yields:
+            Model: A pydantic-derived model representing the given row.
+
+        Example:
+            >>> import patito as pt
+            >>> import polars as pl
+            >>> class Product(pt.Model):
+            ...     product_id: int = pt.Field(unique=True)
+            ...     price: float
+            ...
+            >>> df = pt.DataFrame({"product_id": [1, 2], "price": [10, 20]})
+            >>> df.set_model(Product)
+            >>> for product in df.iter_models():
+            ...     print(product)
+            ...
+            Product(product_id=1, price=10.0)
+            Product(product_id=2, price=20.0)
+
+        """
+        if validate:
+            df = self.validate()
+        else:
+            df = self
+
+        def _iter_models(_df: DF) -> Iterator[ModelType]:
+            for idx in range(df.height):
+                yield self.model.from_row(_df[idx], validate=False)
+
+        return ListableIterator(_iter_models(df))
 
     def _pydantic_model(self) -> Type[Model]:
         """Dynamically construct patito model compliant with dataframe.

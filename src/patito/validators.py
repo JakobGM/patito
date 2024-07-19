@@ -436,6 +436,7 @@ def validate(
     columns: Optional[Sequence[str]] = None,
     allow_missing_columns: bool = False,
     allow_superfluous_columns: bool = False,
+    filter_columns: bool = False,
 ) -> None:
     """Validate the given dataframe.
 
@@ -446,6 +447,7 @@ def validate(
             of the dataframe will be validated.
         allow_missing_columns: If True, missing columns will not be considered an error.
         allow_superfluous_columns: If True, additional columns will not be considered an error.
+        filter_columns: If True, drop any columns not specified in the schema before validation.
 
     Raises:
         DataFrameValidationError: If the given dataframe does not match the given schema.
@@ -457,6 +459,14 @@ def validate(
         polars_dataframe = cast(pl.DataFrame, dataframe)
 
     polars_dataframe = _transform_df(polars_dataframe, schema)
+
+    if filter_columns:
+        # NOTE: dropping rather than selecting to get the correct error messages
+        schema_subset = columns or schema.columns
+        column_subset = columns or dataframe.columns
+        to_drop = set(column_subset) - set(schema_subset)
+        polars_dataframe = polars_dataframe.drop(to_drop)
+
     errors = _find_errors(
         dataframe=polars_dataframe,
         schema=schema,
