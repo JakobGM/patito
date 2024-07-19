@@ -847,7 +847,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             df = self
 
         def _iter_models(_df: DF) -> Iterator[ModelType]:
-            for idx in range(df.height):
+            for idx in range(_df.height):
                 yield self.model.from_row(_df[idx], validate=validate_model)
 
         return ListableIterator(_iter_models(df))
