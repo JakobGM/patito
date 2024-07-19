@@ -437,7 +437,7 @@ def validate(
     allow_missing_columns: bool = False,
     allow_superfluous_columns: bool = False,
     filter_columns: bool = False,
-) -> None:
+) -> pl.DataFrame:
     """Validate the given dataframe.
 
     Args:
@@ -476,3 +476,5 @@ def validate(
     )
     if errors:
         raise DataFrameValidationError(errors=errors, model=schema)
+
+    return polars_dataframe

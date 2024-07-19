@@ -51,7 +51,7 @@ class ListableIterator(Iterator[T], Generic[T]):
         """Construct a ListableIterator from an iterable."""
         return cls(iter(iterable))
 
-    def as_list(self) -> list[T]:
+    def to_list(self) -> list[T]:
         """Convert iterator to list."""
         return list(self)
 
@@ -803,12 +803,15 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             return self._pydantic_model().from_row(row)  # type: ignore
 
     # TODO: check where iterator should be imported from
-    def iter_models(self, validate: bool = True) -> ListableIterator[ModelType]:
+    def iter_models(
+        self, validate: bool = True, **kwargs
+    ) -> ListableIterator[ModelType]:
         """Iterate over all rows in the dataframe as pydantic models.
 
         Args:
             validate: If set to ``True``, the dataframe will be validated before being
                 returned.
+            **kwargs: Additional keyword arguments are forwarded to the validation
 
         Yields:
             Model: A pydantic-derived model representing the given row.
@@ -829,8 +832,15 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             Product(product_id=2, price=20.0)
 
         """
+        if not hasattr(self, "model"):
+            raise TypeError(
+                f"You must invoke {self.__class__.__name__}.set_model() "
+                f"or instantiate a DataFrame with a model, "
+                f"before invoking {self.__class__.__name__}.iter_models()."
+            )
+
         if validate:
-            df = self.validate()
+            df = self.validate(**kwargs)
         else:
             df = self
 

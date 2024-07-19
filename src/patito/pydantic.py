@@ -439,7 +439,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             **kwargs: Additional keyword arguments to be passed to the validation
 
         Returns:
-            ``None``:
+            DataFrame: A Patito DataFrame containing the validated data.
 
         Raises:
             patito.exceptions.DataFrameValidationError: If the given dataframe does not match
@@ -484,10 +484,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             filter_columns=filter_columns,
             **kwargs,
         )
-        return DataFrame(dataframe).set_model(cls)
+        return cls.DataFrame(dataframe)
 
     @classmethod
-    def iterate(
+    def iter(
         cls: Type[ModelType], dataframe: pl.DataFrame, cast_types: bool = False
     ) -> ListableIterator[ModelType]:
         """Validate the dataframe and iterate over the rows, yielding Patito models."""
@@ -497,11 +497,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         return validated.iter_models(validate=False)
 
     @classmethod
-    def as_list(
+    def to_list(
         cls: Type[ModelType], dataframe: pl.DataFrame, cast_types: bool = False
     ) -> List[ModelType]:
         """Validate the dataframe and return a list of Patito models."""
-        return cls.iterate(dataframe, cast_types=cast_types).as_list()
+        return cls.iter(dataframe, cast_types=cast_types).to_list()
 
     @classmethod
     def example_value(  # noqa: C901

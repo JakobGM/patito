@@ -127,6 +127,19 @@ def test_superfluous_column_validation() -> None:
     )  # model-centric API also works
 
 
+def test_validate_filters_columns() -> None:
+    """Test whether irrelevant columns get filtered out before validation."""
+
+    class SingleColumnModel(pt.Model):
+        column_1: int
+
+    test_df = SingleColumnModel.examples().with_columns(
+        column_that_should_be_dropped=pl.Series([1])
+    )
+    result = validate(test_df, SingleColumnModel, filter_columns=True)
+    assert result.columns == ["column_1"]
+
+
 def test_validate_non_nullable_columns() -> None:
     """Test for validation logic related to missing values."""
 

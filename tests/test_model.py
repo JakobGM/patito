@@ -22,6 +22,7 @@ from polars.datatypes.group import (
     INTEGER_DTYPES,
     DataTypeGroup,
 )
+from polars.testing import assert_frame_equal
 from pydantic import AliasChoices, AwareDatetime, ValidationError
 
 from tests.examples import CompleteModel, ManyTypes, SmallModel
@@ -547,3 +548,33 @@ def test_validation_alias():
     for column_name, _column_properties in AliasModel._schema_properties().items():
         assert AliasModel.column_infos[column_name] is not None
     AliasModel.examples()
+
+
+def test_validation_returns_df():  # noqa: D103
+    for Model in [SmallModel, ManyTypes, CompleteModel]:
+        df = Model.examples()
+        remade_model = Model.validate(df)
+        assert_frame_equal(remade_model, df)
+
+
+def test_model_iter_works():  # noqa: D103
+    for Model in [SmallModel, ManyTypes, CompleteModel]:
+        df = Model.examples()
+        for _ in range(5):
+            df = df.vstack(Model.examples())
+
+        full_list = []
+        for row in Model.iter(df):
+            assert isinstance(row, Model)
+            full_list.append(row)
+        assert len(full_list) == len(df)
+
+
+def test_model_to_list_works():  # noqa: D103
+    for Model in [SmallModel, ManyTypes, CompleteModel]:
+        df = Model.examples()
+        for _ in range(5):
+            df = df.vstack(Model.examples())
+
+        full_list = Model.to_list(df)
+        assert len(full_list) == len(df)
