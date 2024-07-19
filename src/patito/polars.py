@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection, Iterable, Iterator, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
-    Collection,
     Dict,
     Generic,
-    Iterable,
-    Iterator,
     Literal,
     Optional,
-    Sequence,
     Tuple,
     Type,
     TypeVar,
@@ -47,7 +44,7 @@ class ListableIterator(Iterator[T], Generic[T]):
         self._iterator = iterator
 
     @classmethod
-    def from_iterator(cls, iterable: Iterable[T]) -> "ListableIterator[T]":
+    def from_iterator(cls, iterable: Iterator[T]) -> "ListableIterator[T]":
         """Construct a ListableIterator from an iterable."""
         return cls(iter(iterable))
 
@@ -560,15 +557,15 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         to specify how the dataframe should be validated.
 
         Returns:
-            DataFrame[Model]: The original dataframe, if correctly validated.
+            DataFrame[Model]: The original patito dataframe, if correctly validated.
 
         Raises:
+            patito.exceptions.DataFrameValidationError: If the dataframe does not match the
+                specified schema.
+
             TypeError: If ``DataFrame.set_model()`` has not been invoked prior to
                 validation. Note that ``patito.Model.DataFrame`` automatically invokes
                 ``DataFrame.set_model()`` for you.
-
-            patito.exceptions.DataFrameValidationError: If the dataframe does not match the
-                specified schema.
 
         Examples:
             >>> import patito as pt
@@ -802,19 +799,25 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         else:
             return self._pydantic_model().from_row(row)  # type: ignore
 
-    # TODO: check where iterator should be imported from
     def iter_models(
-        self, validate: bool = True, **kwargs
+        self, validate_df: bool = True, validate_model: bool = False
     ) -> ListableIterator[ModelType]:
         """Iterate over all rows in the dataframe as pydantic models.
 
         Args:
-            validate: If set to ``True``, the dataframe will be validated before being
-                returned.
-            **kwargs: Additional keyword arguments are forwarded to the validation
+            validate_df: If set to ``True``, the dataframe will be validated before
+                making models out of each row. If set to ``False``, beware that columns
+                need to be the exact same as the model fields.
+            validate_model: If set to ``True``, each model will be validated when
+                constructing. Disabled by default since df validation should cover this case.
 
         Yields:
-            Model: A pydantic-derived model representing the given row.
+            Model: A pydantic-derived model representing the given row. .to_list() can be
+                used to convert the iterator to a list.
+
+        Raises:
+            TypeError: If ``DataFrame.set_model()`` has not been invoked prior to
+                iteration.
 
         Example:
             >>> import patito as pt
@@ -835,20 +838,53 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         if not hasattr(self, "model"):
             raise TypeError(
                 f"You must invoke {self.__class__.__name__}.set_model() "
-                f"or instantiate a DataFrame with a model, "
                 f"before invoking {self.__class__.__name__}.iter_models()."
             )
 
-        if validate:
-            df = self.validate(**kwargs)
+        if validate_df:
+            df = self.validate(filter_columns=True)
         else:
             df = self
 
         def _iter_models(_df: DF) -> Iterator[ModelType]:
             for idx in range(df.height):
-                yield self.model.from_row(_df[idx], validate=False)
+                yield self.model.from_row(_df[idx], validate=validate_model)
 
         return ListableIterator(_iter_models(df))
+
+    def to_list(self, **kwargs) -> list[ModelType]:
+        """Convert the dataframe to a list of pydantic models.
+
+        Args:
+            **kwargs: Additional keyword arguments are forwarded to the validation
+
+        Returns:
+            List[Model]: A list of pydantic-derived models representing the rows in the
+                dataframe.
+
+        Raises:
+            TypeError: If ``DataFrame.set_model()`` has not been invoked prior to
+                iteration.
+
+        Example:
+            >>> import patito as pt
+            >>> import polars as pl
+            >>> class Product(pt.Model):
+            ...     product_id: int = pt.Field(unique=True)
+            ...     price: float
+            ...
+            >>> df = pt.DataFrame({"product_id": [1, 2], "price": [10, 20]})
+            >>> df.set_model(Product)
+            >>> df.to_list()
+            [Product(product_id=1, price=10.0), Product(product_id=2, price=20.0)]
+
+        """
+        if not hasattr(self, "model"):
+            raise TypeError(
+                f"You must invoke {self.__class__.__name__}.set_model() "
+                f"before invoking {self.__class__.__name__}.to_list()."
+            )
+        return self.iter_models(**kwargs).to_list()
 
     def _pydantic_model(self) -> Type[Model]:
         """Dynamically construct patito model compliant with dataframe.

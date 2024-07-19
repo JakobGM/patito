@@ -53,6 +53,19 @@ def test_dewrap_optional_with_pipe_operator() -> None:
     )
 
 
+def test_validation_returns_df() -> None:
+    """It should return a DataFrame with the validation results."""
+
+    class SimpleModel(pt.Model):
+        column_1: int
+        column_2: str
+
+    df = pl.DataFrame({"column_1": [1, 2, 3], "column_2": ["a", "b", "c"]})
+    result = validate(dataframe=df, schema=SimpleModel)
+    assert isinstance(result, pl.DataFrame)
+    assert result.shape == (3, 2)
+
+
 def test_missing_column_validation() -> None:
     """Validation should catch missing columns."""
 
