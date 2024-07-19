@@ -597,7 +597,8 @@ def test_iter_models() -> None:
     class Model(pt.Model):
         a: int
 
-    df = Model.DataFrame({"a": [1, 2]})
+    # Test with extra column to ensure column is dropped before validation
+    df = Model.DataFrame({"a": [1, 2], "b": [3, 4]})
     models = df.iter_models()
     m1 = next(models)
     m2 = next(models)
