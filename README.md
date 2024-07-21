@@ -41,7 +41,7 @@ pip install patito
 
 ## Documentation
 
-The full documentation of Patio can be found [here](https://patito.readthedocs.io).
+The full documentation of Patito can be found [here](https://patito.readthedocs.io).
 
 ## 👮 Data validation
 
