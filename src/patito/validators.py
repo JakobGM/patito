@@ -139,7 +139,10 @@ def _find_errors(  # noqa: C901
 
     """
     errors: list[ErrorWrapper] = []
-    aliased_schema_columns = [col.alias if col.alias else col_name for col_name, col in schema.model_fields.items()]
+    aliased_schema_columns = [
+        col.alias if col.alias else col_name
+        for col_name, col in schema.model_fields.items()
+    ]
     schema_subset = columns or aliased_schema_columns
     column_subset = columns or dataframe.columns
     if not allow_missing_columns:
