@@ -872,6 +872,16 @@ def test_validation_column_subset() -> None:
     with pytest.raises(DataFrameValidationError):
         Test.validate(pl.DataFrame({"a": [1, 2, 3], "b": [1, 2, 3]}), columns=["c"])
 
+def test_validation_column_alias() -> None:
+    """Ensure that columns are validated using the alias name."""
+
+    class Test(pt.Model):
+        My_Val_A: int = pt.Field(alias="my_val_a")
+
+    Test.validate(pl.DataFrame({"my_val_a": [0]}))  # should pass
+    with pytest.raises(DataFrameValidationError):
+        Test.validate(pl.DataFrame({"my_incorrect_val_a": [0]}))
+
 
 def test_alias_generator() -> None:
     """Allow column name transformations through AliasGenerator."""
