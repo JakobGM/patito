@@ -115,7 +115,8 @@ def validate_annotation(
 class DtypeResolver:
     def __init__(self, annotation: Any | None):
         self.annotation = annotation
-        self.schema = TypeAdapter(annotation).json_schema()
+        # mode='serialization' allows nested models with structs, see #86
+        self.schema = TypeAdapter(annotation).json_schema(mode="serialization")
         self.defs = self.schema.get("$defs", {})
 
     def valid_polars_dtypes(self) -> DataTypeGroup:
