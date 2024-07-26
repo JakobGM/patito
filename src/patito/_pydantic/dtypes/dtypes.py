@@ -160,6 +160,7 @@ class DtypeResolver:
                     self.defs[props["$ref"].split("/")[-1]]
                 )
             return DataTypeGroup([])
+
         pyd_type = props.get("type")
         if pyd_type == "array":
             if "items" not in props:
@@ -170,6 +171,7 @@ class DtypeResolver:
             return DataTypeGroup(
                 [pl.List(dtype) for dtype in item_dtypes], match_base_type=False
             )
+
         elif pyd_type == "object":
             if "properties" not in props:
                 return DataTypeGroup([])
@@ -179,7 +181,6 @@ class DtypeResolver:
                 dtype = self._default_polars_dtype_for_schema(sub_props)
                 assert dtype is not None
                 struct_fields.append(pl.Field(name, dtype))
-
             return DataTypeGroup(
                 [pl.Struct(struct_fields)],
                 match_base_type=False,
@@ -247,6 +248,7 @@ class DtypeResolver:
                 )
             object_props: dict[str, dict[str, str]] = props["properties"]
             struct_fields: list[pl.Field] = []
+
             for name, sub_props in object_props.items():
                 dtype = self._default_polars_dtype_for_schema(sub_props)
                 assert dtype is not None
