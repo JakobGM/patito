@@ -200,7 +200,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
                         f"TODO figure out how this AliasPath behaves ({va})"
                     )
                 return (
-                    pl.col(va.path[0]).list.get(va.path[1], null_on_oob=True)
+                    pl.col(str(va.path[0])).list.get(va.path[1], null_on_oob=True)
                     if va.path[0] in self.collect_schema()
                     else None
                 )

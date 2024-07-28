@@ -114,7 +114,8 @@ def validate_annotation(
 class DtypeResolver:
     def __init__(self, annotation: Any | None):
         self.annotation = annotation
-        self.schema = TypeAdapter(annotation).json_schema()
+        # mode='serialization' allows nested models with structs, see #86
+        self.schema = TypeAdapter(annotation).json_schema(mode="serialization")
         self.defs = self.schema.get("$defs", {})
 
     def valid_polars_dtypes(self) -> DataTypeGroup:
@@ -158,6 +159,7 @@ class DtypeResolver:
                     self.defs[props["$ref"].split("/")[-1]]
                 )
             return DataTypeGroup([])
+
         pyd_type = props.get("type")
         if pyd_type == "array":
             if "items" not in props:
@@ -168,28 +170,27 @@ class DtypeResolver:
             return DataTypeGroup(
                 [pl.List(dtype) for dtype in item_dtypes], match_base_type=False
             )
+
         elif pyd_type == "object":
             if "properties" not in props:
                 return DataTypeGroup([])
             object_props = props["properties"]
+            struct_fields: list[pl.Field] = []
+            for name, sub_props in object_props.items():
+                dtype = self._default_polars_dtype_for_schema(sub_props)
+                assert dtype is not None
+                struct_fields.append(pl.Field(name, dtype))
             return DataTypeGroup(
-                [
-                    pl.Struct(
-                        [
-                            pl.Field(
-                                name, self._default_polars_dtype_for_schema(sub_props)
-                            )
-                            for name, sub_props in object_props.items()
-                        ]
-                    )
-                ],
+                [pl.Struct(struct_fields)],
                 match_base_type=False,
             )  # for structs, return only the default dtype set to avoid combinatoric issues
         return _pyd_type_to_valid_dtypes(
             PydanticBaseType(pyd_type), props.get("format"), props.get("enum")
         )
 
-    def _default_polars_dtype_for_schema(self, schema: Dict) -> DataType | None:
+    def _default_polars_dtype_for_schema(
+        self, schema: dict[str, Any]
+    ) -> DataType | None:
         if "anyOf" in schema:
             if len(schema["anyOf"]) == 2:  # look for optionals first
                 schema = _without_optional(schema)
@@ -205,13 +206,14 @@ class DtypeResolver:
 
     def _pydantic_subschema_to_default_dtype(
         self,
-        props: Dict,
+        props: dict[str, Any],
     ) -> DataType | None:
-        if "column_info" in props:  # user has specified in patito model
+        if "column_info" in props:  # user has passed patito ColumnInfo in patito model
             if props["column_info"]["dtype"] is not None:
                 dtype = dtype_from_string(props["column_info"]["dtype"])
                 dtype = dtype() if isinstance(dtype, DataTypeClass) else dtype
                 return dtype
+
         if "type" not in props:
             if "enum" in props:
                 raise TypeError("Mixed type enums not supported by patito.")
@@ -222,10 +224,12 @@ class DtypeResolver:
                     self.defs[props["$ref"].split("/")[-1]]
                 )
             return None
+
         pyd_type = props.get("type")
         if pyd_type == "numeric":
             pyd_type = "number"
-        if pyd_type == "array":
+
+        elif pyd_type == "array":
             if "items" not in props:
                 raise NotImplementedError(
                     "Unexpected error processing pydantic schema. Please file an issue."
@@ -235,18 +239,21 @@ class DtypeResolver:
             if inner_default_type is None:
                 return None
             return pl.List(inner_default_type)
-        elif pyd_type == "object":
+
+        elif pyd_type == "object":  # these are structs
             if "properties" not in props:
                 raise NotImplementedError(
                     "dictionaries not currently supported by patito"
                 )
-            object_props = props["properties"]
-            return pl.Struct(
-                [
-                    pl.Field(name, self._default_polars_dtype_for_schema(sub_props))
-                    for name, sub_props in object_props.items()
-                ]
-            )
+            object_props: dict[str, dict[str, str]] = props["properties"]
+            struct_fields: list[pl.Field] = []
+
+            for name, sub_props in object_props.items():
+                dtype = self._default_polars_dtype_for_schema(sub_props)
+                assert dtype is not None
+                struct_fields.append(pl.Field(name, dtype))
+            return pl.Struct(struct_fields)
+
         return _pyd_type_to_default_dtype(
             PydanticBaseType(pyd_type), props.get("format"), props.get("enum")
         )
