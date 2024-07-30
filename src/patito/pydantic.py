@@ -1330,8 +1330,11 @@ def Field(
                     f"unexpected kwarg {kwarg}={kwargs[kwarg]}.  Add modern_kwargs_only=False to ignore"
                 )
     ci_json = ci.model_dump_json()
+    existing_json_schema_extra = kwargs.pop("json_schema_extra", {})
+    merged_json_schema_extra = {**existing_json_schema_extra, "column_info": ci_json}
+
     return fields.Field(
         *args,
-        json_schema_extra={"column_info": ci_json},
+        json_schema_extra=merged_json_schema_extra,
         **kwargs,
     )
