@@ -1322,9 +1322,11 @@ def FieldCI(
                 raise ValueError(
                     f"unexpected kwarg {kwarg}={kwargs[kwarg]}.  Add modern_kwargs_only=False to ignore"
                 )
+    existing_json_schema_extra = kwargs.pop('json_schema_extra', {})
+    merged_json_schema_extra = {**existing_json_schema_extra, "column_info": ci}
     return fields.Field(
         *args,
-        json_schema_extra={"column_info": ci},
+        json_schema_extra=merged_json_schema_extra,
         **kwargs,
     )
 
