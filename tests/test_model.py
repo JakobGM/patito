@@ -594,8 +594,12 @@ def test_json_schema_extra_is_extended_when_it_exists() -> None:
 
     class Model(pt.Model):
         a: int
-        b: int = pt.Field(json_schema_extra={"client_column_metadata": {"group1": "x", "group2": "y"}})
-        c: int = pt.Field(json_schema_extra={"client_column_metadata": {"group1": "xxx"}})
+        b: int = pt.Field(
+            json_schema_extra={"client_column_metadata": {"group1": "x", "group2": "y"}}
+        )
+        c: int = pt.Field(
+            json_schema_extra={"client_column_metadata": {"group1": "xxx"}}
+        )
 
     schema = Model.model_json_schema()  # no serialization issues
     props = schema[
