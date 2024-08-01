@@ -458,7 +458,7 @@ def validate(
     if _PANDAS_AVAILABLE and isinstance(dataframe, pd.DataFrame):
         polars_dataframe = pl.from_pandas(dataframe)
     else:
-        polars_dataframe = cast(pl.DataFrame, dataframe)
+        polars_dataframe = cast(pl.DataFrame, dataframe).clone()
 
     polars_dataframe = _transform_df(polars_dataframe, schema)
 
