@@ -43,11 +43,6 @@ class ListableIterator(Iterator[T], Generic[T]):
         """Construct a ListableIterator from an iterator."""
         self._iterator = iterator
 
-    @classmethod
-    def from_iterator(cls, iterable: Iterator[T]) -> "ListableIterator[T]":
-        """Construct a ListableIterator from an iterable."""
-        return cls(iter(iterable))
-
     def to_list(self) -> list[T]:
         """Convert iterator to list."""
         return list(self)
