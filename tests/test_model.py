@@ -557,7 +557,7 @@ def test_validation_returns_df():  # noqa: D103
         assert_frame_equal(remade_model, df)
 
 
-def test_model_iter_models_works():  # noqa: D103
+def test_model_iter_models():  # noqa: D103
     class SingleColumnModel(pt.Model):
         a: int
 
@@ -570,7 +570,7 @@ def test_model_iter_models_works():  # noqa: D103
     assert len(full_list) == len(df)
 
 
-def test_model_iter_models_to_list_works():  # noqa: D103
+def test_model_iter_models_to_list():  # noqa: D103
     class SingleColumnModel(pt.Model):
         a: int
 
