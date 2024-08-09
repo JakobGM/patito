@@ -370,9 +370,9 @@ def _find_errors(  # noqa: C901
             custom_constraints = column_info.constraints
             if isinstance(custom_constraints, pl.Expr):
                 custom_constraints = [custom_constraints]
-            constraints = pl.any_horizontal(
-                [constraint.not_() for constraint in custom_constraints]
-            )
+            constraints = pl.any_horizontal([
+                constraint.not_() for constraint in custom_constraints
+            ])
             if "_" in constraints.meta.root_names():
                 # An underscore is an alias for the current field
                 illegal_rows = dataframe_tmp.with_columns(
@@ -460,11 +460,9 @@ def validate(
 
     polars_dataframe = _transform_df(polars_dataframe, schema)
 
-    if filter_columns:
+    if not columns and filter_columns:
         # NOTE: dropping rather than selecting to get the correct error messages
-        schema_subset = columns or schema.columns
-        column_subset = columns or dataframe.columns
-        to_drop = set(column_subset) - set(schema_subset)
+        to_drop = set(dataframe.columns) - set(schema.columns)
         polars_dataframe = polars_dataframe.drop(to_drop)
 
     errors = _find_errors(
