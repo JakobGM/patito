@@ -844,40 +844,6 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         return ModelGenerator(_iter_models(df))
 
-    def to_list(self, **kwargs) -> list[ModelType]:
-        """Convert the dataframe to a list of pydantic models.
-
-        Args:
-            **kwargs: Additional keyword arguments are forwarded to the validation
-
-        Returns:
-            List[Model]: A list of pydantic-derived models representing the rows in the
-                dataframe.
-
-        Raises:
-            TypeError: If ``DataFrame.set_model()`` has not been invoked prior to
-                iteration.
-
-        Example:
-            >>> import patito as pt
-            >>> import polars as pl
-            >>> class Product(pt.Model):
-            ...     product_id: int = pt.Field(unique=True)
-            ...     price: float
-            ...
-            >>> df = pt.DataFrame({"product_id": [1, 2], "price": [10, 20]})
-            >>> df.set_model(Product)
-            >>> df.to_list()
-            [Product(product_id=1, price=10.0), Product(product_id=2, price=20.0)]
-
-        """
-        if not hasattr(self, "model"):
-            raise TypeError(
-                f"You must invoke {self.__class__.__name__}.set_model() "
-                f"before invoking {self.__class__.__name__}.to_list()."
-            )
-        return self.iter_models(**kwargs).to_list()
-
     def _pydantic_model(self) -> Type[Model]:
         """Dynamically construct patito model compliant with dataframe.
 
