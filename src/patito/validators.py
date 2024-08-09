@@ -453,6 +453,9 @@ def validate(
         DataFrameValidationError: If the given dataframe does not match the given schema.
 
     """
+    if filter_columns and columns:
+        raise ValueError("Cannot specify both 'columns' and 'filter_columns'.")
+
     if _PANDAS_AVAILABLE and isinstance(dataframe, pd.DataFrame):
         polars_dataframe = pl.from_pandas(dataframe)
     else:
@@ -460,7 +463,7 @@ def validate(
 
     polars_dataframe = _transform_df(polars_dataframe, schema)
 
-    if not columns and filter_columns:
+    if filter_columns:
         # NOTE: dropping rather than selecting to get the correct error messages
         to_drop = set(dataframe.columns) - set(schema.columns)
         polars_dataframe = polars_dataframe.drop(to_drop)
