@@ -98,7 +98,16 @@ show_missing = true
 profile = "black"
 
 [tool.pyright]
-exclude = ["noxfile.py"]
+venvPath =  "."
+venv =  ".venv"
+
+exclude = [
+  ".venv",
+  "noxfile.py",
+  "**/node_modules",
+  "**/__pycache__",
+  "**/.*"
+]
 
 [tool.mypy]
 warn_unused_configs = true
@@ -114,6 +123,9 @@ allow_redefinition = true
 show_error_codes = true
 exclude = [
   "noxfile.py",
+  "**/node_modules",
+  "**/__pycache__",
+  "**/.*"
 ]
 
 
