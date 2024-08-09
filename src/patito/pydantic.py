@@ -503,22 +503,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         return cls.DataFrame(dataframe).iter_models()
 
     @classmethod
-    def to_list(
-        cls: Type[ModelType], dataframe: Union["pd.DataFrame", pl.DataFrame]
-    ) -> List[ModelType]:
-        """Validate the dataframe and return a list of Patito models.
-
-        Args:
-            dataframe:
-                Polars or pandas DataFrame to be validated.
-
-        Returns:
-            List[Model]: A list of patito models over the validated data.
-
-        """
-        return cls.DataFrame(dataframe).to_list()
-
-    @classmethod
     def example_value(  # noqa: C901
         cls,
         field: Optional[str] = None,

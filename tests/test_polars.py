@@ -611,14 +611,14 @@ def test_iter_models() -> None:
     assert m2.a == 2
 
 
-def test_to_list() -> None:
+def test_iter_models_to_list() -> None:
     """Ensure to_list() returns a list of models."""
 
     class Model(pt.Model):
         a: int
 
     df = Model.DataFrame({"a": [1, 2]})
-    models = df.to_list()
+    models = df.iter_models().to_list()
     assert models[0].a == 1
     assert models[1].a == 2
     for model in models:

@@ -570,12 +570,12 @@ def test_model_iter_works():  # noqa: D103
     assert len(full_list) == len(df)
 
 
-def test_model_to_list_works():  # noqa: D103
+def test_model_iter_to_list_works():  # noqa: D103
     class SingleColumnModel(pt.Model):
         a: int
 
     df = SingleColumnModel.DataFrame({"a": [1, 2, 3]})
-    full_list = SingleColumnModel.to_list(df)
+    full_list = SingleColumnModel.iter(df).to_list()
     assert len(full_list) == len(df)
     for model_instance in full_list:
         assert isinstance(model_instance, SingleColumnModel)
