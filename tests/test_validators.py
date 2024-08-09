@@ -140,7 +140,7 @@ def test_superfluous_column_validation() -> None:
     )  # model-centric API also works
 
 
-def test_validate_filters_columns() -> None:
+def test_drop_superfluous_columns() -> None:
     """Test whether irrelevant columns get filtered out before validation."""
 
     class SingleColumnModel(pt.Model):
@@ -149,7 +149,11 @@ def test_validate_filters_columns() -> None:
     test_df = SingleColumnModel.examples().with_columns(
         column_that_should_be_dropped=pl.Series([1])
     )
-    result = validate(test_df, SingleColumnModel, filter_columns=True)
+    result = validate(
+        test_df,
+        SingleColumnModel,
+        drop_superfluous_columns=True,
+    )
     assert result.columns == ["column_1"]
 
 

@@ -836,7 +836,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                 f"before invoking {self.__class__.__name__}.iter_models()."
             )
 
-        df = self.validate(filter_columns=True) if validate_df else self
+        df = self.validate(drop_superfluous_columns=True) if validate_df else self
 
         def _iter_models(_df: DF) -> Iterator[ModelType]:
             for idx in range(_df.height):
