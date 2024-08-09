@@ -98,7 +98,11 @@ show_missing = true
 profile = "black"
 
 [tool.pyright]
+venvPath =  "."
+venv =  ".venv"
+
 exclude = [
+  ".venv",
   "noxfile.py",
   "**/node_modules",
   "**/__pycache__",
