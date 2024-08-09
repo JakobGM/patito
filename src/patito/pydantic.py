@@ -424,7 +424,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         columns: Optional[Sequence[str]] = None,
         allow_missing_columns: bool = False,
         allow_superfluous_columns: bool = False,
-        filter_columns: bool = False,
+        drop_superfluous_columns: bool = False,
     ) -> DataFrame[ModelType]:
         """Validate the schema and content of the given dataframe.
 
@@ -434,7 +434,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 of the dataframe will be validated.
             allow_missing_columns: If True, missing columns will not be considered an error.
             allow_superfluous_columns: If True, additional columns will not be considered an error.
-            filter_columns: If True, only columns specified in the model will be validated.
+            drop_superfluous_columns: If True, columns not present in the model will be
+                dropped from the resulting dataframe.
 
         Returns:
             DataFrame: A patito DataFrame containing the validated data.
@@ -479,7 +480,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             columns=columns,
             allow_missing_columns=allow_missing_columns,
             allow_superfluous_columns=allow_superfluous_columns,
-            filter_columns=filter_columns,
+            drop_superfluous_columns=drop_superfluous_columns,
         )
         return cls.DataFrame(dataframe)
 
