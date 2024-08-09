@@ -50,7 +50,7 @@ from patito._pydantic.dtypes import (
     validate_polars_dtype,
 )
 from patito._pydantic.schema import column_infos_for_model, schema_for_model
-from patito.polars import DataFrame, LazyFrame, ListableIterator
+from patito.polars import DataFrame, LazyFrame, ModelGenerator
 from patito.validators import validate
 
 try:
@@ -486,7 +486,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     @classmethod
     def iter(
         cls: Type[ModelType], dataframe: Union["pd.DataFrame", pl.DataFrame]
-    ) -> ListableIterator[ModelType]:
+    ) -> ModelGenerator[ModelType]:
         """Validate the dataframe and iterate over the rows, yielding Patito models.
 
         Args:
