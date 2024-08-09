@@ -557,25 +557,25 @@ def test_validation_returns_df():  # noqa: D103
         assert_frame_equal(remade_model, df)
 
 
-def test_model_iter_works():  # noqa: D103
+def test_model_iter_models_works():  # noqa: D103
     class SingleColumnModel(pt.Model):
         a: int
 
     df = SingleColumnModel.DataFrame({"a": [1, 2, 3]})
 
     full_list = []
-    for row in SingleColumnModel.iter(df):
+    for row in SingleColumnModel.iter_models(df):
         assert isinstance(row, SingleColumnModel)
         full_list.append(row)
     assert len(full_list) == len(df)
 
 
-def test_model_iter_to_list_works():  # noqa: D103
+def test_model_iter_models_to_list_works():  # noqa: D103
     class SingleColumnModel(pt.Model):
         a: int
 
     df = SingleColumnModel.DataFrame({"a": [1, 2, 3]})
-    full_list = SingleColumnModel.iter(df).to_list()
+    full_list = SingleColumnModel.iter_models(df).to_list()
     assert len(full_list) == len(df)
     for model_instance in full_list:
         assert isinstance(model_instance, SingleColumnModel)
