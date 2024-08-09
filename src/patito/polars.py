@@ -36,21 +36,21 @@ OtherModelType = TypeVar("OtherModelType", bound="Model")
 T = TypeVar("T")
 
 
-class ListableIterator(Iterator[T], Generic[T]):
+class ModelGenerator(Iterator[ModelType], Generic[ModelType]):
     """An iterator that can be converted to a list."""
 
-    def __init__(self, iterator: Iterator[T]):
-        """Construct a ListableIterator from an iterator."""
+    def __init__(self, iterator: Iterator[ModelType]) -> None:
+        """Construct a ModelGenerator from an iterator."""
         self._iterator = iterator
 
-    def to_list(self) -> list[T]:
+    def to_list(self) -> list[ModelType]:
         """Convert iterator to list."""
         return list(self)
 
-    def __next__(self) -> T:  # noqa: D105
+    def __next__(self) -> ModelType:  # noqa: D105
         return next(self._iterator)
 
-    def __iter__(self) -> Iterator[T]:  # noqa: D105
+    def __iter__(self) -> Iterator[ModelType]:  # noqa: D105
         return self
 
 
@@ -796,7 +796,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
     def iter_models(
         self, validate_df: bool = True, validate_model: bool = False
-    ) -> ListableIterator[ModelType]:
+    ) -> ModelGenerator[ModelType]:
         """Iterate over all rows in the dataframe as pydantic models.
 
         Args:
@@ -842,7 +842,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             for idx in range(_df.height):
                 yield self.model.from_row(_df[idx], validate=validate_model)
 
-        return ListableIterator(_iter_models(df))
+        return ModelGenerator(_iter_models(df))
 
     def to_list(self, **kwargs) -> list[ModelType]:
         """Convert the dataframe to a list of pydantic models.
