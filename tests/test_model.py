@@ -564,9 +564,9 @@ def test_model_iter_models():  # noqa: D103
     df = SingleColumnModel.DataFrame({"a": [1, 2, 3]})
 
     full_list = []
-    for row in SingleColumnModel.iter_models(df):
-        assert isinstance(row, SingleColumnModel)
-        full_list.append(row)
+    for row_model in SingleColumnModel.iter_models(df):
+        assert isinstance(row_model, SingleColumnModel)
+        full_list.append(row_model)
     assert len(full_list) == len(df)
 
 
