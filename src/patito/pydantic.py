@@ -484,7 +484,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         return cls.DataFrame(dataframe)
 
     @classmethod
-    def iter(
+    def iter_models(
         cls: Type[ModelType], dataframe: Union["pd.DataFrame", pl.DataFrame]
     ) -> ModelGenerator[ModelType]:
         """Validate the dataframe and iterate over the rows, yielding Patito models.
