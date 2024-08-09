@@ -50,7 +50,7 @@ from patito._pydantic.dtypes import (
     validate_polars_dtype,
 )
 from patito._pydantic.schema import column_infos_for_model, schema_for_model
-from patito.polars import DataFrame, LazyFrame
+from patito.polars import DataFrame, LazyFrame, ModelGenerator
 from patito.validators import validate
 
 try:
@@ -419,13 +419,13 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def validate(
-        cls,
+        cls: Type[ModelType],
         dataframe: Union["pd.DataFrame", pl.DataFrame],
         columns: Optional[Sequence[str]] = None,
         allow_missing_columns: bool = False,
         allow_superfluous_columns: bool = False,
-        **kwargs,
-    ) -> None:
+        drop_superfluous_columns: bool = False,
+    ) -> DataFrame[ModelType]:
         """Validate the schema and content of the given dataframe.
 
         Args:
@@ -434,10 +434,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 of the dataframe will be validated.
             allow_missing_columns: If True, missing columns will not be considered an error.
             allow_superfluous_columns: If True, additional columns will not be considered an error.
-            **kwargs: Additional keyword arguments to be passed to the validation
+            drop_superfluous_columns: If True, columns not present in the model will be
+                dropped from the resulting dataframe.
 
         Returns:
-            ``None``:
+            DataFrame: A patito DataFrame containing the validated data.
 
         Raises:
             patito.exceptions.DataFrameValidationError: If the given dataframe does not match
@@ -479,8 +480,28 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             columns=columns,
             allow_missing_columns=allow_missing_columns,
             allow_superfluous_columns=allow_superfluous_columns,
-            **kwargs,
+            drop_superfluous_columns=drop_superfluous_columns,
         )
+        return cls.DataFrame(dataframe)
+
+    @classmethod
+    def iter_models(
+        cls: Type[ModelType], dataframe: Union["pd.DataFrame", pl.DataFrame]
+    ) -> ModelGenerator[ModelType]:
+        """Validate the dataframe and iterate over the rows, yielding Patito models.
+
+        Args:
+            dataframe: Polars or pandas DataFrame to be validated.
+
+        Returns:
+            ListableIterator: An iterator of patito models over the validated data.
+
+        Raises:
+            patito.exceptions.DataFrameValidationError: If the given dataframe does not match
+                the given schema.
+
+        """
+        return cls.DataFrame(dataframe).iter_models()
 
     @classmethod
     def example_value(  # noqa: C901

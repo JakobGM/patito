@@ -365,9 +365,9 @@ def _find_errors(  # noqa: C901
             custom_constraints = column_info.constraints
             if isinstance(custom_constraints, pl.Expr):
                 custom_constraints = [custom_constraints]
-            constraints = pl.any_horizontal(
-                [constraint.not_() for constraint in custom_constraints]
-            )
+            constraints = pl.any_horizontal([
+                constraint.not_() for constraint in custom_constraints
+            ])
             if "_" in constraints.meta.root_names():
                 # An underscore is an alias for the current field
                 illegal_rows = dataframe.with_columns(
@@ -431,7 +431,8 @@ def validate(
     columns: Optional[Sequence[str]] = None,
     allow_missing_columns: bool = False,
     allow_superfluous_columns: bool = False,
-) -> None:
+    drop_superfluous_columns: bool = False,
+) -> pl.DataFrame:
     """Validate the given dataframe.
 
     Args:
@@ -441,17 +442,29 @@ def validate(
             of the dataframe will be validated.
         allow_missing_columns: If True, missing columns will not be considered an error.
         allow_superfluous_columns: If True, additional columns will not be considered an error.
+        drop_superfluous_columns: If True, drop any columns not specified in the schema before validation.
 
     Raises:
         DataFrameValidationError: If the given dataframe does not match the given schema.
 
     """
+    if drop_superfluous_columns and columns:
+        raise ValueError(
+            "Cannot specify both 'columns' and 'drop_superfluous_columns'."
+        )
+
     if _PANDAS_AVAILABLE and isinstance(dataframe, pd.DataFrame):
         polars_dataframe = pl.from_pandas(dataframe)
     else:
         polars_dataframe = cast(pl.DataFrame, dataframe)
 
     polars_dataframe = _transform_df(polars_dataframe, schema)
+
+    if drop_superfluous_columns:
+        # NOTE: dropping rather than selecting to get the correct error messages
+        to_drop = set(dataframe.columns) - set(schema.columns)
+        polars_dataframe = polars_dataframe.drop(to_drop)
+
     errors = _find_errors(
         dataframe=polars_dataframe,
         schema=schema,
@@ -461,3 +474,5 @@ def validate(
     )
     if errors:
         raise DataFrameValidationError(errors=errors, model=schema)
+
+    return polars_dataframe

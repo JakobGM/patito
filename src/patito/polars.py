@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection, Iterable, Iterator, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
-    Collection,
     Dict,
     Generic,
-    Iterable,
     Literal,
     Optional,
-    Sequence,
     Tuple,
     Type,
     TypeVar,
@@ -31,11 +29,29 @@ if TYPE_CHECKING:
 
     from patito.pydantic import Model
 
-
 DF = TypeVar("DF", bound="DataFrame")
 LDF = TypeVar("LDF", bound="LazyFrame")
 ModelType = TypeVar("ModelType", bound="Model")
 OtherModelType = TypeVar("OtherModelType", bound="Model")
+T = TypeVar("T")
+
+
+class ModelGenerator(Iterator[ModelType], Generic[ModelType]):
+    """An iterator that can be converted to a list."""
+
+    def __init__(self, iterator: Iterator[ModelType]) -> None:
+        """Construct a ModelGenerator from an iterator."""
+        self._iterator = iterator
+
+    def to_list(self) -> list[ModelType]:
+        """Convert iterator to list."""
+        return list(self)
+
+    def __next__(self) -> ModelType:  # noqa: D105
+        return next(self._iterator)
+
+    def __iter__(self) -> Iterator[ModelType]:  # noqa: D105
+        return self
 
 
 class LazyFrame(pl.LazyFrame, Generic[ModelType]):
@@ -536,15 +552,15 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         to specify how the dataframe should be validated.
 
         Returns:
-            DataFrame[Model]: The original dataframe, if correctly validated.
+            DataFrame[Model]: The original patito dataframe, if correctly validated.
 
         Raises:
+            patito.exceptions.DataFrameValidationError: If the dataframe does not match the
+                specified schema.
+
             TypeError: If ``DataFrame.set_model()`` has not been invoked prior to
                 validation. Note that ``patito.Model.DataFrame`` automatically invokes
                 ``DataFrame.set_model()`` for you.
-
-            patito.exceptions.DataFrameValidationError: If the dataframe does not match the
-                specified schema.
 
         Examples:
             >>> import patito as pt
@@ -777,6 +793,56 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             return self.model.from_row(row)
         else:
             return self._pydantic_model().from_row(row)  # type: ignore
+
+    def iter_models(
+        self, validate_df: bool = True, validate_model: bool = False
+    ) -> ModelGenerator[ModelType]:
+        """Iterate over all rows in the dataframe as pydantic models.
+
+        Args:
+            validate_df: If set to ``True``, the dataframe will be validated before
+                making models out of each row. If set to ``False``, beware that columns
+                need to be the exact same as the model fields.
+            validate_model: If set to ``True``, each model will be validated when
+                constructing. Disabled by default since df validation should cover this case.
+
+        Yields:
+            Model: A pydantic-derived model representing the given row. .to_list() can be
+                used to convert the iterator to a list.
+
+        Raises:
+            TypeError: If ``DataFrame.set_model()`` has not been invoked prior to
+                iteration.
+
+        Example:
+            >>> import patito as pt
+            >>> import polars as pl
+            >>> class Product(pt.Model):
+            ...     product_id: int = pt.Field(unique=True)
+            ...     price: float
+            ...
+            >>> df = pt.DataFrame({"product_id": [1, 2], "price": [10, 20]})
+            >>> df.set_model(Product)
+            >>> for product in df.iter_models():
+            ...     print(product)
+            ...
+            Product(product_id=1, price=10.0)
+            Product(product_id=2, price=20.0)
+
+        """
+        if not hasattr(self, "model"):
+            raise TypeError(
+                f"You must invoke {self.__class__.__name__}.set_model() "
+                f"before invoking {self.__class__.__name__}.iter_models()."
+            )
+
+        df = self.validate(drop_superfluous_columns=True) if validate_df else self
+
+        def _iter_models(_df: DF) -> Iterator[ModelType]:
+            for idx in range(_df.height):
+                yield self.model.from_row(_df[idx], validate=validate_model)
+
+        return ModelGenerator(_iter_models(df))
 
     def _pydantic_model(self) -> Type[Model]:
         """Dynamically construct patito model compliant with dataframe.
