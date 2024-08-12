@@ -25,6 +25,7 @@ sphinx-autobuild = {version = "*", optional = true}
 sphinx-autodoc-typehints = {version = "*", optional = true}
 sphinx-toolbox = {version = "*", optional = true}
 sphinxcontrib-mermaid = {version = "*", optional = true}
+pre-commit = "^3.8.0"
 
 [tool.poetry.extras]
 # The pyarrow.parquet module is required for writing parquet caches to disk
