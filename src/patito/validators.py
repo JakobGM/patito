@@ -370,9 +370,9 @@ def _find_errors(  # noqa: C901
             custom_constraints = column_info.constraints
             if isinstance(custom_constraints, pl.Expr):
                 custom_constraints = [custom_constraints]
-            constraints = pl.any_horizontal([
-                constraint.not_() for constraint in custom_constraints
-            ])
+            constraints = pl.any_horizontal(
+                [constraint.not_() for constraint in custom_constraints]
+            )
             if "_" in constraints.meta.root_names():
                 # An underscore is an alias for the current field
                 illegal_rows = dataframe_tmp.with_columns(
