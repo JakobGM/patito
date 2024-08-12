@@ -235,7 +235,7 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
             for k in cls.columns
             if not (
                 is_optional(cls.model_fields[k].annotation)
-                or cls.model_fields[k].annotation == type(None)
+                or cls.model_fields[k].annotation is type(None)
             )
         )
 

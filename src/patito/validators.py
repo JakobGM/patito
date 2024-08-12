@@ -261,7 +261,7 @@ def _find_errors(  # noqa: C901
             nested_schema = schema.model_fields[column_name].annotation
 
             # Additional unpack required if structs column is optional
-            if type(nested_schema) == _UnionGenericAlias:
+            if isinstance(nested_schema, _UnionGenericAlias):
                 nested_schema = nested_schema.__args__[0]
 
                 # We need to filter out any null rows as the submodel won't know
@@ -289,7 +289,7 @@ def _find_errors(  # noqa: C901
             nested_schema = schema.model_fields[column_name].annotation.__args__[0]
 
             # Additional unpack required if structs column is optional
-            if type(nested_schema) == _UnionGenericAlias:
+            if isinstance(nested_schema, _UnionGenericAlias):
                 nested_schema = nested_schema.__args__[0]
 
                 # We need to filter out any null rows as the submodel won't know
