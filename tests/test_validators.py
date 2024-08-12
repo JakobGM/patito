@@ -13,7 +13,8 @@ import polars as pl
 import pytest
 from patito import DataFrameValidationError
 from patito._pydantic.dtypes import is_optional
-from patito.validators import _dewrap_optional, validate
+from patito._pydantic.dtypes.utils import unwrap_optional
+from patito.validators import validate
 from pydantic.aliases import AliasGenerator
 from pydantic.config import ConfigDict
 
@@ -36,9 +37,9 @@ def test_is_optional_with_pipe_operator() -> None:
 
 def test_dewrap_optional() -> None:
     """It should return the inner type of Optional types."""
-    assert _dewrap_optional(Optional[int]) is int
-    assert _dewrap_optional(Union[int, None]) is int
-    assert _dewrap_optional(int) is int
+    assert unwrap_optional(Optional[int]) is int
+    assert unwrap_optional(Union[int, None]) is int
+    assert unwrap_optional(int) is int
 
 
 @pytest.mark.skipif(
@@ -48,7 +49,7 @@ def test_dewrap_optional() -> None:
 def test_dewrap_optional_with_pipe_operator() -> None:
     """It should return the inner type of Optional types."""
     assert (  # typing: ignore  # pragma: noqa  # pyright: ignore
-        _dewrap_optional(int | None) is int
+        unwrap_optional(int | None) is int
     )
 
 

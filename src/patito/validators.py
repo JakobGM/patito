@@ -9,7 +9,6 @@ from typing import (
     Sequence,
     Type,
     Union,
-    _UnionGenericAlias,
     cast,
 )
 
@@ -18,6 +17,7 @@ from pydantic.aliases import AliasGenerator
 from typing_extensions import get_args
 
 from patito._pydantic.dtypes import is_optional
+from patito._pydantic.dtypes.utils import unwrap_optional
 from patito.exceptions import (
     ColumnDTypeError,
     DataFrameValidationError,
@@ -55,29 +55,6 @@ VALID_POLARS_TYPES = {
         pl.UInt64,
     },
 }
-
-
-def _dewrap_optional(type_annotation: Type[Any] | Any) -> Type:
-    """Return the inner, wrapped type of an Optional.
-
-    Is a no-op for non-Optional types.
-
-    Args:
-        type_annotation: The type annotation to be dewrapped.
-
-    Returns:
-        The input type, but with the outermost Optional removed.
-
-    """
-    return (
-        next(  # pragma: no cover
-            valid_type
-            for valid_type in get_args(type_annotation)
-            if valid_type is not type(None)  # noqa: E721
-        )
-        if is_optional(type_annotation)
-        else type_annotation
-    )
 
 
 def _transform_df(dataframe: pl.DataFrame, schema: type[Model]) -> pl.DataFrame:
@@ -185,7 +162,7 @@ def _find_errors(  # noqa: C901
 
         # Retrieve the annotation of the list itself,
         # dewrapping any potential Optional[...]
-        list_type = _dewrap_optional(annotation)
+        list_type = unwrap_optional(annotation)
 
         # Check if the list items themselves should be considered nullable
         item_type = get_args(list_type)[0]
@@ -220,8 +197,11 @@ def _find_errors(  # noqa: C901
     valid_dtypes = schema.valid_dtypes
     dataframe_datatypes = dict(zip(dataframe.columns, dataframe.dtypes))
     for column_name, column_properties in schema._schema_properties().items():
+        # We rename to _tmp here to avoid overwriting the dataframe during filters below
+        # TODO! Really we should be passing *Series* around rather than the entire dataframe
+        dataframe_tmp = dataframe
         column_info = schema.column_infos[column_name]
-        if column_name not in dataframe.columns or column_name not in column_subset:
+        if column_name not in dataframe_tmp.columns or column_name not in column_subset:
             continue
 
         polars_type = dataframe_datatypes[column_name]
@@ -237,7 +217,7 @@ def _find_errors(  # noqa: C901
 
         # Test for when only specific values are accepted
         e = _find_enum_errors(
-            df=dataframe,
+            df=dataframe_tmp,
             column_name=column_name,
             props=column_properties,
             schema=schema,
@@ -247,7 +227,7 @@ def _find_errors(  # noqa: C901
 
         if column_info.unique:
             # Coalescing to 0 in the case of dataframe of height 0
-            num_duplicated = dataframe[column_name].is_duplicated().sum() or 0
+            num_duplicated = dataframe_tmp[column_name].is_duplicated().sum() or 0
             if num_duplicated > 0:
                 errors.append(
                     ErrorWrapper(
@@ -259,19 +239,31 @@ def _find_errors(  # noqa: C901
         # Intercept struct columns, and process errors separately
         if schema.dtypes[column_name] == pl.Struct:
             nested_schema = schema.model_fields[column_name].annotation
-
+            assert nested_schema is not None
             # Additional unpack required if structs column is optional
-            if isinstance(nested_schema, _UnionGenericAlias):
-                nested_schema = nested_schema.__args__[0]
+            if is_optional(nested_schema):
+                nested_schema = unwrap_optional(nested_schema)
 
-                # We need to filter out any null rows as the submodel won't know
-                # that all of a row's columns may be null
-                dataframe = dataframe.filter(pl.col(column_name).is_not_null())
-                if dataframe.is_empty():
+                # An optional struct means that we allow the struct entry to be
+                # null. It is the inner model that is responsible for determining
+                # whether its fields are optional or not. Since the struct is optional,
+                # we need to filter out any null rows as the inner model may disallow
+                # nulls on a particular field
+
+                # NB As of Polars 1.1, struct_col.is_null()  cannot return True
+                # The following code has been added to accomodate this
+
+                struct_fields = dataframe_tmp[column_name].struct.fields
+                col_struct = pl.col(column_name).struct
+                only_non_null_expr = ~pl.all_horizontal(
+                    [col_struct.field(name).is_null() for name in struct_fields]
+                )
+                dataframe_tmp = dataframe_tmp.filter(only_non_null_expr)
+                if dataframe_tmp.is_empty():
                     continue
 
             struct_errors = _find_errors(
-                dataframe=dataframe.select(column_name).unnest(column_name),
+                dataframe=dataframe_tmp.select(column_name).unnest(column_name),
                 schema=nested_schema,
             )
 
@@ -286,20 +278,33 @@ def _find_errors(  # noqa: C901
 
         # Intercept list of structs columns, and process errors separately
         elif schema.dtypes[column_name] == pl.List(pl.Struct):
-            nested_schema = schema.model_fields[column_name].annotation.__args__[0]
+            list_annotation = schema.model_fields[column_name].annotation
+            assert list_annotation is not None
+            nested_schema = list_annotation.__args__[0]
 
             # Additional unpack required if structs column is optional
-            if isinstance(nested_schema, _UnionGenericAlias):
-                nested_schema = nested_schema.__args__[0]
+            if is_optional(nested_schema):
+                nested_schema = unwrap_optional(nested_schema)
+                # An optional struct means that we allow the struct entry to be
+                # null. It is the inner model that is responsible for determining
+                # whether its fields are optional or not. Since the struct is optional,
+                # we need to filter out any null rows as the inner model may disallow
+                # nulls on a particular field
 
-                # We need to filter out any null rows as the submodel won't know
-                # that all of a row's columns may be null
-                dataframe = dataframe.filter(pl.col(column_name).is_not_null())
-                if dataframe.is_empty():
+                # NB As of Polars 1.1, struct_col.is_null()  cannot return True
+                # The following code has been added to accomodate this
+
+                struct_fields = dataframe_tmp[column_name].struct.fields
+                col_struct = pl.col(column_name).struct
+                only_non_null_expr = ~pl.all_horizontal(
+                    [col_struct.field(name).is_null() for name in struct_fields]
+                )
+                dataframe_tmp = dataframe_tmp.filter(only_non_null_expr)
+                if dataframe_tmp.is_empty():
                     continue
 
             list_struct_errors = _find_errors(
-                dataframe=dataframe.select(column_name)
+                dataframe=dataframe_tmp.select(column_name)
                 .explode(column_name)
                 .unnest(column_name),
                 schema=nested_schema,
@@ -344,7 +349,7 @@ def _find_errors(  # noqa: C901
         if checks:
             n_invalid_rows = 0
             for check in checks:
-                lazy_df = dataframe.lazy()
+                lazy_df = dataframe_tmp.lazy()
                 lazy_df = lazy_df.filter(
                     ~check
                 )  # get failing rows (nulls will evaluate to null on boolean check, we only want failures (false)))
@@ -370,11 +375,11 @@ def _find_errors(  # noqa: C901
             )
             if "_" in constraints.meta.root_names():
                 # An underscore is an alias for the current field
-                illegal_rows = dataframe.with_columns(
+                illegal_rows = dataframe_tmp.with_columns(
                     pl.col(column_name).alias("_")
                 ).filter(constraints)
             else:
-                illegal_rows = dataframe.filter(constraints)
+                illegal_rows = dataframe_tmp.filter(constraints)
             if illegal_rows.height > 0:
                 errors.append(
                     ErrorWrapper(
