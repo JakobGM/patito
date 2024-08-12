@@ -8,6 +8,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Type,
     Union,
     cast,
     get_args,
@@ -87,6 +88,29 @@ def is_optional(type_annotation: type[Any] | Any | None) -> bool:
     """
     return (get_origin(type_annotation) in UNION_TYPES) and (
         type(None) in get_args(type_annotation)
+    )
+
+
+def unwrap_optional(type_annotation: Type[Any] | Any) -> Type:
+    """Return the inner, wrapped type of an Optional.
+
+    Is a no-op for non-Optional types.
+
+    Args:
+        type_annotation: The type annotation to be dewrapped.
+
+    Returns:
+        The input type, but with the outermost Optional removed.
+
+    """
+    return (
+        next(  # pragma: no cover
+            valid_type
+            for valid_type in get_args(type_annotation)
+            if valid_type is not type(None)  # noqa: E721
+        )
+        if is_optional(type_annotation)
+        else type_annotation
     )
 
 

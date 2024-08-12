@@ -54,7 +54,7 @@ from patito.polars import DataFrame, LazyFrame
 from patito.validators import validate
 
 try:
-    import pandas as pd
+    import pandas as pd  # type: ignore
 
     _PANDAS_AVAILABLE = True
 except ImportError:
