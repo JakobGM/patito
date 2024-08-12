@@ -564,6 +564,16 @@ def test_validation_alias() -> None:
     assert df.columns == AliasModel.columns
 
 
+def test_validation_returns_df() -> None:
+    """Ensure DataFrame.validate() returns a DataFrame."""
+
+    class Model(pt.Model):
+        a: int
+
+    df = Model.DataFrame({"a": [1, 2]})
+    assert df.validate().equals(df)
+
+
 def test_alias_generator_read_csv() -> None:
     """Ensure validation alias is applied to read_csv."""
 
@@ -579,3 +589,37 @@ def test_alias_generator_read_csv() -> None:
     df = AliasGeneratorModel.DataFrame.read_csv(csv_data)
     df.validate()
     assert df.to_dicts() == [{"My_Val_A": 1, "My_Val_B": None}]
+
+
+def test_iter_models() -> None:
+    """Ensure iter_models() returns a generator of models."""
+
+    class Model(pt.Model):
+        a: int
+
+    # Test with extra column to ensure column is dropped before validation
+    df = Model.DataFrame({"a": [1, 2], "b": [3, 4]})
+    models = df.iter_models()
+    m1 = next(models)
+    m2 = next(models)
+    with pytest.raises(StopIteration):
+        next(models)
+
+    assert isinstance(m1, Model)
+    assert isinstance(m2, Model)
+    assert m1.a == 1
+    assert m2.a == 2
+
+
+def test_iter_models_to_list() -> None:
+    """Ensure to_list() returns a list of models."""
+
+    class Model(pt.Model):
+        a: int
+
+    df = Model.DataFrame({"a": [1, 2]})
+    models = df.iter_models().to_list()
+    assert models[0].a == 1
+    assert models[1].a == 2
+    for model in models:
+        assert isinstance(model, Model)

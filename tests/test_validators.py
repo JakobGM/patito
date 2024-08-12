@@ -53,6 +53,19 @@ def test_dewrap_optional_with_pipe_operator() -> None:
     )
 
 
+def test_validation_returns_df() -> None:
+    """It should return a DataFrame with the validation results."""
+
+    class SimpleModel(pt.Model):
+        column_1: int
+        column_2: str
+
+    df = pl.DataFrame({"column_1": [1, 2, 3], "column_2": ["a", "b", "c"]})
+    result = validate(dataframe=df, schema=SimpleModel)
+    assert isinstance(result, pl.DataFrame)
+    assert result.shape == (3, 2)
+
+
 def test_missing_column_validation() -> None:
     """Validation should catch missing columns."""
 
@@ -125,6 +138,23 @@ def test_superfluous_column_validation() -> None:
     SingleColumnModel.validate(
         test_df, allow_superfluous_columns=True
     )  # model-centric API also works
+
+
+def test_drop_superfluous_columns() -> None:
+    """Test whether irrelevant columns get filtered out before validation."""
+
+    class SingleColumnModel(pt.Model):
+        column_1: int
+
+    test_df = SingleColumnModel.examples().with_columns(
+        column_that_should_be_dropped=pl.Series([1])
+    )
+    result = validate(
+        test_df,
+        SingleColumnModel,
+        drop_superfluous_columns=True,
+    )
+    assert result.columns == ["column_1"]
 
 
 def test_validate_non_nullable_columns() -> None:

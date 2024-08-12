@@ -22,6 +22,7 @@ from polars.datatypes.group import (
     INTEGER_DTYPES,
     DataTypeGroup,
 )
+from polars.testing import assert_frame_equal
 from pydantic import AliasChoices, AwareDatetime, ValidationError
 
 from tests.examples import CompleteModel, ManyTypes, SmallModel
@@ -145,7 +146,7 @@ def test_instantiating_model_from_row() -> None:
         Model._from_polars(None)  # pyright: ignore
 
 
-def test_insstantiation_from_pandas_row() -> None:
+def test_instantiation_from_pandas_row() -> None:
     """You should be able to instantiate models from pandas rows."""
     pytest.importorskip("pandas")
 
@@ -547,3 +548,34 @@ def test_validation_alias():
     for column_name, _column_properties in AliasModel._schema_properties().items():
         assert AliasModel.column_infos[column_name] is not None
     AliasModel.examples()
+
+
+def test_validation_returns_df():  # noqa: D103
+    for Model in [SmallModel, ManyTypes, CompleteModel]:
+        df = Model.examples()
+        remade_model = Model.validate(df)
+        assert_frame_equal(remade_model, df)
+
+
+def test_model_iter_models():  # noqa: D103
+    class SingleColumnModel(pt.Model):
+        a: int
+
+    df = SingleColumnModel.DataFrame({"a": [1, 2, 3]})
+
+    full_list = []
+    for row_model in SingleColumnModel.iter_models(df):
+        assert isinstance(row_model, SingleColumnModel)
+        full_list.append(row_model)
+    assert len(full_list) == len(df)
+
+
+def test_model_iter_models_to_list():  # noqa: D103
+    class SingleColumnModel(pt.Model):
+        a: int
+
+    df = SingleColumnModel.DataFrame({"a": [1, 2, 3]})
+    full_list = SingleColumnModel.iter_models(df).to_list()
+    assert len(full_list) == len(df)
+    for model_instance in full_list:
+        assert isinstance(model_instance, SingleColumnModel)
