@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import io
 import json
-from typing import Annotated, Optional, Type, TypeVar
+from collections.abc import Sequence
+from typing import Annotated, Optional, Type, TypeVar, Union
 
 import polars as pl
 from polars.datatypes import *  # noqa: F403 # type: ignore
@@ -97,13 +98,13 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
     """
 
     dtype: Annotated[
-        DataType | DataTypeClass | None, BeforeValidator(dtype_deserializer)
+        Optional[Union[DataTypeClass, DataType]], BeforeValidator(dtype_deserializer)
     ] = None
     constraints: Annotated[
-        pl.Expr | list[pl.Expr] | None, BeforeValidator(expr_deserializer)
+        Optional[Union[pl.Expr, Sequence[pl.Expr]]], BeforeValidator(expr_deserializer)
     ] = None
     derived_from: Annotated[
-        str | pl.Expr | None, BeforeValidator(expr_or_col_name_deserializer)
+        Optional[Union[str, pl.Expr]], BeforeValidator(expr_or_col_name_deserializer)
     ] = None
     unique: Optional[bool] = None
 
