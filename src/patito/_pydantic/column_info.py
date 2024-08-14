@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import json
-from collections.abc import Sequence
 from typing import Annotated, Optional, Union
 
 import polars as pl
@@ -101,7 +100,7 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
         Optional[Union[DataTypeClass, DataType]], BeforeValidator(dtype_deserializer)
     ] = None
     constraints: Annotated[
-        Optional[Union[pl.Expr, Sequence[pl.Expr]]], BeforeValidator(expr_deserializer)
+        Optional[Union[pl.Expr, list[pl.Expr]]], BeforeValidator(expr_deserializer)
     ] = None
     derived_from: Annotated[
         Optional[Union[str, pl.Expr]], BeforeValidator(expr_or_col_name_deserializer)
