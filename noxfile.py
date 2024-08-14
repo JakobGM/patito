@@ -110,8 +110,8 @@ def lint(session):
         "darglint",
         "ruff",
     )
-    session.run("ruff check", *args)
-    session.run("ruff format", *args)
+    session.run("ruff", "check", *args)
+    session.run("ruff", "format", *args)
 
 
 @nox.session(python="3.12")
