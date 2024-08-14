@@ -12,6 +12,7 @@ import patito as pt
 import polars as pl
 import pytest
 from patito import DataFrameValidationError
+from patito._pydantic.column_info import ColumnInfo
 from patito._pydantic.dtypes import is_optional
 from patito._pydantic.dtypes.utils import unwrap_optional
 from patito.validators import validate
@@ -948,3 +949,46 @@ def test_alias_generator_func() -> None:
     df = pl.DataFrame({"my_incorrect_val_a": [0]})
     with pytest.raises(DataFrameValidationError):
         AliasGeneratorModel.validate(df)
+
+
+def test_derived_from_ser_deser():
+    """Test whether derived_from can be successfully serialized and deserialized."""
+    for expr in [None, "foo", pl.col("foo"), pl.col("foo") * 2]:
+        ci = ColumnInfo(derived_from=expr)
+        # use str for equality check of expressions
+        # since expr == expr is an expression itself
+        assert str(ci.derived_from) == str(expr)
+        ci_ser_deser = ColumnInfo.model_validate_json(ci.model_dump_json())
+        assert str(ci_ser_deser.derived_from) == str(expr)
+
+
+def test_constraint_ser_deser():
+    """Test whether constraints can be successfully serialized and deserialized."""
+    for expr in [pl.col("foo") == 2, pl.col("foo") * 2 == 2]:
+        ci = ColumnInfo(constraints=expr)
+        # use str for equality check of expressions
+        # since expr == expr is an expression itself
+        assert str(ci.constraints) == str(expr)
+        ci_ser_deser = ColumnInfo.model_validate_json(ci.model_dump_json())
+        assert str(ci_ser_deser.constraints) == str(expr)
+
+
+def test_dtype_ser_deser():
+    """Test whether dtypes can be successfully serialized and deserialized."""
+    for expr in [
+        pl.Float32,
+        pl.String,
+        pl.String(),
+        pl.Datetime(time_zone="Europe/Oslo"),
+        pl.Struct({"foo": pl.Int16, "bar": pl.Datetime(time_zone="Europe/Oslo")}),
+        pl.List(
+            pl.Struct({"foo": pl.Int16, "bar": pl.Datetime(time_zone="Europe/Oslo")})
+        ),
+        pl.Enum(["Foo", "Bar"]),
+    ]:
+        ci = ColumnInfo(dtype=expr)
+        # use str for equality check of expressions
+        # since expr == expr is an expression itself
+        assert ci.dtype == expr
+        ci_ser_deser = ColumnInfo.model_validate_json(ci.model_dump_json())
+        assert ci_ser_deser.dtype == expr

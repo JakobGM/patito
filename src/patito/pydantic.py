@@ -5,7 +5,6 @@ from __future__ import annotations
 import itertools
 from collections.abc import Iterable
 from datetime import date, datetime, time, timedelta
-from functools import partial
 from inspect import getfullargspec
 from typing import (
     TYPE_CHECKING,
@@ -42,7 +41,6 @@ from zoneinfo import ZoneInfo
 from patito._pydantic.column_info import CI, ColumnInfo
 from patito._pydantic.dtypes import (
     default_dtypes_for_model,
-    dtype_from_string,
     is_optional,
     valid_dtypes_for_model,
     validate_annotation,
@@ -629,10 +627,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 return date(year=1970, month=1, day=1)
             elif "format" in properties and properties["format"] == "date-time":
                 if "column_info" in properties:
-                    dtype_str = properties["column_info"]["dtype"]
-                    dtype = dtype_from_string(dtype_str)
+                    ci = ColumnInfo.model_validate_json(properties["column_info"])
+                    dtype = ci.dtype
                     if getattr(dtype, "time_zone", None) is not None:
-                        tzinfo = ZoneInfo(dtype.time_zone)
+                        tzinfo = ZoneInfo(dtype.time_zone)  # type: ignore
                     else:
                         tzinfo = None
                     return datetime(year=1970, month=1, day=1, tzinfo=tzinfo)
@@ -1259,8 +1257,8 @@ FIELD_KWARGS = getfullargspec(fields.Field)
 # Helper function for patito Field.
 
 
-def FieldCI(
-    column_info: Type[ColumnInfo], *args: Any, **kwargs: Any
+def Field(
+    *args: Any, **kwargs: Any
 ) -> Any:  # annotate with Any to make the downstream type annotations happy
     """Annotate model field with additional type and validation information.
 
@@ -1331,7 +1329,7 @@ def FieldCI(
             Polars dtype Int64 does not match model field type. (type=type_error.columndtype)
 
     """
-    ci = column_info(**kwargs)
+    ci = ColumnInfo(**kwargs)
     for field in ci.model_fields_set:
         kwargs.pop(field)
     if kwargs.pop("modern_kwargs_only", True):
@@ -1340,11 +1338,9 @@ def FieldCI(
                 raise ValueError(
                     f"unexpected kwarg {kwarg}={kwargs[kwarg]}.  Add modern_kwargs_only=False to ignore"
                 )
+    ci_json = ci.model_dump_json()
     return fields.Field(
         *args,
-        json_schema_extra={"column_info": ci},
+        json_schema_extra={"column_info": ci_json},
         **kwargs,
     )
-
-
-Field = partial(FieldCI, column_info=ColumnInfo)

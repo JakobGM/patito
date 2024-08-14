@@ -11,6 +11,7 @@ from typing import Optional, Type
 import patito as pt
 import polars as pl
 import pytest
+from patito._pydantic.column_info import ColumnInfo
 from patito._pydantic.dtypes.utils import (
     DATE_DTYPES,
     TIME_DTYPES,
@@ -507,10 +508,17 @@ def test_column_infos() -> None:
     ]  # extra fields are stored in modified schema_properties
     for col in ["b", "c", "d", "e"]:
         assert "column_info" in props[col]
-    assert props["b"]["column_info"]["constraints"] is not None
-    assert props["c"]["column_info"]["derived_from"] is not None
-    assert props["d"]["column_info"]["dtype"] is not None
-    assert props["e"]["column_info"]["unique"] is not None
+
+    assert (
+        ColumnInfo.model_validate_json(props["b"]["column_info"]).constraints
+        is not None
+    )
+    assert (
+        ColumnInfo.model_validate_json(props["c"]["column_info"]).derived_from
+        is not None
+    )
+    assert ColumnInfo.model_validate_json(props["d"]["column_info"]).dtype is not None
+    assert ColumnInfo.model_validate_json(props["e"]["column_info"]).unique is not None
     infos = Model.column_infos
     assert infos["b"].constraints is not None
     assert infos["c"].derived_from is not None
