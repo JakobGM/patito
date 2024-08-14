@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from enum import Enum
 from typing import (
     Any,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Type,
     Union,
     get_args,
     get_origin,
@@ -87,7 +83,7 @@ def is_optional(type_annotation: type[Any] | Any | None) -> bool:
     )
 
 
-def unwrap_optional(type_annotation: Type[Any] | Any) -> Type:
+def unwrap_optional(type_annotation: type[Any] | Any) -> type:
     """Return the inner, wrapped type of an Optional.
 
     Is a no-op for non-Optional types.
@@ -115,14 +111,14 @@ def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
     return str(dtype)
 
 
-def dtype_from_string(v: str) -> Optional[Union[DataTypeClass, DataType]]:
+def dtype_from_string(v: str) -> DataTypeClass | DataType | None:
     """For deserialization."""
     # TODO test all dtypes
     return convert.dtype_short_repr_to_dtype(v)
 
 
 def _pyd_type_to_valid_dtypes(
-    pyd_type: PydanticBaseType, string_format: Optional[str], enum: List[str] | None
+    pyd_type: PydanticBaseType, string_format: str | None, enum: list[str] | None
 ) -> DataTypeGroup:
     if enum is not None:
         _validate_enum_values(pyd_type, enum)
@@ -149,7 +145,7 @@ def _pyd_type_to_valid_dtypes(
 
 
 def _pyd_type_to_default_dtype(
-    pyd_type: PydanticBaseType, string_format: Optional[str], enum: List[str] | None
+    pyd_type: PydanticBaseType, string_format: str | None, enum: list[str] | None
 ) -> DataTypeClass | DataType:
     if enum is not None:
         _validate_enum_values(pyd_type, enum)
@@ -215,7 +211,7 @@ def _pyd_string_format_to_default_dtype(
         raise NotImplementedError
 
 
-def _without_optional(schema: Dict) -> Dict:
+def _without_optional(schema: dict) -> dict:
     if "anyOf" in schema:
         for sub_props in schema["anyOf"]:
             if "type" in sub_props and sub_props["type"] == "null":

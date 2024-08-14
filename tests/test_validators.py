@@ -6,7 +6,7 @@ import enum
 import re
 import sys
 from datetime import date, datetime
-from typing import List, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
 import patito as pt
 import polars as pl
@@ -163,7 +163,7 @@ def test_validate_non_nullable_columns() -> None:
 
     class SmallModel(pt.Model):
         column_1: int
-        column_2: Optional[int] = None
+        column_2: int | None = None
 
     # We insert nulls into a non-optional column, causing an exception
     wrong_nulls_df = pl.DataFrame().with_columns(
@@ -270,7 +270,7 @@ def test_validate_dtype_checks() -> None:
     with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
 
         class NonCompatibleListModel(pt.Model):
-            my_field: List[object]
+            my_field: list[object]
 
         NonCompatibleListModel.validate_schema()
 
@@ -383,7 +383,7 @@ def test_optional_enum_validation() -> None:
         THREE = "c"
 
     class EnumModel(pt.Model):
-        column: Optional[ABCEnum]
+        column: ABCEnum | None
 
     valid_df = pl.DataFrame({"column": ["a", "b", "b", "c"]})
     validate(dataframe=valid_df, schema=EnumModel)
@@ -424,7 +424,7 @@ def test_literal_enum_validation() -> None:
     assert errors[0] == error_expected
 
     class ListEnumModel(pt.Model):
-        column: List[Literal["a", "b", "c"]]
+        column: list[Literal["a", "b", "c"]]
 
     valid_df = pl.DataFrame({"column": [["a", "b"], ["b", "c"], ["a", "c"]]})
     validate(dataframe=valid_df, schema=ListEnumModel)
@@ -441,7 +441,7 @@ def test_optional_literal_enum_validation() -> None:
     """Test validation of optional typing.Literal-typed fields."""
 
     class EnumModel(pt.Model):
-        column: Optional[Literal["a", "b", "c"]]
+        column: Literal["a", "b", "c"] | None
 
     valid_df = pl.DataFrame({"column": ["a", "b", "b", "c"]})
     validate(dataframe=valid_df, schema=EnumModel)
@@ -460,7 +460,7 @@ def test_optional_literal_enum_validation() -> None:
     assert errors[0] == error_expected
 
     class ListEnumModel(pt.Model):
-        column: List[Literal["a", "b", "c"]]
+        column: list[Literal["a", "b", "c"]]
 
     valid_df = pl.DataFrame({"column": [["a", "b"], ["b", "c"], ["a", "c"]]})
     validate(dataframe=valid_df, schema=ListEnumModel)
@@ -793,7 +793,7 @@ def test_optional_enum() -> None:
 
     class OptionalEnumModel(pt.Model):
         # Old type annotation syntax
-        optional_enum: Optional[Literal["A", "B"]]
+        optional_enum: Literal["A", "B"] | None
 
     df = pl.DataFrame({"optional_enum": ["A", "B", None]})
     OptionalEnumModel.validate(df)
@@ -808,7 +808,7 @@ def test_optional_pipe_operator() -> None:
 
     class OptionalEnumModel(pt.Model):
         # Old type annotation syntax
-        optional_enum_1: Optional[Literal["A", "B"]]
+        optional_enum_1: Literal["A", "B"] | None
         # New type annotation syntax
         optional_enum_2: Literal["A", "B"] | None  # type: ignore
 
@@ -831,10 +831,10 @@ def test_validation_of_list_dtypes() -> None:
     """It should be able to validate dtypes organized in lists."""
 
     class ListModel(pt.Model):
-        int_list: List[int]
-        int_or_null_list: List[Optional[int]]
-        nullable_int_list: Optional[List[int]]
-        nullable_int_or_null_list: Optional[List[Optional[int]]]
+        int_list: list[int]
+        int_or_null_list: list[int | None]
+        nullable_int_list: list[int] | None
+        nullable_int_or_null_list: list[int | None] | None
 
     valid_df = pl.DataFrame(
         {
@@ -866,7 +866,7 @@ def test_nested_field_attrs() -> None:
     """Ensure that constraints are respected even when embedded inside 'anyOf'."""
 
     class Test(pt.Model):
-        foo: Optional[int] = pt.Field(
+        foo: int | None = pt.Field(
             dtype=pl.Int64, ge=0, le=100, constraints=pt.field.sum() == 100
         )
 

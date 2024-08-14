@@ -3,27 +3,20 @@
 from __future__ import annotations
 
 import itertools
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime, time, timedelta
 from inspect import getfullargspec
 from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
-    Dict,
-    FrozenSet,
-    List,
     Literal,
-    Mapping,
     Optional,
-    Sequence,
-    Tuple,
-    Type,
     TypeVar,
-    Union,
     cast,
     get_args,
 )
+from zoneinfo import ZoneInfo
 
 import polars as pl
 from polars.datatypes import DataType, DataTypeClass
@@ -35,7 +28,6 @@ from pydantic import (  # noqa: F401
 from pydantic._internal._model_construction import (
     ModelMetaclass as PydanticModelMetaclass,
 )
-from zoneinfo import ZoneInfo
 
 from patito._pydantic.column_info import ColumnInfo
 from patito._pydantic.dtypes import (
@@ -71,7 +63,7 @@ class ModelMetaclass(PydanticModelMetaclass):
     """
 
     if TYPE_CHECKING:
-        model_fields: ClassVar[Dict[str, fields.FieldInfo]]
+        model_fields: ClassVar[dict[str, fields.FieldInfo]]
 
     def __init__(cls, name: str, bases: tuple, clsdict: dict, **kwargs) -> None:
         """Construct new patito model.
@@ -99,12 +91,12 @@ class ModelMetaclass(PydanticModelMetaclass):
         return super().__hash__()
 
     @property
-    def column_infos(cls: Type[ModelType]) -> Mapping[str, ColumnInfo]:
+    def column_infos(cls: type[ModelType]) -> Mapping[str, ColumnInfo]:
         """Return column information for the model."""
         return column_infos_for_model(cls)
 
     @property
-    def model_schema(cls: Type[ModelType]) -> Mapping[str, Mapping[str, Any]]:
+    def model_schema(cls: type[ModelType]) -> Mapping[str, Mapping[str, Any]]:
         """Return schema properties where definition references have been resolved.
 
         Returns:
@@ -120,7 +112,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return schema_for_model(cls)
 
     @property
-    def columns(cls: Type[ModelType]) -> List[str]:
+    def columns(cls: type[ModelType]) -> list[str]:
         """Return the name of the dataframe columns specified by the fields of the model.
 
         Returns:
@@ -139,7 +131,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return list(cls.model_fields.keys())
 
     @property
-    def dtypes(cls: Type[ModelType]) -> dict[str, DataTypeClass | DataType]:
+    def dtypes(cls: type[ModelType]) -> dict[str, DataTypeClass | DataType]:
         """Return the polars dtypes of the dataframe.
 
         Unless Field(dtype=...) is specified, the highest signed column dtype
@@ -163,8 +155,8 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @property
     def valid_dtypes(
-        cls: Type[ModelType],
-    ) -> Mapping[str, FrozenSet[DataTypeClass | DataType]]:
+        cls: type[ModelType],
+    ) -> Mapping[str, frozenset[DataTypeClass | DataType]]:
         """Return a list of polars dtypes which Patito considers valid for each field.
 
         The first item of each list is the default dtype chosen by Patito.
@@ -180,7 +172,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return valid_dtypes_for_model(cls)
 
     @property
-    def defaults(cls: Type[ModelType]) -> dict[str, Any]:
+    def defaults(cls: type[ModelType]) -> dict[str, Any]:
         """Return default field values specified on the model.
 
         Returns:
@@ -205,7 +197,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         }
 
     @property
-    def non_nullable_columns(cls: Type[ModelType]) -> set[str]:
+    def non_nullable_columns(cls: type[ModelType]) -> set[str]:
         """Return names of those columns that are non-nullable in the schema.
 
         Returns:
@@ -234,7 +226,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         )
 
     @property
-    def nullable_columns(cls: Type[ModelType]) -> set[str]:
+    def nullable_columns(cls: type[ModelType]) -> set[str]:
         """Return names of those columns that are nullable in the schema.
 
         Returns:
@@ -256,7 +248,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return set(cls.columns) - cls.non_nullable_columns
 
     @property
-    def unique_columns(cls: Type[ModelType]) -> set[str]:
+    def unique_columns(cls: type[ModelType]) -> set[str]:
         """Return columns with uniqueness constraint.
 
         Returns:
@@ -279,7 +271,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return {column for column in cls.columns if infos[column].unique}
 
     @property
-    def derived_columns(cls: Type[ModelType]) -> set[str]:
+    def derived_columns(cls: type[ModelType]) -> set[str]:
         """Return set of columns which are derived from other columns."""
         infos = cls.column_infos
         return {
@@ -291,7 +283,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     """Custom pydantic class for representing table schema and constructing rows."""
 
     @classmethod
-    def validate_schema(cls: Type[ModelType]):
+    def validate_schema(cls: type[ModelType]):
         """Users should run this after defining or edit a model. We withhold the checks at model definition time to avoid expensive queries of the model schema."""
         for column in cls.columns:
             col_info = cls.column_infos[column]
@@ -305,8 +297,8 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def from_row(
-        cls: Type[ModelType],
-        row: Union["pd.DataFrame", pl.DataFrame],
+        cls: type[ModelType],
+        row: pd.DataFrame | pl.DataFrame,
         validate: bool = True,
     ) -> ModelType:
         """Represent a single data frame row as a Patito model.
@@ -353,7 +345,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def _from_polars(
-        cls: Type[ModelType],
+        cls: type[ModelType],
         dataframe: pl.DataFrame,
         validate: bool = True,
     ) -> ModelType:
@@ -413,9 +405,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def validate(
-        cls: Type[ModelType],
-        dataframe: Union["pd.DataFrame", pl.DataFrame],
-        columns: Optional[Sequence[str]] = None,
+        cls: type[ModelType],
+        dataframe: pd.DataFrame | pl.DataFrame,
+        columns: Sequence[str] | None = None,
         allow_missing_columns: bool = False,
         allow_superfluous_columns: bool = False,
         drop_superfluous_columns: bool = False,
@@ -480,7 +472,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def iter_models(
-        cls: Type[ModelType], dataframe: Union["pd.DataFrame", pl.DataFrame]
+        cls: type[ModelType], dataframe: pd.DataFrame | pl.DataFrame
     ) -> ModelGenerator[ModelType]:
         """Validate the dataframe and iterate over the rows, yielding Patito models.
 
@@ -500,9 +492,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     @classmethod
     def example_value(  # noqa: C901
         cls,
-        field: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None,
-    ) -> Union[date, datetime, time, timedelta, float, int, str, None, Mapping, List]:
+        field: str | None = None,
+        properties: dict[str, Any] | None = None,
+    ) -> date | datetime | time | timedelta | float | int | str | None | Mapping | list:
         """Return a valid example value for the given model field.
 
         Args:
@@ -665,7 +657,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def example(
-        cls: Type[ModelType],
+        cls: type[ModelType],
         **kwargs: Any,  # noqa: ANN401
     ) -> ModelType:
         """Produce model instance with filled dummy data for all unspecified fields.
@@ -717,10 +709,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def pandas_examples(
-        cls: Type[ModelType],
-        data: Union[dict, Iterable],
-        columns: Optional[Iterable[str]] = None,
-    ) -> "pd.DataFrame":
+        cls: type[ModelType],
+        data: dict | Iterable,
+        columns: Iterable[str] | None = None,
+    ) -> pd.DataFrame:
         """Generate dataframe with dummy data for all unspecified columns.
 
         Offers the same API as the pandas.DataFrame constructor.
@@ -787,10 +779,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def examples(
-        cls: Type[ModelType],
-        data: Optional[Union[dict, Iterable]] = None,
-        columns: Optional[Iterable[str]] = None,
-    ) -> "patito.polars.DataFrame":
+        cls: type[ModelType],
+        data: dict | Iterable | None = None,
+        columns: Iterable[str] | None = None,
+    ) -> patito.polars.DataFrame:
         """Generate polars dataframe with dummy data for all unspecified columns.
 
         This constructor accepts the same data format as polars.DataFrame.
@@ -859,7 +851,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         if wrong_columns:
             raise TypeError(f"{cls.__name__} does not contain fields {wrong_columns}!")
 
-        series: List[Union[pl.Series, pl.Expr]] = []
+        series: list[pl.Series | pl.Expr] = []
         unique_series = []
         for column_name, dtype in cls.dtypes.items():
             if column_name not in kwargs:
@@ -887,10 +879,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def join(
-        cls: Type["Model"],
-        other: Type["Model"],
+        cls: type[Model],
+        other: type[Model],
         how: Literal["inner", "left", "outer", "asof", "cross", "semi", "anti"],
-    ) -> Type["Model"]:
+    ) -> type[Model]:
         """Dynamically create a new model compatible with an SQL Join operation.
 
         For instance, ``ModelA.join(ModelB, how="left")`` will create a model containing
@@ -935,7 +927,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         if how in {"semi", "anti"}:
             return cls
 
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         for model, nullable_methods in (
             (cls, {"outer"}),
             (other, {"left", "outer", "asof"}),
@@ -955,9 +947,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         )
 
     @classmethod
-    def select(
-        cls: Type[ModelType], fields: Union[str, Iterable[str]]
-    ) -> Type["Model"]:
+    def select(cls: type[ModelType], fields: str | Iterable[str]) -> type[Model]:
         """Create a new model consisting of only a subset of the model fields.
 
         Args:
@@ -999,7 +989,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         )
 
     @classmethod
-    def drop(cls: Type[ModelType], name: Union[str, Iterable[str]]) -> Type["Model"]:
+    def drop(cls: type[ModelType], name: str | Iterable[str]) -> type[Model]:
         """Return a new model where one or more fields are excluded.
 
         Args:
@@ -1038,7 +1028,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         )
 
     @classmethod
-    def prefix(cls: Type[ModelType], prefix: str) -> Type["Model"]:
+    def prefix(cls: type[ModelType], prefix: str) -> type[Model]:
         """Return a new model where all field names have been prefixed.
 
         Args:
@@ -1064,7 +1054,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         )
 
     @classmethod
-    def suffix(cls: Type[ModelType], suffix: str) -> Type["Model"]:
+    def suffix(cls: type[ModelType], suffix: str) -> type[Model]:
         """Return a new model where all field names have been suffixed.
 
         Args:
@@ -1091,7 +1081,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         )
 
     @classmethod
-    def rename(cls: Type[ModelType], mapping: Dict[str, str]) -> Type["Model"]:
+    def rename(cls: type[ModelType], mapping: dict[str, str]) -> type[Model]:
         """Return a new model class where the specified fields have been renamed.
 
         Args:
@@ -1132,9 +1122,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def with_fields(
-        cls: Type[ModelType],
+        cls: type[ModelType],
         **field_definitions: Any,  # noqa: ANN401
-    ) -> Type["Model"]:
+    ) -> type[Model]:
         """Return a new model class where the given fields have been added.
 
         Args:
@@ -1167,11 +1157,11 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         )
 
     @classmethod
-    def _schema_properties(cls: Type[ModelType]) -> Mapping[str, Any]:
+    def _schema_properties(cls: type[ModelType]) -> Mapping[str, Any]:
         return cls.model_schema["properties"]
 
     @classmethod
-    def _update_dfn(cls, annotation: Any, schema: Dict[str, Any]) -> None:
+    def _update_dfn(cls, annotation: Any, schema: dict[str, Any]) -> None:
         try:
             if issubclass(annotation, Model) and annotation.__name__ != cls.__name__:
                 schema["$defs"][annotation.__name__] = annotation.model_schema
@@ -1180,10 +1170,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
 
     @classmethod
     def _derive_model(
-        cls: Type[ModelType],
+        cls: type[ModelType],
         model_name: str,
-        field_mapping: Dict[str, Any],
-    ) -> Type["Model"]:
+        field_mapping: dict[str, Any],
+    ) -> type[Model]:
         """Derive a new model with new field definitions.
 
         Args:
@@ -1224,7 +1214,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
     def _derive_field(
         field: fields.FieldInfo,
         make_nullable: bool = False,
-    ) -> Tuple[Type | None, fields.FieldInfo]:
+    ) -> tuple[type | None, fields.FieldInfo]:
         field_type = field.annotation
         default = field.default
         extra_attrs = {

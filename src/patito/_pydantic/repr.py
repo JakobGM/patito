@@ -1,26 +1,23 @@
 import sys
 import types
 import typing
+from collections.abc import Generator, Iterable, Sequence
 from typing import (
     Any,
     Callable,
-    Generator,
-    Iterable,
     Literal,
     Optional,
-    Sequence,
-    Tuple,
-    Type,
     Union,
     get_args,
     get_origin,
 )
+from typing import GenericAlias as TypingGenericAlias  # type: ignore
 
 if typing.TYPE_CHECKING:
-    Loc = Tuple[Union[int, str], ...]
-    ReprArgs = Sequence[Tuple[Optional[str], Any]]
+    Loc = tuple[Union[int, str], ...]
+    ReprArgs = Sequence[tuple[Optional[str], Any]]
     RichReprResult = Iterable[
-        Union[Any, Tuple[Any], Tuple[str, Any], Tuple[str, Any, Any]]
+        Union[Any, tuple[Any], tuple[str, Any], tuple[str, Any, Any]]
     ]
 
 try:
@@ -30,15 +27,10 @@ except ImportError:
 
 typing_base = _TypingBase
 
-if sys.version_info < (3, 9):
-    # python < 3.9 does not have GenericAlias (list[int], tuple[str, ...] and so on)
-    TypingGenericAlias = ()
-else:
-    from typing import GenericAlias as TypingGenericAlias  # type: ignore
 
 if sys.version_info < (3, 10):
 
-    def origin_is_union(tp: Optional[Type[Any]]) -> bool:
+    def origin_is_union(tp: Optional[type[Any]]) -> bool:
         return tp is typing.Union
 
     WithArgsTypes = (TypingGenericAlias,)
@@ -58,7 +50,7 @@ class Representation:
     of objects.
     """
 
-    __slots__: Tuple[str, ...] = tuple()
+    __slots__: tuple[str, ...] = tuple()
 
     def __repr_args__(self) -> "ReprArgs":
         """Returns the attributes to show in __str__, __repr__, and __pretty__ this is generally overridden.

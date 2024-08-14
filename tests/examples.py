@@ -1,7 +1,7 @@
 """Testing examples."""
 
 from datetime import date, datetime, time, timedelta
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
 import patito as pt
 import polars as pl
@@ -58,6 +58,6 @@ class CompleteModel(pt.Model):
 
     pt_model_column: SmallModel
 
-    list_int_column: List[int]
-    list_str_column: List[str]
-    list_opt_column: List[Optional[int]]
+    list_int_column: list[int]
+    list_str_column: list[str]
+    list_opt_column: list[Optional[int]]
