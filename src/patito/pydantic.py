@@ -73,8 +73,6 @@ class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
     Responsible for setting any relevant model-dependent class properties.
     """
 
-    column_info_class: ClassVar[Type[ColumnInfo]] = ColumnInfo
-
     if TYPE_CHECKING:
         model_fields: ClassVar[Dict[str, fields.FieldInfo]]
 
@@ -549,7 +547,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             properties = cls._schema_properties()[field]
             info = cls.column_infos[field]
         else:
-            info = cls.column_info_class()
+            info = ColumnInfo()
         properties = properties or {}
 
         if "type" in properties:

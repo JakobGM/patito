@@ -51,7 +51,7 @@ def column_infos_for_model(cls: Type[ModelType]) -> Mapping[str, ColumnInfo]:
 
     def get_column_info(field: FieldInfo) -> ColumnInfo:
         if field.json_schema_extra is None:
-            return cast(ColumnInfo, cls.column_info_class())
+            return ColumnInfo()
         elif callable(field.json_schema_extra):
             raise NotImplementedError(
                 "Callable json_schema_extra not supported by patito."
