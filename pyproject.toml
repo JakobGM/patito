@@ -99,8 +99,10 @@ show_missing = true
 profile = "black"
 
 [tool.pyright]
+typeCheckingMode = "basic"
 venvPath =  "."
 venv =  ".venv"
+pythonVersion = "3.9"
 
 exclude = [
   ".venv",
@@ -135,6 +137,7 @@ module = ["tests.test_validators"]
 warn_unused_ignores = false
 
 [tool.ruff]
+target-version = "py39"
 extend-exclude= ["tests/__init__.py"]
 
 [tool.ruff.lint]
