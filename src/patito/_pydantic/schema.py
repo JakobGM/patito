@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cache
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Type, cast, get_args
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Type, get_args
 
 from pydantic.fields import FieldInfo
 
@@ -51,12 +51,12 @@ def column_infos_for_model(cls: Type[ModelType]) -> Mapping[str, ColumnInfo]:
 
     def get_column_info(field: FieldInfo) -> ColumnInfo:
         if field.json_schema_extra is None:
-            return cast(ColumnInfo, cls.column_info_class())
+            return ColumnInfo()
         elif callable(field.json_schema_extra):
             raise NotImplementedError(
                 "Callable json_schema_extra not supported by patito."
             )
-        return cast(ColumnInfo, field.json_schema_extra["column_info"])
+        return ColumnInfo.model_validate_json(field.json_schema_extra["column_info"])
 
     return {k: get_column_info(v) for k, v in fields.items()}
 

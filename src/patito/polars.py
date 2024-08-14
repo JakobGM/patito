@@ -164,7 +164,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
 
     def _derive_column(
         self,
-        df: LDF,
+        lf: LDF,
         column_name: str,
         column_infos: Dict[str, ColumnInfo],
     ) -> Tuple[LDF, Sequence[str]]:
@@ -172,25 +172,27 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
             column_infos.get(column_name, None) is None
             or column_infos[column_name].derived_from is None
         ):
-            return df, []
+            return lf, []
+
         derived_from = column_infos[column_name].derived_from
         dtype = self.model.dtypes[column_name]
         derived_columns = []
+
         if isinstance(derived_from, str):
-            df = df.with_columns(pl.col(derived_from).cast(dtype).alias(column_name))
+            lf = lf.with_columns(pl.col(derived_from).cast(dtype).alias(column_name))
         elif isinstance(derived_from, pl.Expr):
             root_cols = derived_from.meta.root_names()
             while root_cols:
                 root_col = root_cols.pop()
-                df, _derived_columns = self._derive_column(df, root_col, column_infos)
+                lf, _derived_columns = self._derive_column(lf, root_col, column_infos)
                 derived_columns.extend(_derived_columns)
-            df = df.with_columns(derived_from.cast(dtype).alias(column_name))
+            lf = lf.with_columns(derived_from.cast(dtype).alias(column_name))
         else:
             raise TypeError(
                 "Can not derive dataframe column from type " f"{type(derived_from)}."
             )
         derived_columns.append(column_name)
-        return df, derived_columns
+        return lf, derived_columns
 
     def unalias(self: LDF) -> LDF:
         """Un-aliases column names using information from pydantic validation_alias.

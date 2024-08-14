@@ -9,13 +9,13 @@ from polars.datatypes import DataType, DataTypeClass
 from polars.datatypes.group import DataTypeGroup
 from pydantic import TypeAdapter
 
+from patito._pydantic.column_info import ColumnInfo
 from patito._pydantic.dtypes.utils import (
     PT_BASE_SUPPORTED_DTYPES,
     PydanticBaseType,
     _pyd_type_to_default_dtype,
     _pyd_type_to_valid_dtypes,
     _without_optional,
-    dtype_from_string,
 )
 from patito._pydantic.repr import display_as_type
 
@@ -208,9 +208,9 @@ class DtypeResolver:
         props: Dict,
     ) -> DataType | None:
         if "column_info" in props:  # user has specified in patito model
-            if props["column_info"]["dtype"] is not None:
-                dtype = dtype_from_string(props["column_info"]["dtype"])
-                dtype = dtype() if isinstance(dtype, DataTypeClass) else dtype
+            ci = ColumnInfo.model_validate_json(props["column_info"])
+            if ci.dtype is not None:
+                dtype = ci.dtype() if isinstance(ci.dtype, DataTypeClass) else ci.dtype
                 return dtype
         if "type" not in props:
             if "enum" in props:

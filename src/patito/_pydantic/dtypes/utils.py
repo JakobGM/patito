@@ -10,7 +10,6 @@ from typing import (
     Sequence,
     Type,
     Union,
-    cast,
     get_args,
     get_origin,
 )
@@ -23,9 +22,6 @@ from polars.datatypes.group import (
     FLOAT_DTYPES,
     INTEGER_DTYPES,
     DataTypeGroup,
-)
-from polars.polars import (
-    dtype_str_repr,  # TODO: this is a rust function, can we implement our own string parser for Time/Duration/Datetime?
 )
 
 PYTHON_TO_PYDANTIC_TYPES = {
@@ -116,20 +112,7 @@ def unwrap_optional(type_annotation: Type[Any] | Any) -> Type:
 
 def parse_composite_dtype(dtype: DataTypeClass | DataType) -> str:
     """For serialization, converts polars dtype to string representation."""
-    if dtype.is_nested():
-        if dtype == pl.Struct or isinstance(dtype, pl.Struct):
-            raise NotImplementedError("Structs not yet supported by patito")
-        if not isinstance(dtype, pl.List) or isinstance(dtype, pl.Array):
-            raise NotImplementedError(
-                f"Unsupported nested dtype: {dtype} of type {type(dtype)}"
-            )
-        if dtype.inner is None:
-            return convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype.base_type()]
-        return f"{convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype.base_type()]}[{parse_composite_dtype(dtype.inner)}]"
-    elif dtype.is_temporal():
-        return cast(str, dtype_str_repr(dtype))
-    else:
-        return convert.DataTypeMappings.DTYPE_TO_FFINAME[dtype]
+    return str(dtype)
 
 
 def dtype_from_string(v: str) -> Optional[Union[DataTypeClass, DataType]]:
