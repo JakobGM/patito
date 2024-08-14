@@ -32,7 +32,6 @@ from polars.datatypes import DataType, DataTypeClass
 from pydantic import (  # noqa: F401
     BaseModel,
     create_model,
-    field_serializer,
     fields,
 )
 from pydantic._internal._model_construction import (
