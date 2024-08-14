@@ -817,8 +817,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             ...     product_id: int = pt.Field(unique=True)
             ...     price: float
             ...
-            >>> df = pt.DataFrame({"product_id": [1, 2], "price": [10, 20]})
-            >>> df.set_model(Product)
+            >>> df = pt.DataFrame({"product_id": [1, 2], "price": [10., 20.]})
+            >>> df = df.set_model(Product)
             >>> for product in df.iter_models():
             ...     print(product)
             ...
