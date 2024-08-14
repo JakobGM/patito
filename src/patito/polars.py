@@ -6,14 +6,9 @@ from collections.abc import Collection, Iterable, Iterator, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
     Generic,
     Literal,
-    Optional,
-    Tuple,
-    Type,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -57,12 +52,12 @@ class ModelGenerator(Iterator[ModelType], Generic[ModelType]):
 class LazyFrame(pl.LazyFrame, Generic[ModelType]):
     """LazyFrame class associated to DataFrame."""
 
-    model: Type[ModelType]
+    model: type[ModelType]
 
     @classmethod
     def _construct_lazyframe_model_class(
-        cls: Type[LDF], model: Optional[Type[ModelType]]
-    ) -> Type[LazyFrame[ModelType]]:
+        cls: type[LDF], model: type[ModelType] | None
+    ) -> type[LazyFrame[ModelType]]:
         """Return custom LazyFrame sub-class where LazyFrame.model is set.
 
         Can be used to construct a LazyFrame class where
@@ -91,7 +86,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         self,
         *args,
         **kwargs,
-    ) -> "DataFrame[ModelType]":  # noqa: DAR101, DAR201
+    ) -> DataFrame[ModelType]:  # noqa: DAR101, DAR201
         """Collect into a DataFrame.
 
         See documentation of polars.DataFrame.collect for full description of
@@ -166,8 +161,8 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         self,
         lf: LDF,
         column_name: str,
-        column_infos: Dict[str, ColumnInfo],
-    ) -> Tuple[LDF, Sequence[str]]:
+        column_infos: dict[str, ColumnInfo],
+    ) -> tuple[LDF, Sequence[str]]:
         if (
             column_infos.get(column_name, None) is None
             or column_infos[column_name].derived_from is None
@@ -209,7 +204,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
             return self
         exprs = []
 
-        def to_expr(va: str | AliasPath | AliasChoices) -> Optional[pl.Expr]:
+        def to_expr(va: str | AliasPath | AliasChoices) -> pl.Expr | None:
             if isinstance(va, str):
                 return pl.col(va) if va in self.collect_schema() else None
             elif isinstance(va, AliasPath):
@@ -223,7 +218,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
                     else None
                 )
             elif isinstance(va, AliasChoices):
-                local_expr: Optional[pl.Expr] = None
+                local_expr: pl.Expr | None = None
                 for choice in va.choices:
                     if (part := to_expr(choice)) is not None:
                         local_expr = (
@@ -253,7 +248,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         return self.select(exprs)
 
     def cast(
-        self: LDF, strict: bool = False, columns: Optional[Sequence[str]] = None
+        self: LDF, strict: bool = False, columns: Sequence[str] | None = None
     ) -> LDF:
         """Cast columns to `dtypes` specified by the associated Patito model.
 
@@ -310,7 +305,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
         return self.with_columns(exprs)
 
     @classmethod
-    def from_existing(cls: Type[LDF], lf: pl.LazyFrame) -> LDF:
+    def from_existing(cls: type[LDF], lf: pl.LazyFrame) -> LDF:
         """Construct a patito.DataFrame object from an existing polars.DataFrame object."""
         return cls.model.LazyFrame._from_pyldf(lf._ldf).cast()
 
@@ -344,12 +339,12 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
     :ref:`Product.validate <DataFrame.validate>`.
     """
 
-    model: Type[ModelType]
+    model: type[ModelType]
 
     @classmethod
     def _construct_dataframe_model_class(
-        cls: Type[DF], model: Type[OtherModelType]
-    ) -> Type[DataFrame[OtherModelType]]:
+        cls: type[DF], model: type[OtherModelType]
+    ) -> type[DataFrame[OtherModelType]]:
         """Return custom DataFrame sub-class where DataFrame.model is set.
 
         Can be used to construct a DataFrame class where
@@ -463,7 +458,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         return self.lazy().unalias().collect()
 
     def cast(
-        self: DF, strict: bool = False, columns: Optional[Sequence[str]] = None
+        self: DF, strict: bool = False, columns: Sequence[str] | None = None
     ) -> DF:
         """Cast columns to `dtypes` specified by the associated Patito model.
 
@@ -507,7 +502,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
     def drop(
         self: DF,
-        columns: Optional[Union[str, Collection[str]]] = None,
+        columns: str | Collection[str] | None = None,
         *more_columns: str,
     ) -> DF:
         """Drop one or more columns from the dataframe.
@@ -547,7 +542,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         else:
             return self.drop(list(set(self.columns) - set(self.model.columns)))
 
-    def validate(self, columns: Optional[Sequence[str]] = None, **kwargs: Any):
+    def validate(self, columns: Sequence[str] | None = None, **kwargs: Any):
         """Validate the schema and content of the dataframe.
 
         You must invoke ``.set_model()`` before invoking ``.validate()`` in order
@@ -641,13 +636,12 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
     def fill_null(
         self: DF,
-        value: Optional[Any] = None,
-        strategy: Optional[
-            Literal[
-                "forward", "backward", "min", "max", "mean", "zero", "one", "defaults"
-            ]
-        ] = None,
-        limit: Optional[int] = None,
+        value: Any | None = None,
+        strategy: Literal[
+            "forward", "backward", "min", "max", "mean", "zero", "one", "defaults"
+        ]
+        | None = None,
+        limit: int | None = None,
         matches_supertype: bool = True,
     ) -> DF:
         """Fill null values using a filling strategy, literal, or ``Expr``.
@@ -714,7 +708,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             ]
         ).set_model(self.model)
 
-    def get(self, predicate: Optional[pl.Expr] = None) -> ModelType:
+    def get(self, predicate: pl.Expr | None = None) -> ModelType:
         """Fetch the single row that matches the given polars predicate.
 
         If you expect a data frame to already consist of one single row,
@@ -846,7 +840,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         return ModelGenerator(_iter_models(df))
 
-    def _pydantic_model(self) -> Type[Model]:
+    def _pydantic_model(self) -> type[Model]:
         """Dynamically construct patito model compliant with dataframe.
 
         Returns:
@@ -858,7 +852,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         pydantic_annotations = {column: (Any, ...) for column in self.columns}
         return cast(
-            Type[Model],
+            type[Model],
             create_model(  # type: ignore
                 "UntypedRow",
                 __base__=Model,
@@ -872,7 +866,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
     @classmethod
     def read_csv(  # type: ignore[no-untyped-def]
-        cls: Type[DF],
+        cls: type[DF],
         *args,  # noqa: ANN002
         **kwargs,  # noqa: ANN003
     ) -> DF:
@@ -956,15 +950,13 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
     # --- Type annotation overrides ---
     def filter(  # noqa: D102
         self: DF,
-        predicate: Union[
-            pl.Expr, str, pl.Series, list[bool], np.ndarray[Any, Any], bool
-        ],
+        predicate: pl.Expr | str | pl.Series | list[bool] | np.ndarray[Any, Any] | bool,
     ) -> DF:
         return cast(DF, super().filter(predicate))
 
     def select(  # noqa: D102
         self: DF,
-        *exprs: Union[IntoExpr, Iterable[IntoExpr]],
+        *exprs: IntoExpr | Iterable[IntoExpr],
         **named_exprs: IntoExpr,
     ) -> DF:
         return cast(  # pyright: ignore[redundant-cast]
@@ -973,7 +965,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
     def with_columns(  # noqa: D102
         self: DF,
-        *exprs: Union[IntoExpr, Iterable[IntoExpr]],
+        *exprs: IntoExpr | Iterable[IntoExpr],
         **named_exprs: IntoExpr,
     ) -> DF:
         return cast(DF, super().with_columns(*exprs, **named_exprs))

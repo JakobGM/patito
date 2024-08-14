@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from datetime import date, datetime, time, timedelta
-from typing import Dict, List, Literal, Optional, Sequence, Tuple, Union
+from typing import Literal, Optional, Sequence, Union  # noqa: UP035
 
 import polars as pl
 import pytest
@@ -75,32 +75,32 @@ def test_valids_basic_annotations() -> None:
 
 def test_valids_nested_annotations() -> None:
     """Test type annotations match nested polars types like List."""
-    assert len(DtypeResolver(List).valid_polars_dtypes()) == 0  # needs inner annotation
+    assert len(DtypeResolver(list).valid_polars_dtypes()) == 0  # needs inner annotation
     assert (
-        DtypeResolver(Tuple).valid_polars_dtypes()
-        == DtypeResolver(List).valid_polars_dtypes()
+        DtypeResolver(tuple).valid_polars_dtypes()
+        == DtypeResolver(list).valid_polars_dtypes()
         == DtypeResolver(Sequence).valid_polars_dtypes()
     )  # for now, these are the same
 
-    assert DtypeResolver(List[str]).valid_polars_dtypes() == {pl.List(pl.String)}
-    assert DtypeResolver(Optional[List[str]]).valid_polars_dtypes() == {
+    assert DtypeResolver(list[str]).valid_polars_dtypes() == {pl.List(pl.String)}
+    assert DtypeResolver(Optional[list[str]]).valid_polars_dtypes() == {
         pl.List(pl.String)
     }
-    assert len(DtypeResolver(List[int]).valid_polars_dtypes()) == len(
+    assert len(DtypeResolver(list[int]).valid_polars_dtypes()) == len(
         DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)
     )
-    assert len(DtypeResolver(List[Union[int, float]]).valid_polars_dtypes()) == len(
+    assert len(DtypeResolver(list[Union[int, float]]).valid_polars_dtypes()) == len(
         FLOAT_DTYPES
     )
-    assert len(DtypeResolver(List[Optional[int]]).valid_polars_dtypes()) == len(
+    assert len(DtypeResolver(list[Optional[int]]).valid_polars_dtypes()) == len(
         DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)
     )
-    assert DtypeResolver(List[List[str]]).valid_polars_dtypes() == {
+    assert DtypeResolver(list[list[str]]).valid_polars_dtypes() == {
         pl.List(pl.List(pl.String))
     }  # recursion works as expected
 
     assert (
-        DtypeResolver(Dict).valid_polars_dtypes() == frozenset()
+        DtypeResolver(dict).valid_polars_dtypes() == frozenset()
     )  # not currently supported
 
     # support for nested models via struct
@@ -121,7 +121,7 @@ def test_dtype_validation() -> None:
         validate_polars_dtype(int, pl.String)
 
     with pytest.raises(ValueError, match="Invalid dtype"):
-        validate_polars_dtype(List[str], pl.List(pl.Float64))
+        validate_polars_dtype(list[str], pl.List(pl.Float64))
 
     # some potential corner cases
     validate_polars_dtype(AwareDatetime, dtype=pl.Datetime(time_zone="UTC"))
@@ -157,29 +157,29 @@ def test_defaults_basic_annotations() -> None:
 
 def test_defaults_nested_annotations() -> None:
     """Ensure python nested types fallback to largest nested polars type."""
-    assert DtypeResolver(List).default_polars_dtype() is None  # needs inner annotation
+    assert DtypeResolver(list).default_polars_dtype() is None  # needs inner annotation
 
-    assert DtypeResolver(List[str]).default_polars_dtype() == pl.List(pl.String)
-    assert DtypeResolver(Optional[List[str]]).default_polars_dtype() == pl.List(
+    assert DtypeResolver(list[str]).default_polars_dtype() == pl.List(pl.String)
+    assert DtypeResolver(Optional[list[str]]).default_polars_dtype() == pl.List(
         pl.String
     )
-    assert DtypeResolver(List[int]).default_polars_dtype() == pl.List(pl.Int64)
-    assert DtypeResolver(List[Optional[int]]).default_polars_dtype() == pl.List(
+    assert DtypeResolver(list[int]).default_polars_dtype() == pl.List(pl.Int64)
+    assert DtypeResolver(list[Optional[int]]).default_polars_dtype() == pl.List(
         pl.Int64
     )
-    assert DtypeResolver(List[Union[int, float]]).default_polars_dtype() is None
-    assert DtypeResolver(List[Union[str, int]]).default_polars_dtype() is None
-    assert DtypeResolver(List[List[str]]).default_polars_dtype() == pl.List(
+    assert DtypeResolver(list[Union[int, float]]).default_polars_dtype() is None
+    assert DtypeResolver(list[Union[str, int]]).default_polars_dtype() is None
+    assert DtypeResolver(list[list[str]]).default_polars_dtype() == pl.List(
         pl.List(pl.String)
     )  # recursion works as expected
-    assert DtypeResolver(List[List[Optional[str]]]).default_polars_dtype() == pl.List(
+    assert DtypeResolver(list[list[Optional[str]]]).default_polars_dtype() == pl.List(
         pl.List(pl.String)
     )
 
     with pytest.raises(
         NotImplementedError, match="dictionaries not currently supported"
     ):
-        DtypeResolver(Dict).default_polars_dtype()
+        DtypeResolver(dict).default_polars_dtype()
 
     # support for nested models via struct
     many_types = DtypeResolver(ManyTypes).default_polars_dtype()
@@ -198,8 +198,8 @@ def test_annotation_validation() -> None:
     with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
         validate_annotation(Union[str, int])
 
-    validate_annotation(List[Optional[int]])
+    validate_annotation(list[Optional[int]])
     with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
-        validate_annotation(List[Union[str, int]])
+        validate_annotation(list[Union[str, int]])
     with pytest.raises(ValueError, match="Valid dtypes are:"):
-        validate_annotation(List[Union[int, float]])
+        validate_annotation(list[Union[int, float]])

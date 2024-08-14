@@ -43,12 +43,6 @@ docs = [
 [tool.poetry.group.dev.dependencies]
 ruff = ">=0.2.1"
 coverage = {version = "*", extras = ["toml"]}
-flake8 = "3.9.2"
-flake8-annotations = { version = "*", python = ">=3.9,<4.0" }
-flake8-bandit = "*"
-flake8-black = "*"
-flake8-bugbear = "*"
-flake8-isort = "*"
 pyright = ">=1.1.239"
 pytest = ">=7.1.2"
 pytest-cov = ">=3.0.0"
@@ -95,12 +89,11 @@ exclude_lines = [
 fail_under = 99.64
 show_missing = true
 
-[tool.isort]
-profile = "black"
-
 [tool.pyright]
+typeCheckingMode = "basic"
 venvPath =  "."
 venv =  ".venv"
+pythonVersion = "3.9"
 
 exclude = [
   ".venv",
@@ -135,10 +128,11 @@ module = ["tests.test_validators"]
 warn_unused_ignores = false
 
 [tool.ruff]
+target-version = "py39"
 extend-exclude= ["tests/__init__.py"]
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "I", "B", "D"]
+select = ["E4", "E7", "E9", "F", "I", "B", "D", "UP"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

@@ -1,7 +1,8 @@
 """Test of functionality related to the generation of dummy data."""
 
+from collections.abc import Sequence
 from datetime import date, datetime
-from typing import List, Literal, Optional, Sequence
+from typing import Literal, Optional
 
 import patito as pt
 import polars as pl
@@ -53,8 +54,8 @@ def test_examples() -> None:
         a: int
         b: Optional[str]
         c: Optional[int]
-        d: Optional[List[str]] = pt.Field(dtype=pl.List(pl.String))
-        e: List[int]
+        d: Optional[list[str]] = pt.Field(dtype=pl.List(pl.String))
+        e: list[int]
         f: int = pt.Field(ge=0)
 
     df = MyModel.examples({"a": [1, 2]})

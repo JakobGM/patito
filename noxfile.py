@@ -8,7 +8,7 @@ import tempfile
 import nox  # type: ignore
 
 nox.options.sessions = (
-    # "lint",
+    "lint",
     "test",
     # "type_check"
     "docs",
@@ -107,16 +107,11 @@ def lint(session):
     args = session.posargs or locations
     install_with_constraints(
         session,
-        "flake8",
-        "flake8-annotations",
-        "flake8-bandit",
-        "flake8-bugbear",
-        "flake8-docstrings",
         "darglint",
         "ruff",
     )
-    session.run("flake8", *args)
-    session.run("ruff check", *args)
+    session.run("ruff", "check", *args)
+    session.run("ruff", "format", *args)
 
 
 @nox.session(python="3.12")

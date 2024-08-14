@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
-    Sequence,
-    Type,
-    Union,
     cast,
 )
 
@@ -86,8 +83,8 @@ def _transform_df(dataframe: pl.DataFrame, schema: type[Model]) -> pl.DataFrame:
 
 def _find_errors(  # noqa: C901
     dataframe: pl.DataFrame,
-    schema: Type[Model],
-    columns: Optional[Sequence[str]] = None,
+    schema: type[Model],
+    columns: Sequence[str] | None = None,
     allow_missing_columns: bool = False,
     allow_superfluous_columns: bool = False,
 ) -> list[ErrorWrapper]:
@@ -396,7 +393,7 @@ def _find_errors(  # noqa: C901
 
 
 def _find_enum_errors(
-    df: pl.DataFrame, column_name: str, props: dict[str, Any], schema: Type[Model]
+    df: pl.DataFrame, column_name: str, props: dict[str, Any], schema: type[Model]
 ) -> ErrorWrapper | None:
     if "enum" not in props:
         if "items" in props and "enum" in props["items"]:
@@ -431,9 +428,9 @@ def _find_enum_errors(
 
 
 def validate(
-    dataframe: Union["pd.DataFrame", pl.DataFrame],
-    schema: Type[Model],
-    columns: Optional[Sequence[str]] = None,
+    dataframe: pd.DataFrame | pl.DataFrame,
+    schema: type[Model],
+    columns: Sequence[str] | None = None,
     allow_missing_columns: bool = False,
     allow_superfluous_columns: bool = False,
     drop_superfluous_columns: bool = False,

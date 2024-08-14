@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from functools import cache
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Type, get_args
+from typing import TYPE_CHECKING, Any, get_args
 
 from pydantic.fields import FieldInfo
 
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 
 
 @cache
-def schema_for_model(cls: Type[ModelType]) -> Dict[str, Dict[str, Any]]:
+def schema_for_model(cls: type[ModelType]) -> dict[str, dict[str, Any]]:
     """Return schema properties where definition references have been resolved.
 
     Returns:
@@ -46,7 +47,7 @@ def schema_for_model(cls: Type[ModelType]) -> Dict[str, Dict[str, Any]]:
 
 
 @cache
-def column_infos_for_model(cls: Type[ModelType]) -> Mapping[str, ColumnInfo]:
+def column_infos_for_model(cls: type[ModelType]) -> Mapping[str, ColumnInfo]:
     fields = cls.model_fields
 
     def get_column_info(field: FieldInfo) -> ColumnInfo:
@@ -62,11 +63,11 @@ def column_infos_for_model(cls: Type[ModelType]) -> Mapping[str, ColumnInfo]:
 
 
 def _append_field_info_to_props(
-    field_info: Dict[str, Any],
+    field_info: dict[str, Any],
     field_name: str,
-    model_schema: Dict[str, Any],
-    required: Optional[bool] = None,
-) -> Dict[str, Any]:
+    model_schema: dict[str, Any],
+    required: bool | None = None,
+) -> dict[str, Any]:
     if "$ref" in field_info:  # TODO onto runtime append
         definition = model_schema["$defs"][field_info["$ref"]]
         if "enum" in definition and "type" not in definition:

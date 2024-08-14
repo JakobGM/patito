@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from functools import cache, reduce
 from operator import and_
-from typing import TYPE_CHECKING, Any, Dict, FrozenSet, Mapping, Optional, Type
+from typing import TYPE_CHECKING, Any
 
 import polars as pl
 from polars.datatypes import DataType, DataTypeClass
@@ -25,8 +26,8 @@ if TYPE_CHECKING:
 
 @cache
 def valid_dtypes_for_model(
-    cls: Type[ModelType],
-) -> Mapping[str, FrozenSet[DataTypeClass]]:
+    cls: type[ModelType],
+) -> Mapping[str, frozenset[DataTypeClass]]:
     return {
         column: (
             DtypeResolver(cls.model_fields[column].annotation).valid_polars_dtypes()
@@ -39,7 +40,7 @@ def valid_dtypes_for_model(
 
 @cache
 def default_dtypes_for_model(
-    cls: Type[ModelType],
+    cls: type[ModelType],
 ) -> dict[str, DataType]:
     default_dtypes: dict[str, DataType] = {}
     for column in cls.columns:
@@ -57,7 +58,7 @@ def default_dtypes_for_model(
 def validate_polars_dtype(
     annotation: type[Any] | None,
     dtype: DataType | DataTypeClass | None,
-    column: Optional[str] = None,
+    column: str | None = None,
 ) -> None:
     """Check that the polars dtype is valid for the given annotation. Raises ValueError if not.
 
@@ -84,7 +85,7 @@ def validate_polars_dtype(
 
 
 def validate_annotation(
-    annotation: type[Any] | Any | None, column: Optional[str] = None
+    annotation: type[Any] | Any | None, column: str | None = None
 ) -> None:
     """Check that the provided annotation has polars/patito support (we can resolve it to a default dtype). Raises ValueError if not.
 
@@ -129,7 +130,7 @@ class DtypeResolver:
 
     def _valid_polars_dtypes_for_schema(
         self,
-        schema: Dict,
+        schema: dict,
     ) -> DataTypeGroup:
         valid_type_sets = []
         if "anyOf" in schema:
@@ -146,7 +147,7 @@ class DtypeResolver:
 
     def _pydantic_subschema_to_valid_polars_types(
         self,
-        props: Dict,
+        props: dict,
     ) -> DataTypeGroup:
         if "type" not in props:
             if "enum" in props:
@@ -189,7 +190,7 @@ class DtypeResolver:
             PydanticBaseType(pyd_type), props.get("format"), props.get("enum")
         )
 
-    def _default_polars_dtype_for_schema(self, schema: Dict) -> DataType | None:
+    def _default_polars_dtype_for_schema(self, schema: dict) -> DataType | None:
         if "anyOf" in schema:
             if len(schema["anyOf"]) == 2:  # look for optionals first
                 schema = _without_optional(schema)
@@ -205,7 +206,7 @@ class DtypeResolver:
 
     def _pydantic_subschema_to_default_dtype(
         self,
-        props: Dict,
+        props: dict,
     ) -> DataType | None:
         if "column_info" in props:  # user has specified in patito model
             ci = ColumnInfo.model_validate_json(props["column_info"])

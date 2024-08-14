@@ -1,15 +1,10 @@
 """Exceptions used by patito."""
 
+from collections.abc import Generator, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    Generator,
-    List,
     Optional,
-    Sequence,
-    Tuple,
-    Type,
     TypedDict,
     Union,
 )
@@ -19,7 +14,7 @@ from patito._pydantic.repr import Representation
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-    Loc = Tuple[Union[int, str], ...]
+    Loc = tuple[Union[int, str], ...]
 
     class _ErrorDictRequired(TypedDict):
         loc: Loc
@@ -27,7 +22,7 @@ if TYPE_CHECKING:
         type: str
 
     class ErrorDict(_ErrorDictRequired, total=False):
-        ctx: Dict[str, Any]
+        ctx: dict[str, Any]
 
     from patito._pydantic.repr import ReprArgs
 
@@ -67,13 +62,13 @@ class DataFrameValidationError(Representation, ValueError):
 
     __slots__ = "raw_errors", "model", "_error_cache"
 
-    def __init__(self, errors: Sequence[ErrorList], model: Type["BaseModel"]) -> None:
+    def __init__(self, errors: Sequence[ErrorList], model: type["BaseModel"]) -> None:
         """Create a dataframe validation error."""
         self.raw_errors = errors
         self.model = model
-        self._error_cache: Optional[List["ErrorDict"]] = None
+        self._error_cache: Optional[list[ErrorDict]] = None
 
-    def errors(self) -> List["ErrorDict"]:
+    def errors(self) -> list["ErrorDict"]:
         """Get list of errors."""
         if self._error_cache is None:
             self._error_cache = list(flatten_errors(self.raw_errors))
@@ -93,7 +88,7 @@ class DataFrameValidationError(Representation, ValueError):
         return [("model", self.model.__name__), ("errors", self.errors())]
 
 
-def display_errors(errors: List["ErrorDict"]) -> str:
+def display_errors(errors: list["ErrorDict"]) -> str:
     return "\n".join(
         f'{_display_error_loc(e)}\n  {e["msg"]} ({_display_error_type_and_ctx(e)})'
         for e in errors
@@ -142,7 +137,7 @@ def error_dict(exc: Exception, loc: "Loc") -> "ErrorDict":
     else:
         msg = str(exc)
 
-    d: "ErrorDict" = {"loc": loc, "msg": msg, "type": type_}
+    d: ErrorDict = {"loc": loc, "msg": msg, "type": type_}
 
     if ctx:
         d["ctx"] = ctx
@@ -150,10 +145,10 @@ def error_dict(exc: Exception, loc: "Loc") -> "ErrorDict":
     return d
 
 
-_EXC_TYPE_CACHE: Dict[Type[Exception], str] = {}
+_EXC_TYPE_CACHE: dict[type[Exception], str] = {}
 
 
-def get_exc_type(cls: Type[Exception]) -> str:
+def get_exc_type(cls: type[Exception]) -> str:
     # slightly more efficient than using lru_cache since we don't need to worry about the cache filling up
     try:
         return _EXC_TYPE_CACHE[cls]
@@ -163,7 +158,7 @@ def get_exc_type(cls: Type[Exception]) -> str:
         return r
 
 
-def _get_exc_type(cls: Type[Exception]) -> str:
+def _get_exc_type(cls: type[Exception]) -> str:
     if issubclass(cls, AssertionError):
         return "assertion_error"
 
