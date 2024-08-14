@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import json
 from collections.abc import Sequence
-from typing import Annotated, Optional, Type, TypeVar, Union
+from typing import Annotated, Optional, Union
 
 import polars as pl
 from polars.datatypes import *  # noqa: F403 # type: ignore
@@ -143,6 +143,3 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
             return "null"
         else:
             return str(dtype)
-
-
-CI = TypeVar("CI", bound=Type[ColumnInfo])

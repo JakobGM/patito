@@ -12,7 +12,6 @@ from typing import (
     ClassVar,
     Dict,
     FrozenSet,
-    Generic,
     List,
     Literal,
     Mapping,
@@ -38,7 +37,7 @@ from pydantic._internal._model_construction import (
 )
 from zoneinfo import ZoneInfo
 
-from patito._pydantic.column_info import CI, ColumnInfo
+from patito._pydantic.column_info import ColumnInfo
 from patito._pydantic.dtypes import (
     default_dtypes_for_model,
     is_optional,
@@ -65,7 +64,7 @@ if TYPE_CHECKING:
 ModelType = TypeVar("ModelType", bound="Model")
 
 
-class ModelMetaclass(PydanticModelMetaclass, Generic[CI]):
+class ModelMetaclass(PydanticModelMetaclass):
     """Metaclass used by patito.Model.
 
     Responsible for setting any relevant model-dependent class properties.
