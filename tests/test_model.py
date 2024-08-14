@@ -252,11 +252,11 @@ def test_model_joins() -> None:
 
     class Left(pt.Model):
         left: int = pt.Field(gt=20)
-        opt_left: int | None = None
+        opt_left: Optional[int] = None  # noqa: UP007
 
     class Right(pt.Model):
         right: int = pt.Field(gt=20)
-        opt_right: int | None = None
+        opt_right: Optional[int] = None  # noqa: UP007
 
     def test_model_validator(model: type[pt.Model]) -> None:
         """Test if all field validators have been included correctly."""
@@ -295,7 +295,7 @@ def test_model_selects() -> None:
     """It should produce models compatible with select statements."""
 
     class MyModel(pt.Model):
-        a: int | None
+        a: Optional[int]  # noqa: UP007
         b: int = pt.Field(gt=10)
 
     MySubModel = MyModel.select("b")
@@ -321,7 +321,7 @@ def test_model_prefix_and_suffix() -> None:
     """It should produce models where all fields have been prefixed/suffixed."""
 
     class MyModel(pt.Model):
-        a: int | None
+        a: Optional[int]  # noqa: UP007
         b: str
 
     NewModel = MyModel.prefix("pre_").suffix("_post")
@@ -333,7 +333,7 @@ def test_model_field_renaming() -> None:
     """It should be able to change its field names."""
 
     class MyModel(pt.Model):
-        a: int | None
+        a: Optional[int]  # noqa: UP007
         b: str
 
     NewModel = MyModel.rename({"b": "B"})
@@ -425,7 +425,7 @@ def test_model_schema() -> None:
     class ParentModel(pt.Model):
         a: int
         b: Model
-        c: float | None = None
+        c: Optional[float] = None  # noqa: UP007
 
     schema = ParentModel.model_schema
     validate_model_schema(
@@ -445,13 +445,13 @@ def test_nullable_columns() -> None:
     """Ensure columns are correctly nullable."""
 
     class Test1(pt.Model):
-        foo: str | None = pt.Field(dtype=pl.String)
+        foo: Optional[str] = pt.Field(dtype=pl.String)  # noqa: UP007
 
     assert Test1.nullable_columns == {"foo"}
     assert set(Test1.valid_dtypes["foo"]) == {pl.String}
 
     class Test2(pt.Model):
-        foo: int | None = pt.Field(dtype=pl.UInt32)
+        foo: Optional[int] = pt.Field(dtype=pl.UInt32)  # noqa: UP007
 
     assert Test2.nullable_columns == {"foo"}
     assert set(Test2.valid_dtypes["foo"]) == {pl.UInt32}
@@ -476,7 +476,7 @@ def test_conflicting_type_dtype() -> None:
     with pytest.raises(ValueError, match="Invalid dtype UInt32"):
 
         class Test3(pt.Model):
-            foo: str | None = pt.Field(dtype=pl.UInt32)
+            foo: Optional[str] = pt.Field(dtype=pl.UInt32)  # noqa: UP007
 
         Test3.validate_schema()
 
@@ -536,7 +536,7 @@ def test_missing_date_struct():
     class Test(pt.Model):
         a: int
         b: int
-        c: SubModel | None
+        c: Optional[SubModel]  # noqa: UP007
 
     df = Test.examples({"a": range(5), "c": None})
     Test.validate(df.cast())
