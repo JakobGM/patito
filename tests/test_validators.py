@@ -131,6 +131,7 @@ def test_allow_missing_column_validation() -> None:
     validate(dataframe=df_missing_column_2, schema=SingleColumnModel)
     SingleColumnModel.validate(df_missing_column_2)
 
+
 def test_superfluous_column_validation() -> None:
     """Validation should catch superfluous columns."""
 
