@@ -118,6 +118,10 @@ def _find_errors(  # noqa: C901
     if not allow_missing_columns:
         # Check if any columns are missing
         for missing_column in set(schema_subset) - set(dataframe.columns):
+            col_info = schema.column_infos.get(missing_column)
+            if col_info is not None and col_info.allow_missing:
+                continue
+
             errors.append(
                 ErrorWrapper(
                     MissingColumnsError("Missing column"),

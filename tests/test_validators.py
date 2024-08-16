@@ -106,6 +106,31 @@ def test_missing_column_validation() -> None:
     )  # kwargs are passed via model-centric validation API
 
 
+def test_allow_missing_column_validation() -> None:
+    """Validation should allow missing columns."""
+
+    class SingleColumnModel(pt.Model):
+        column_1: int
+        column_2: str = pt.Field(allow_missing=True)
+
+    # First we raise an error because we are missing column_1
+    with pytest.raises(DataFrameValidationError) as e_info:
+        validate(dataframe=pl.DataFrame(), schema=SingleColumnModel)
+
+    errors = e_info.value.errors()
+    assert len(e_info.value.errors()) == 1
+    assert sorted(errors, key=lambda e: e["loc"]) == [
+        {
+            "loc": ("column_1",),
+            "msg": "Missing column",
+            "type": "type_error.missingcolumns",
+        },
+    ]
+
+    df_missing_column_2 = pl.DataFrame({"column_1": [1, 2, 3]})
+    validate(dataframe=df_missing_column_2, schema=SingleColumnModel)
+    SingleColumnModel.validate(df_missing_column_2)
+
 def test_superfluous_column_validation() -> None:
     """Validation should catch superfluous columns."""
 
