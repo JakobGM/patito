@@ -76,15 +76,19 @@ class ModelMetaclass(PydanticModelMetaclass):
 
         """
         super().__init__(name, bases, clsdict, **kwargs)
-        # Add a custom subclass of patito.DataFrame to the model class,
-        # where .set_model() has been implicitly set.
-        cls.DataFrame = DataFrame._construct_dataframe_model_class(
-            model=cls,  # type: ignore
+        NewDataFrame = type(
+            f"{cls.__name__}DataFrame",
+            (DataFrame,),
+            {"model": cls},
         )
-        # Similarly for LazyFrame
-        cls.LazyFrame = LazyFrame._construct_lazyframe_model_class(
-            model=cls,  # type: ignore
+        cls.DataFrame: type[DataFrame[cls]] = NewDataFrame  # type: ignore
+
+        NewLazyFrame = type(
+            f"{cls.__name__}LazyFrame",
+            (LazyFrame,),
+            {"model": cls},
         )
+        cls.LazyFrame: type[LazyFrame[cls]] = NewLazyFrame  # type: ignore
 
     def __hash__(self) -> int:
         """Return hash of the model class."""
