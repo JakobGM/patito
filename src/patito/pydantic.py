@@ -379,7 +379,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             >>> df = pl.DataFrame(
             ...     [["1", "product name", "1.22"]],
             ...     schema=["product_id", "name", "price"],
-            ...     orient="row,
+            ...     orient="row",
             ... )
             >>> Product._from_polars(df)
             Product(product_id=1, name='product name', price=1.22)
