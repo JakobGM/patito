@@ -862,6 +862,52 @@ def test_validation_of_list_dtypes() -> None:
             ListModel.validate(valid_df.with_columns(pl.col(old).alias(new)))
 
 
+def test_optional_nested_list() -> None:
+    """It should be able to validate optional structs organized in lists."""
+
+    class Inner(pt.Model):
+        name: str
+        reliability: bool
+        level: int
+
+    class Outer(pt.Model):
+        id: str
+        code: str
+        label: str
+        inner_types: Optional[list[Inner]]  # noqa: UP007
+
+    good_df = pl.DataFrame(
+        {
+            "id": [1, 2, 3],
+            "code": ["A", "B", "C"],
+            "label": ["a", "b", "c"],
+            "inner_types": [
+                [{"name": "a", "reliability": True, "level": 1}],
+                [{"name": "b", "reliability": False, "level": 2}],
+                None,
+            ],
+        }
+    )
+    df = Outer.DataFrame(good_df).cast().derive()
+    df.validate()
+
+    bad_df = pl.DataFrame(
+        {
+            "id": [1, 2, 3],
+            "code": ["A", "B", "C"],
+            "label": ["a", "b", "c"],
+            "inner_types": [
+                [{"name": "a", "level": 1}],  # missing reliability
+                [{"name": "b", "reliability": False, "level": 2}],
+                None,
+            ],
+        }
+    )
+    df = Outer.DataFrame(bad_df).cast().derive()
+    with pytest.raises(DataFrameValidationError):
+        df.validate()
+
+
 def test_nested_field_attrs() -> None:
     """Ensure that constraints are respected even when embedded inside 'anyOf'."""
 
