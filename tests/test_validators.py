@@ -939,7 +939,7 @@ def test_alias_generator() -> None:
     ],
 )
 def test_validate_should_not_mutate_the_original_polars_df_when_aliasing(
-    df: Union[pd.DataFrame, pl.DataFrame], expected: Union[pd.DataFrame, pl.DataFrame]
+    df: pd.DataFrame | pl.DataFrame, expected: pd.DataFrame | pl.DataFrame
 ) -> None:
     """Ensure that the original DataFrame is not mutated by the validation process."""
 
@@ -952,10 +952,12 @@ def test_validate_should_not_mutate_the_original_polars_df_when_aliasing(
     AliasGeneratorModel.validate(df)
 
     if isinstance(df, pd.DataFrame):
+        assert isinstance(df, pd.DataFrame)
         pd_assert_frame_equal(
             df, expected, check_index_type=True, check_column_type=True
         )
     else:
+        assert isinstance(df, pl.DataFrame)
         pl_assert_frame_equal(
             df, expected, check_row_order=True, check_column_order=True
         )
