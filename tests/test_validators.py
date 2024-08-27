@@ -132,6 +132,24 @@ def test_allow_missing_column_validation() -> None:
     SingleColumnModel.validate(df_missing_column_2)
 
 
+def test_allow_missing_nested_column_validation() -> None:
+    """Validation should allow missing nested columns."""
+
+    class InnerModel(pt.Model):
+        column_1: int
+        column_2: str = pt.Field(allow_missing=True)
+
+    class OuterModel(pt.Model):
+        inner: InnerModel
+        other: str
+
+    df_missing_nested_column_2 = pl.DataFrame(
+        {"inner": [{"column_1": 1}, {"column_1": 2}], "other": ["a", "b"]}
+    )
+    validate(dataframe=df_missing_nested_column_2, schema=OuterModel)
+    OuterModel.validate(df_missing_nested_column_2)
+
+
 def test_superfluous_column_validation() -> None:
     """Validation should catch superfluous columns."""
 

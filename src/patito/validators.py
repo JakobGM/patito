@@ -206,7 +206,7 @@ def _find_errors(  # noqa: C901
             continue
 
         polars_type = dataframe_datatypes[column_name]
-        if polars_type not in valid_dtypes[column_name]:
+        if polars_type != pl.Struct and polars_type not in valid_dtypes[column_name]:
             errors.append(
                 ErrorWrapper(
                     ColumnDTypeError(
