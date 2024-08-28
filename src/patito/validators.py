@@ -206,15 +206,16 @@ def _find_errors(  # noqa: C901
             continue
 
         polars_type = dataframe_datatypes[column_name]
-        if polars_type != pl.Struct and polars_type not in valid_dtypes[column_name]:
-            errors.append(
-                ErrorWrapper(
-                    ColumnDTypeError(
-                        f"Polars dtype {polars_type} does not match model field type."
-                    ),
-                    loc=column_name,
+        if polars_type not in [pl.Struct, pl.List(pl.Struct)]:  # defer struct validation for recursive call to _find_errors later
+            if polars_type not in valid_dtypes[column_name]:
+                errors.append(
+                    ErrorWrapper(
+                        ColumnDTypeError(
+                            f"Polars dtype {polars_type} does not match model field type."
+                        ),
+                        loc=column_name,
+                    )
                 )
-            )
 
         # Test for when only specific values are accepted
         e = _find_enum_errors(
