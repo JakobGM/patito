@@ -277,28 +277,19 @@ def _find_errors(  # noqa: C901
         elif schema.dtypes[column_name] == pl.List(pl.Struct):
             list_annotation = schema.model_fields[column_name].annotation
             assert list_annotation is not None
-            nested_schema = list_annotation.__args__[0]
 
             # Additional unpack required if structs column is optional
-            if is_optional(nested_schema):
-                nested_schema = unwrap_optional(nested_schema)
-                # An optional struct means that we allow the struct entry to be
-                # null. It is the inner model that is responsible for determining
-                # whether its fields are optional or not. Since the struct is optional,
-                # we need to filter out any null rows as the inner model may disallow
-                # nulls on a particular field
+            if is_optional(list_annotation):
+                list_annotation = unwrap_optional(list_annotation)
+                # An optional list means that we allow the list entry to be
+                # null. Since the list is optional, we need to filter out any
+                # null rows.
 
-                # NB As of Polars 1.1, struct_col.is_null()  cannot return True
-                # The following code has been added to accomodate this
-
-                struct_fields = dataframe_tmp[column_name].struct.fields
-                col_struct = pl.col(column_name).struct
-                only_non_null_expr = ~pl.all_horizontal(
-                    [col_struct.field(name).is_null() for name in struct_fields]
-                )
-                dataframe_tmp = dataframe_tmp.filter(only_non_null_expr)
+                dataframe_tmp = dataframe_tmp.filter(pl.col(column_name).is_not_null())
                 if dataframe_tmp.is_empty():
                     continue
+
+            nested_schema = list_annotation.__args__[0]
 
             list_struct_errors = _find_errors(
                 dataframe=dataframe_tmp.select(column_name)
