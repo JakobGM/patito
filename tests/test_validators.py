@@ -148,46 +148,75 @@ def test_allow_missing_nested_column_validation() -> None:
     )
     validate(dataframe=df_missing_nested_column_2, schema=OuterModel)
     OuterModel.validate(df_missing_nested_column_2)
-    
-    class OuterOptionalModel(pt.Model):
-        inner: Optional[InnerModel]
+
+    class OuterModelWithOptionalInner(pt.Model):
+        inner: Optional[InnerModel]  # noqa: UP007
         other: str
 
     df_missing_nested_column_2 = pl.DataFrame(
         {"inner": [{"column_1": 1}, None], "other": ["a", "b"]}
     )
-    validate(dataframe=df_missing_nested_column_2, schema=OuterOptionalModel)
-    OuterOptionalModel.validate(df_missing_nested_column_2)
+    validate(dataframe=df_missing_nested_column_2, schema=OuterModelWithOptionalInner)
+    OuterModelWithOptionalInner.validate(df_missing_nested_column_2)
 
-    class OuterListModel(pt.Model):
+    class OuterModelWithListInner(pt.Model):
         inner: list[InnerModel]
         other: str
 
     df_missing_nested_column_2 = pl.DataFrame(
-        {"inner": [[{"column_1": 1}, {"column_1": 2}], [{"column_1": 3}, {"column_1": 4}]], "other": ["a", "b"]}
+        {
+            "inner": [
+                [{"column_1": 1}, {"column_1": 2}],
+                [{"column_1": 3}, {"column_1": 4}],
+            ],
+            "other": ["a", "b"],
+        }
     )
-    validate(dataframe=df_missing_nested_column_2, schema=OuterListModel)
-    OuterListModel.validate(df_missing_nested_column_2)
-    
-    class OuterOptionalListModel(pt.Model):
-        inner: Optional[list[InnerModel]]
+    validate(dataframe=df_missing_nested_column_2, schema=OuterModelWithListInner)
+    OuterModelWithListInner.validate(df_missing_nested_column_2)
+
+    class OuterModelWithOptionalListInner(pt.Model):
+        inner: Optional[list[InnerModel]]  # noqa: UP007
         other: str
 
     df_missing_nested_column_2 = pl.DataFrame(
         {"inner": [[{"column_1": 1}, {"column_1": 2}], None], "other": ["a", "b"]}
     )
-    validate(dataframe=df_missing_nested_column_2, schema=OuterOptionalListModel)
-    OuterOptionalListModel.validate(df_missing_nested_column_2)
-    
-    class OuterListOptionalModel(pt.Model):
-        inner: list[Optional[InnerModel]]
+    validate(
+        dataframe=df_missing_nested_column_2, schema=OuterModelWithOptionalListInner
+    )
+    OuterModelWithOptionalListInner.validate(df_missing_nested_column_2)
+
+    class OuterModelWithListOptionalInner(pt.Model):
+        inner: list[Optional[InnerModel]]  # noqa: UP007
         other: str
 
     df_missing_nested_column_2 = pl.DataFrame(
-        {"inner": [[{"column_1": 1}, None], [None, {"column_1": 2}, None]], "other": ["a", "b"]}
+        {
+            "inner": [[{"column_1": 1}, None], [None, {"column_1": 2}, None]],
+            "other": ["a", "b"],
+        }
     )
-    validate(dataframe=df_missing_nested_column_2, schema=OuterListOptionalModel)
-    OuterListOptionalModel.validate(df_missing_nested_column_2)
+    validate(
+        dataframe=df_missing_nested_column_2, schema=OuterModelWithListOptionalInner
+    )
+    OuterModelWithListOptionalInner.validate(df_missing_nested_column_2)
+
+    class OuterModelWithOptionalListOptionalInner(pt.Model):
+        inner: Optional[list[Optional[InnerModel]]]  # noqa: UP007
+        other: str
+
+    df_missing_nested_column_2 = pl.DataFrame(
+        {
+            "inner": [[{"column_1": 1}, None], [None, {"column_1": 2}, None], None],
+            "other": ["a", "b", "c"],
+        }
+    )
+    validate(
+        dataframe=df_missing_nested_column_2,
+        schema=OuterModelWithOptionalListOptionalInner,
+    )
+    OuterModelWithOptionalListOptionalInner.validate(df_missing_nested_column_2)
 
 
 def test_superfluous_column_validation() -> None:
