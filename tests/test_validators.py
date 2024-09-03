@@ -33,12 +33,12 @@ def test_is_optional() -> None:
 )
 def test_is_optional_with_pipe_operator() -> None:
     """It should return True for optional types."""
-    assert is_optional(Optional[int])  # noqa: UP007
+    assert is_optional(Optional[int])
 
 
 def test_dewrap_optional() -> None:
     """It should return the inner type of Optional types."""
-    assert unwrap_optional(Optional[int]) is int  # noqa: UP007
+    assert unwrap_optional(Optional[int]) is int
     assert unwrap_optional(Union[int, None]) is int
     assert unwrap_optional(int) is int
 
@@ -50,7 +50,7 @@ def test_dewrap_optional() -> None:
 def test_dewrap_optional_with_pipe_operator() -> None:
     """It should return the inner type of Optional types."""
     assert (
-        unwrap_optional(Optional[int]) is int  # noqa: UP007
+        unwrap_optional(Optional[int]) is int
     )
 
 
@@ -150,7 +150,7 @@ def test_allow_missing_nested_column_validation() -> None:
     OuterModel.validate(df_missing_nested_column_2)
 
     class OuterModelWithOptionalInner(pt.Model):
-        inner: Optional[InnerModel]  # noqa: UP007
+        inner: Optional[InnerModel]
         other: str
 
     df_missing_nested_column_2 = pl.DataFrame(
@@ -176,7 +176,7 @@ def test_allow_missing_nested_column_validation() -> None:
     OuterModelWithListInner.validate(df_missing_nested_column_2)
 
     class OuterModelWithOptionalListInner(pt.Model):
-        inner: Optional[list[InnerModel]]  # noqa: UP007
+        inner: Optional[list[InnerModel]]
         other: str
 
     df_missing_nested_column_2 = pl.DataFrame(
@@ -188,7 +188,7 @@ def test_allow_missing_nested_column_validation() -> None:
     OuterModelWithOptionalListInner.validate(df_missing_nested_column_2)
 
     class OuterModelWithListOptionalInner(pt.Model):
-        inner: list[Optional[InnerModel]]  # noqa: UP007
+        inner: list[Optional[InnerModel]]
         other: str
 
     df_missing_nested_column_2 = pl.DataFrame(
@@ -203,7 +203,7 @@ def test_allow_missing_nested_column_validation() -> None:
     OuterModelWithListOptionalInner.validate(df_missing_nested_column_2)
 
     class OuterModelWithOptionalListOptionalInner(pt.Model):
-        inner: Optional[list[Optional[InnerModel]]]  # noqa: UP007
+        inner: Optional[list[Optional[InnerModel]]]
         other: str
 
     df_missing_nested_column_2 = pl.DataFrame(
@@ -276,7 +276,7 @@ def test_validate_non_nullable_columns() -> None:
 
     class SmallModel(pt.Model):
         column_1: int
-        column_2: Optional[int] = None  # noqa: UP007
+        column_2: Optional[int] = None
 
     # We insert nulls into a non-optional column, causing an exception
     wrong_nulls_df = pl.DataFrame().with_columns(
@@ -496,7 +496,7 @@ def test_optional_enum_validation() -> None:
         THREE = "c"
 
     class EnumModel(pt.Model):
-        column: Optional[ABCEnum]  # noqa: UP007
+        column: Optional[ABCEnum]
 
     valid_df = pl.DataFrame({"column": ["a", "b", "b", "c"]})
     validate(dataframe=valid_df, schema=EnumModel)
@@ -554,7 +554,7 @@ def test_optional_literal_enum_validation() -> None:
     """Test validation of optional typing.Literal-typed fields."""
 
     class EnumModel(pt.Model):
-        column: Optional[Literal["a", "b", "c"]]  # noqa: UP007
+        column: Optional[Literal["a", "b", "c"]]
 
     valid_df = pl.DataFrame({"column": ["a", "b", "b", "c"]})
     validate(dataframe=valid_df, schema=EnumModel)
@@ -906,7 +906,7 @@ def test_optional_enum() -> None:
 
     class OptionalEnumModel(pt.Model):
         # Old type annotation syntax
-        optional_enum: Optional[Literal["A", "B"]]  # noqa: UP007
+        optional_enum: Optional[Literal["A", "B"]]
 
     df = pl.DataFrame({"optional_enum": ["A", "B", None]})
     OptionalEnumModel.validate(df)
@@ -921,9 +921,9 @@ def test_optional_pipe_operator() -> None:
 
     class OptionalEnumModel(pt.Model):
         # Old type annotation syntax
-        optional_enum_1: Optional[Literal["A", "B"]]  # noqa: UP007
+        optional_enum_1: Optional[Literal["A", "B"]]
         # New type annotation syntax
-        optional_enum_2: Optional[Literal["A", "B"]]  # noqa: UP007
+        optional_enum_2: Optional[Literal["A", "B"]]
 
     df = pl.DataFrame(
         {
@@ -945,9 +945,9 @@ def test_validation_of_list_dtypes() -> None:
 
     class ListModel(pt.Model):
         int_list: list[int]
-        int_or_null_list: list[Optional[int]]  # noqa: UP007
-        nullable_int_list: Optional[list[int]]  # noqa: UP007
-        nullable_int_or_null_list: Optional[list[Optional[int]]]  # noqa: UP007
+        int_or_null_list: list[Optional[int]]
+        nullable_int_list: Optional[list[int]]
+        nullable_int_or_null_list: Optional[list[Optional[int]]]
 
     valid_df = pl.DataFrame(
         {
@@ -987,7 +987,7 @@ def test_optional_nested_list() -> None:
         id: str
         code: str
         label: str
-        inner_types: Optional[list[Inner]]  # noqa: UP007
+        inner_types: Optional[list[Inner]]
 
     good_df = pl.DataFrame(
         {
@@ -1025,7 +1025,7 @@ def test_nested_field_attrs() -> None:
     """Ensure that constraints are respected even when embedded inside 'anyOf'."""
 
     class Test(pt.Model):
-        foo: Optional[int] = pt.Field(  # noqa: UP007
+        foo: Optional[int] = pt.Field(
             dtype=pl.Int64, ge=0, le=100, constraints=pt.field.sum() == 100
         )
 

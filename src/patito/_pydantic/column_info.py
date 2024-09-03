@@ -97,20 +97,20 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
 
     """
 
-    allow_missing: Optional[bool] = None  # noqa: UP007
+    allow_missing: Optional[bool] = None
     dtype: Annotated[
-        Optional[Union[DataTypeClass, DataType]],  # noqa: UP007
+        Optional[Union[DataTypeClass, DataType]],
         BeforeValidator(dtype_deserializer),
     ] = None
     constraints: Annotated[
-        Optional[Union[pl.Expr, list[pl.Expr]]],  # noqa: UP007
+        Optional[Union[pl.Expr, list[pl.Expr]]],
         BeforeValidator(expr_deserializer),
     ] = None
     derived_from: Annotated[
-        Optional[Union[str, pl.Expr]],  # noqa: UP007
+        Optional[Union[str, pl.Expr]],
         BeforeValidator(expr_or_col_name_deserializer),
     ] = None
-    unique: Optional[bool] = None  # noqa : UP007
+    unique: Optional[bool] = None
 
     def __repr__(self) -> str:
         """Print only Field attributes whose values are not default (mainly None)."""
