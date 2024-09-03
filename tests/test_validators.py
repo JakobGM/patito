@@ -49,9 +49,7 @@ def test_dewrap_optional() -> None:
 )
 def test_dewrap_optional_with_pipe_operator() -> None:
     """It should return the inner type of Optional types."""
-    assert (
-        unwrap_optional(Optional[int]) is int
-    )
+    assert unwrap_optional(Optional[int]) is int
 
 
 def test_validation_returns_df() -> None:
