@@ -84,6 +84,7 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
     """patito-side model for storing column metadata.
 
     Args:
+        allow_missing (bool): Column may be missing.
         constraints (Union[polars.Expression, List[polars.Expression]): A single
             constraint or list of constraints, expressed as a polars expression objects.
             All rows must satisfy the given constraint. You can refer to the given column
@@ -96,6 +97,7 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
 
     """
 
+    allow_missing: Optional[bool] = None  # noqa: UP007
     dtype: Annotated[
         Optional[Union[DataTypeClass, DataType]],  # noqa: UP007
         BeforeValidator(dtype_deserializer),

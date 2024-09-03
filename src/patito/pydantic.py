@@ -1261,6 +1261,7 @@ def Field(
     can be read with the below examples.
 
     Args:
+        allow_missing (bool): Column may be missing.
         column_info: (Type[ColumnInfo]): ColumnInfo object to pass args to.
         constraints (Union[polars.Expression, List[polars.Expression]): A single
             constraint or list of constraints, expressed as a polars expression objects.

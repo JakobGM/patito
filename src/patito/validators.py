@@ -118,6 +118,10 @@ def _find_errors(  # noqa: C901
     if not allow_missing_columns:
         # Check if any columns are missing
         for missing_column in set(schema_subset) - set(dataframe.columns):
+            col_info = schema.column_infos.get(missing_column)
+            if col_info is not None and col_info.allow_missing:
+                continue
+
             errors.append(
                 ErrorWrapper(
                     MissingColumnsError("Missing column"),
@@ -202,15 +206,19 @@ def _find_errors(  # noqa: C901
             continue
 
         polars_type = dataframe_datatypes[column_name]
-        if polars_type not in valid_dtypes[column_name]:
-            errors.append(
-                ErrorWrapper(
-                    ColumnDTypeError(
-                        f"Polars dtype {polars_type} does not match model field type."
-                    ),
-                    loc=column_name,
+        if polars_type not in [
+            pl.Struct,
+            pl.List(pl.Struct),
+        ]:  # defer struct validation for recursive call to _find_errors later
+            if polars_type not in valid_dtypes[column_name]:
+                errors.append(
+                    ErrorWrapper(
+                        ColumnDTypeError(
+                            f"Polars dtype {polars_type} does not match model field type."
+                        ),
+                        loc=column_name,
+                    )
                 )
-            )
 
         # Test for when only specific values are accepted
         e = _find_enum_errors(
@@ -247,7 +255,7 @@ def _find_errors(  # noqa: C901
                 # we need to filter out any null rows as the inner model may disallow
                 # nulls on a particular field
 
-                # NB As of Polars 1.1, struct_col.is_null()  cannot return True
+                # NB As of Polars 1.1, struct_col.is_null() cannot return True
                 # The following code has been added to accomodate this
 
                 struct_fields = dataframe_tmp[column_name].struct.fields
@@ -278,23 +286,33 @@ def _find_errors(  # noqa: C901
             list_annotation = schema.model_fields[column_name].annotation
             assert list_annotation is not None
 
-            # Additional unpack required if structs column is optional
+            # Handle Optional[list[pl.Struct]]
             if is_optional(list_annotation):
                 list_annotation = unwrap_optional(list_annotation)
-                # An optional list means that we allow the list entry to be
-                # null. Since the list is optional, we need to filter out any
-                # null rows.
 
                 dataframe_tmp = dataframe_tmp.filter(pl.col(column_name).is_not_null())
                 if dataframe_tmp.is_empty():
                     continue
 
+            # Unpack list schema
             nested_schema = list_annotation.__args__[0]
 
-            list_struct_errors = _find_errors(
-                dataframe=dataframe_tmp.select(column_name)
+            dataframe_tmp = (
+                dataframe_tmp.select(column_name)
                 .explode(column_name)
-                .unnest(column_name),
+                .unnest(column_name)
+            )
+
+            # Handle list[Optional[pl.Struct]]
+            if is_optional(nested_schema):
+                nested_schema = unwrap_optional(nested_schema)
+
+                dataframe_tmp = dataframe_tmp.filter(pl.all().is_not_null())
+                if dataframe_tmp.is_empty():
+                    continue
+
+            list_struct_errors = _find_errors(
+                dataframe=dataframe_tmp,
                 schema=nested_schema,
             )
 
