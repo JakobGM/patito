@@ -587,3 +587,28 @@ def test_model_iter_models_to_list():  # noqa: D103
     assert len(full_list) == len(df)
     for model_instance in full_list:
         assert isinstance(model_instance, SingleColumnModel)
+
+
+def test_json_schema_extra_is_extended_when_it_exists() -> None:
+    """Ensure that the json_schema_extra property is extended with column_info when it is set from the model field."""
+
+    class Model(pt.Model):
+        a: int
+        b: int = pt.Field(
+            json_schema_extra={"client_column_metadata": {"group1": "x", "group2": "y"}}
+        )
+        c: int = pt.Field(
+            json_schema_extra={"client_column_metadata": {"group1": "xxx"}}
+        )
+
+    schema = Model.model_json_schema()  # no serialization issues
+    props = schema[
+        "properties"
+    ]  # extra fields are stored in modified schema_properties
+    for col in ["b", "c"]:
+        assert "column_info" in props[col]
+        assert "client_column_metadata" in props[col]
+    assert "client_column_metadata" not in props["a"]
+    assert props["b"]["client_column_metadata"]["group1"] == "x"
+    assert props["b"]["client_column_metadata"]["group2"] == "y"
+    assert props["c"]["client_column_metadata"]["group1"] == "xxx"
