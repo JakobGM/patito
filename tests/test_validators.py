@@ -8,14 +8,17 @@ import sys
 from datetime import date, datetime
 from typing import Literal, Optional, Union
 
+import pandas as pd
 import patito as pt
 import polars as pl
 import pytest
+from pandas.testing import assert_frame_equal as pd_assert_frame_equal
 from patito import DataFrameValidationError
 from patito._pydantic.column_info import ColumnInfo
 from patito._pydantic.dtypes import is_optional
 from patito._pydantic.dtypes.utils import unwrap_optional
 from patito.validators import validate
+from polars.testing import assert_frame_equal as pl_assert_frame_equal
 from pydantic.aliases import AliasGenerator
 from pydantic.config import ConfigDict
 
@@ -1085,6 +1088,38 @@ def test_alias_generator() -> None:
     df = pl.DataFrame({"my_incorrect_val_a": [0]})
     with pytest.raises(DataFrameValidationError):
         AliasGeneratorModel.validate(df)
+
+
+@pytest.mark.parametrize(
+    "df,expected",
+    [
+        (pl.DataFrame({"my_val_a": [0]}), pl.DataFrame({"my_val_a": [0]})),
+        (pd.DataFrame({"my_val_a": [0]}), pd.DataFrame({"my_val_a": [0]})),
+    ],
+)
+def test_validate_should_not_mutate_the_original_polars_df_when_aliasing(
+    df: pd.DataFrame | pl.DataFrame, expected: pd.DataFrame | pl.DataFrame
+) -> None:
+    """Ensure that the original DataFrame is not mutated by the validation process."""
+
+    class AliasGeneratorModel(pt.Model):
+        model_config = ConfigDict(
+            alias_generator=AliasGenerator(validation_alias=str.title),
+        )
+        My_Val_A: int
+
+    AliasGeneratorModel.validate(df)
+
+    if isinstance(df, pd.DataFrame):
+        assert isinstance(df, pd.DataFrame)
+        pd_assert_frame_equal(
+            df, expected, check_index_type=True, check_column_type=True
+        )
+    else:
+        assert isinstance(df, pl.DataFrame)
+        pl_assert_frame_equal(
+            df, expected, check_row_order=True, check_column_order=True
+        )
 
 
 def test_alias_generator_func() -> None:
