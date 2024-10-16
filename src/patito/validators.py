@@ -175,6 +175,8 @@ def _find_errors(  # noqa: C901
             .select(column)
             # Remove those rows that do not contain lists at all
             .filter(pl.col(column).is_not_null())
+            # Remove empty lists
+            .filter(pl.col(column).list.len() > 0)
             # Convert lists of N items to N individual rows
             .explode(column)
             # Calculate how many nulls are present in lists
