@@ -5,7 +5,6 @@ from datetime import date, datetime
 from io import StringIO
 from typing import Optional
 
-import patito as pt
 import polars as pl
 import pytest
 from pydantic import (
@@ -16,6 +15,7 @@ from pydantic import (
     ValidationError,
 )
 
+import patito as pt
 from tests.examples import SmallModel
 
 

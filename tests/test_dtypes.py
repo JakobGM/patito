@@ -8,6 +8,15 @@ from typing import Literal, Optional, Sequence, Union  # noqa: UP035
 
 import polars as pl
 import pytest
+from polars.datatypes.group import (
+    DATETIME_DTYPES,
+    DURATION_DTYPES,
+    FLOAT_DTYPES,
+    INTEGER_DTYPES,
+    DataTypeGroup,
+)
+from pydantic import AwareDatetime
+
 from patito._pydantic.dtypes.dtypes import (
     DtypeResolver,
     validate_annotation,
@@ -19,15 +28,6 @@ from patito._pydantic.dtypes.utils import (
     STRING_DTYPES,
     TIME_DTYPES,
 )
-from polars.datatypes.group import (
-    DATETIME_DTYPES,
-    DURATION_DTYPES,
-    FLOAT_DTYPES,
-    INTEGER_DTYPES,
-    DataTypeGroup,
-)
-from pydantic import AwareDatetime
-
 from tests.examples import ManyTypes
 
 

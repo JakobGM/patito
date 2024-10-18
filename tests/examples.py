@@ -3,9 +3,10 @@
 from datetime import date, datetime, time, timedelta
 from typing import Literal, Optional
 
-import patito as pt
 import polars as pl
 from pydantic import AwareDatetime
+
+import patito as pt
 
 
 class SmallModel(pt.Model):

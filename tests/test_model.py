@@ -8,14 +8,8 @@ import re
 from datetime import date, datetime, time
 from typing import Optional
 
-import patito as pt
 import polars as pl
 import pytest
-from patito._pydantic.column_info import ColumnInfo
-from patito._pydantic.dtypes.utils import (
-    DATE_DTYPES,
-    TIME_DTYPES,
-)
 from polars.datatypes.group import (
     DATETIME_DTYPES,
     DURATION_DTYPES,
@@ -26,6 +20,12 @@ from polars.datatypes.group import (
 from polars.testing import assert_frame_equal
 from pydantic import AliasChoices, AwareDatetime, ValidationError
 
+import patito as pt
+from patito._pydantic.column_info import ColumnInfo
+from patito._pydantic.dtypes.utils import (
+    DATE_DTYPES,
+    TIME_DTYPES,
+)
 from tests.examples import CompleteModel, ManyTypes, SmallModel
 
 
