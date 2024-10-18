@@ -4,9 +4,10 @@ from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Literal, Optional
 
-import patito as pt
 import polars as pl
 import pytest
+
+import patito as pt
 
 
 def test_model_example_df() -> None:

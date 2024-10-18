@@ -9,18 +9,19 @@ from datetime import date, datetime
 from typing import Literal, Optional, Union
 
 import pandas as pd
-import patito as pt
 import polars as pl
 import pytest
 from pandas.testing import assert_frame_equal as pd_assert_frame_equal
+from polars.testing import assert_frame_equal as pl_assert_frame_equal
+from pydantic.aliases import AliasGenerator
+from pydantic.config import ConfigDict
+
+import patito as pt
 from patito import DataFrameValidationError
 from patito._pydantic.column_info import ColumnInfo
 from patito._pydantic.dtypes import is_optional
 from patito._pydantic.dtypes.utils import unwrap_optional
 from patito.validators import validate
-from polars.testing import assert_frame_equal as pl_assert_frame_equal
-from pydantic.aliases import AliasGenerator
-from pydantic.config import ConfigDict
 
 
 def test_is_optional() -> None:
