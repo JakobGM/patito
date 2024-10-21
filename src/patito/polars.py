@@ -833,10 +833,23 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         df = self.validate(drop_superfluous_columns=True) if validate_df else self
 
-        def _iter_models(_df: DF) -> Iterator[ModelType]:
-            for idx in range(_df.height):
-                yield self.model.from_row(_df[idx], validate=validate_model)
+        def _iter_models_with_validate(
+            _df: DataFrame[ModelType],
+        ) -> Iterator[ModelType]:
+            for row in _df.iter_rows(named=True):
+                yield self.model(**row)
 
+        def _iter_models_without_validate(
+            _df: DataFrame[ModelType],
+        ) -> Iterator[ModelType]:
+            for row in _df.iter_rows(named=True):
+                yield self.model.model_construct(**row)
+
+        _iter_models = (
+            _iter_models_with_validate
+            if validate_model
+            else _iter_models_without_validate
+        )
         return ModelGenerator(_iter_models(df))
 
     def _pydantic_model(self) -> type[Model]:
