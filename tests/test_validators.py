@@ -638,6 +638,35 @@ def test_nested_struct_validation() -> None:
         NestedPositiveStructModel.validate(bad_df)
 
 
+def test_empty_list_validation() -> None:
+    """Test validation of model with empty lists."""
+
+    class TestModel(pt.Model):
+        list_field: list[str]
+
+    # validate presence of an empty list
+    df = pl.DataFrame({"list_field": [["a", "b"], []]})
+    TestModel.validate(df)
+
+    # validate when all lists are empty, so long as the schema is correct
+    df = pl.DataFrame(
+        {"list_field": [[], []]}, schema={"list_field": pl.List(pl.String)}
+    )
+    TestModel.validate(df)
+
+    class NestedTestModel(pt.Model):
+        nested_list_field: list[list[str]]
+
+    df = pl.DataFrame({"nested_list_field": [[["a", "b"], ["c"]], []]})
+    NestedTestModel.validate(df)
+
+    df = pl.DataFrame(
+        {"nested_list_field": [[], []]},
+        schema={"nested_list_field": pl.List(pl.List(pl.String))},
+    )
+    NestedTestModel.validate(df)
+
+
 def test_list_struct_validation() -> None:
     """Test validation of model with list of structs column."""
 
