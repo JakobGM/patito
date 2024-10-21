@@ -21,6 +21,7 @@ patito.Model
    example_value <example_value>
    examples <examples>
    from_row <from_row>
+   iter_models <iter_models>
    join <join>
    non_nullable_columns <non_nullable_columns>
    nullable_columns <nullable_columns>
