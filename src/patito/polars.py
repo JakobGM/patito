@@ -701,9 +701,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
                         pl.lit(default_value, self.model.dtypes[column])
                     )
                     if column in self.columns
-                    else pl.Series(column, [default_value], self.model.dtypes[column])
-                )  # NOTE: hack to get around polars bug https://github.com/pola-rs/polars/issues/13602
-                # else pl.lit(default_value, self.model.dtypes[column]).alias(column)
+                    else pl.lit(default_value, self.model.dtypes[column]).alias(column)
+                )
                 for column, default_value in self.model.defaults.items()
             ]
         ).set_model(self.model)
