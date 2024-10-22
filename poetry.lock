@@ -3291,4 +3291,4 @@ pandas = ["pandas"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9"
-content-hash = "82bb491dafbaace00b6f31c73755af73cfb2a37f0542cd6e77c0d9d402f24dc7"
+content-hash = "a0574e710bf8c31d6a1ce5ad3c1080731b114587ad5eb99682976b0563af4520"
