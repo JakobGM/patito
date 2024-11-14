@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from functools import cache, reduce
-from operator import and_, or_
+from operator import or_
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
