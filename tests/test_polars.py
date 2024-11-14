@@ -249,7 +249,10 @@ def test_correct_columns_and_dtype_on_read_ordered(tmp_path):
     # and out of order
     csv_path.write_text("b,a\n1,2")
     column_specified_df_ba = Foo.DataFrame.read_csv(csv_path, has_header=True)
-    assert column_specified_df_ba.schema == {"b": pl.Int64, "a": pl.String}
+    assert column_specified_df_ba.schema == {
+        "a": pl.String,
+        "b": pl.Int64,
+    }
     assert column_specified_df_ba["a"].to_list() == ["2"]
     assert column_specified_df_ba["b"].to_list() == [1]
 

@@ -95,12 +95,12 @@ class ModelMetaclass(PydanticModelMetaclass):
         return super().__hash__()
 
     @property
-    def column_infos(cls: type[ModelType]) -> Mapping[str, ColumnInfo]:
+    def column_infos(cls: type[Model]) -> Mapping[str, ColumnInfo]:
         """Return column information for the model."""
         return column_infos_for_model(cls)
 
     @property
-    def model_schema(cls: type[ModelType]) -> Mapping[str, Mapping[str, Any]]:
+    def model_schema(cls: type[Model]) -> Mapping[str, Mapping[str, Any]]:
         """Return schema properties where definition references have been resolved.
 
         Returns:
@@ -116,7 +116,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return schema_for_model(cls)
 
     @property
-    def columns(cls: type[ModelType]) -> list[str]:
+    def columns(cls: type[Model]) -> list[str]:
         """Return the name of the dataframe columns specified by the fields of the model.
 
         Returns:
@@ -135,7 +135,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return list(cls.model_fields.keys())
 
     @property
-    def dtypes(cls: type[ModelType]) -> dict[str, DataTypeClass | DataType]:
+    def dtypes(cls: type[Model]) -> dict[str, DataTypeClass | DataType]:
         """Return the polars dtypes of the dataframe.
 
         Unless Field(dtype=...) is specified, the highest signed column dtype
@@ -159,7 +159,7 @@ class ModelMetaclass(PydanticModelMetaclass):
 
     @property
     def valid_dtypes(
-        cls: type[ModelType],
+        cls: type[Model],
     ) -> Mapping[str, frozenset[DataTypeClass | DataType]]:
         """Return a list of polars dtypes which Patito considers valid for each field.
 
@@ -176,7 +176,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return valid_dtypes_for_model(cls)
 
     @property
-    def defaults(cls: type[ModelType]) -> dict[str, Any]:
+    def defaults(cls: type[Model]) -> dict[str, Any]:
         """Return default field values specified on the model.
 
         Returns:
@@ -201,7 +201,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         }
 
     @property
-    def non_nullable_columns(cls: type[ModelType]) -> set[str]:
+    def non_nullable_columns(cls: type[Model]) -> set[str]:
         """Return names of those columns that are non-nullable in the schema.
 
         Returns:
@@ -230,7 +230,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         )
 
     @property
-    def nullable_columns(cls: type[ModelType]) -> set[str]:
+    def nullable_columns(cls: type[Model]) -> set[str]:
         """Return names of those columns that are nullable in the schema.
 
         Returns:
@@ -252,7 +252,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return set(cls.columns) - cls.non_nullable_columns
 
     @property
-    def unique_columns(cls: type[ModelType]) -> set[str]:
+    def unique_columns(cls: type[Model]) -> set[str]:
         """Return columns with uniqueness constraint.
 
         Returns:
@@ -275,7 +275,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return {column for column in cls.columns if infos[column].unique}
 
     @property
-    def derived_columns(cls: type[ModelType]) -> set[str]:
+    def derived_columns(cls: type[Model]) -> set[str]:
         """Return set of columns which are derived from other columns."""
         infos = cls.column_infos
         return {
