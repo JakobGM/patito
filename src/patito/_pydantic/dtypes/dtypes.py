@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from functools import cache, reduce
-from operator import and_
+from operator import or_
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
@@ -144,7 +144,7 @@ class DtypeResolver:
             valid_type_sets.append(
                 self._pydantic_subschema_to_valid_polars_types(schema)
             )
-        return reduce(and_, valid_type_sets) if valid_type_sets else DataTypeGroup([])
+        return reduce(or_, valid_type_sets) if valid_type_sets else DataTypeGroup([])
 
     def _pydantic_subschema_to_valid_polars_types(
         self,

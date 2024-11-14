@@ -124,7 +124,7 @@ def _pyd_type_to_valid_dtypes(
         _validate_enum_values(pyd_type, enum)
         return DataTypeGroup([pl.Enum(enum), pl.String], match_base_type=False)
     if pyd_type.value == "integer":
-        return DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)
+        return DataTypeGroup(INTEGER_DTYPES)
     elif pyd_type.value == "number":
         return (
             FLOAT_DTYPES

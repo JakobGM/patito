@@ -210,7 +210,7 @@ def test_mapping_to_polars_dtypes() -> None:
 
     assert CompleteModel.valid_dtypes == {
         "str_column": {pl.String},
-        "int_column": DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES),
+        "int_column": DataTypeGroup(INTEGER_DTYPES),
         "float_column": FLOAT_DTYPES,
         "bool_column": {pl.Boolean},
         "date_column": DATE_DTYPES,
@@ -235,11 +235,11 @@ def test_mapping_to_polars_dtypes() -> None:
             ]
         ),
         "list_int_column": DataTypeGroup(
-            [pl.List(x) for x in DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)]
+            [pl.List(x) for x in DataTypeGroup(INTEGER_DTYPES)]
         ),
         "list_str_column": DataTypeGroup([pl.List(pl.String)]),
         "list_opt_column": DataTypeGroup(
-            [pl.List(x) for x in DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)]
+            [pl.List(x) for x in DataTypeGroup(INTEGER_DTYPES)]
         ),
     }
 

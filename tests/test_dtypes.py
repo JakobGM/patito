@@ -35,9 +35,7 @@ def test_valids_basic_annotations() -> None:
     """Test type annotations match polars dtypes."""
     # base types
     assert DtypeResolver(str).valid_polars_dtypes() == STRING_DTYPES
-    assert DtypeResolver(int).valid_polars_dtypes() == DataTypeGroup(
-        INTEGER_DTYPES | FLOAT_DTYPES
-    )
+    assert DtypeResolver(int).valid_polars_dtypes() == DataTypeGroup(INTEGER_DTYPES)
     assert DtypeResolver(float).valid_polars_dtypes() == FLOAT_DTYPES
     assert DtypeResolver(bool).valid_polars_dtypes() == BOOLEAN_DTYPES
 
@@ -64,10 +62,14 @@ def test_valids_basic_annotations() -> None:
         assert (
             DtypeResolver(str | None | None).valid_polars_dtypes() == STRING_DTYPES
         )  # superfluous None is ok
-    assert DtypeResolver(Union[int, float]).valid_polars_dtypes() == FLOAT_DTYPES
     assert (
-        DtypeResolver(Union[str, int]).valid_polars_dtypes() == frozenset()
-    )  # incompatible
+        DtypeResolver(Union[int, float]).valid_polars_dtypes()
+        == FLOAT_DTYPES | INTEGER_DTYPES
+    )
+    assert (
+        DtypeResolver(Union[str, int]).valid_polars_dtypes()
+        == STRING_DTYPES | INTEGER_DTYPES
+    )
 
     # invalids
     assert DtypeResolver(object).valid_polars_dtypes() == frozenset()
@@ -87,13 +89,13 @@ def test_valids_nested_annotations() -> None:
         pl.List(pl.String)
     }
     assert len(DtypeResolver(list[int]).valid_polars_dtypes()) == len(
-        DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)
+        DataTypeGroup(INTEGER_DTYPES)
     )
     assert len(DtypeResolver(list[Union[int, float]]).valid_polars_dtypes()) == len(
-        FLOAT_DTYPES
+        INTEGER_DTYPES | FLOAT_DTYPES
     )
     assert len(DtypeResolver(list[Optional[int]]).valid_polars_dtypes()) == len(
-        DataTypeGroup(INTEGER_DTYPES | FLOAT_DTYPES)
+        DataTypeGroup(INTEGER_DTYPES)
     )
     assert DtypeResolver(list[list[str]]).valid_polars_dtypes() == {
         pl.List(pl.List(pl.String))
@@ -116,7 +118,10 @@ def test_valids_nested_annotations() -> None:
 def test_dtype_validation() -> None:
     """Ensure python types match polars types."""
     validate_polars_dtype(int, pl.Int16)  # no issue
-    validate_polars_dtype(int, pl.Float64)  # no issue
+
+    with pytest.raises(ValueError, match="Invalid dtype"):
+        validate_polars_dtype(int, pl.Float64)
+
     with pytest.raises(ValueError, match="Invalid dtype"):
         validate_polars_dtype(int, pl.String)
 
@@ -195,11 +200,22 @@ def test_annotation_validation() -> None:
 
     with pytest.raises(ValueError, match="Valid dtypes are:"):
         validate_annotation(Union[int, float])
-    with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
+
+    # Unions are unsupported as actual polars dtypes but are not supported by Patito IF a default dtype is provided
+    # TODO: Does it make sense for Patito to support union given that the underlying dataframe cannot?
+    with pytest.raises(
+        ValueError,
+        match="Unable to determine default dtype",
+    ):
         validate_annotation(Union[str, int])
 
     validate_annotation(list[Optional[int]])
-    with pytest.raises(ValueError, match="not compatible with any polars dtypes"):
+
+    with pytest.raises(ValueError, match="Unable to determine default dtype"):
         validate_annotation(list[Union[str, int]])
-    with pytest.raises(ValueError, match="Valid dtypes are:"):
+
+    with pytest.raises(
+        ValueError,
+        match="Unable to determine default dtype",
+    ):
         validate_annotation(list[Union[int, float]])
