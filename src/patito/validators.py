@@ -301,6 +301,7 @@ def _find_errors(  # noqa: C901
 
             dataframe_tmp = (
                 dataframe_tmp.select(column_name)
+                .filter(pl.col(column_name).list.len() > 0)
                 .explode(column_name)
                 .unnest(column_name)
             )

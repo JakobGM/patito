@@ -9,6 +9,13 @@ from pydantic import AwareDatetime
 import patito as pt
 
 
+class VerySmallModel(pt.Model):
+    """Very small model for testing."""
+
+    a: int
+    b: str
+
+
 class SmallModel(pt.Model):
     """Small model for testing."""
 
@@ -37,6 +44,7 @@ class ManyTypes(pt.Model):
     date_value: date
     datetime_value: datetime
     pt_model_value: SmallModel
+    pt_list_model_value: list[VerySmallModel]
 
 
 class CompleteModel(pt.Model):

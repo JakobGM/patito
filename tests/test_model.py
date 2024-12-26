@@ -26,7 +26,7 @@ from patito._pydantic.dtypes.utils import (
     DATE_DTYPES,
     TIME_DTYPES,
 )
-from tests.examples import CompleteModel, ManyTypes, SmallModel
+from tests.examples import CompleteModel, ManyTypes, SmallModel, VerySmallModel
 
 
 def test_model_example() -> None:
@@ -47,11 +47,13 @@ def test_model_example() -> None:
         "date_value": date(year=1970, month=1, day=1),
         "datetime_value": datetime(year=1970, month=1, day=1),
         "pt_model_value": SmallModel.example().model_dump(),
+        "pt_list_model_value": [VerySmallModel.example().model_dump()],
     }
     assert ManyTypes.example(
         bool_value=True,
         default_value="override",
         optional_value=1,
+        pt_list_model_value=[],
     ).model_dump() == {
         "int_value": -1,
         "float_value": -0.5,
@@ -64,9 +66,15 @@ def test_model_example() -> None:
         "date_value": date(year=1970, month=1, day=1),
         "datetime_value": datetime(year=1970, month=1, day=1),
         "pt_model_value": SmallModel.example().model_dump(),
+        "pt_list_model_value": [],
     }
 
     ManyTypes.validate(ManyTypes.examples({"int_value": range(200)}))
+
+    # Empty list should be valid
+    ManyTypes.validate(
+        ManyTypes.examples({"pt_list_model_value": [[], [VerySmallModel.example()]]})
+    )
 
     # For now, valid regex data is not implemented
     class RegexModel(pt.Model):
@@ -559,7 +567,7 @@ def test_validation_alias():
 
 
 def test_validation_returns_df():  # noqa: D103
-    for Model in [SmallModel, ManyTypes, CompleteModel]:
+    for Model in [VerySmallModel, SmallModel, ManyTypes, CompleteModel]:
         df = Model.examples()
         remade_model = Model.validate(df)
         assert_frame_equal(remade_model, df)
