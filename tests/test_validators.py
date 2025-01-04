@@ -781,15 +781,12 @@ def test_validation_of_bounds_checks() -> None:
             BoundModel.validate(invalid_df)
         errors = e_info.value.errors()
 
-        if column_name == "const_column":
-            assert len(errors) == 2
-        else:
-            assert len(errors) == 1
-            assert errors[0] == {
-                "loc": (column_name,),
-                "msg": "1 row with out of bound values.",
-                "type": "value_error.rowvalue",
-            }
+        assert len(errors) == 1
+        assert errors[0] == {
+            "loc": (column_name,),
+            "msg": "1 row with out of bound values.",
+            "type": "value_error.rowvalue",
+        }
 
 
 def test_validation_of_dtype_specifiers() -> None:
