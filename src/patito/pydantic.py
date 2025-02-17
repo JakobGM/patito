@@ -880,7 +880,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         unique_series = []
         for column_name, dtype in cls.dtypes.items():
             if column_name not in kwargs:
-                if column_name in cls.unique_columns:
+                if (
+                    column_name in cls.unique_columns
+                    or column_name in cls.primary_key_columns
+                ):
                     unique_series.append(
                         pl.first().cum_count().cast(dtype).alias(column_name)
                     )
