@@ -197,6 +197,10 @@ class RowValueError(ValueError):
     """Exception for when a dataframe has a row with a impermissible value."""
 
 
+class PrimaryKeyUniquenessError(ValueError):
+    """Exception for when the primary key of a dataframe is not unique."""
+
+
 class RowDoesNotExist(RuntimeError):
     """Exception for when a single row was expected, but none were returned."""
 
