@@ -234,7 +234,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         """Return the names of the columns that are part of the primary key.
 
         Returns:
-            List of column name strings.  Returns an empty list if no primary key is defined.
+            List of column name strings.
 
         Example:
             >>> import patito as pt
