@@ -337,7 +337,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
     def from_existing(cls: type[LDF], lf: pl.LazyFrame) -> LDF:
         """Construct a patito.DataFrame object from an existing polars.DataFrame object."""
         if getattr(cls, "model", False):
-            return cls.model.LazyFrame._from_pyldf(super().lazy()._ldf)  # type: ignore
+            return cls.model.LazyFrame._from_pyldf(super().lazy(lf)._ldf)  # type: ignore
 
         return LazyFrame._from_pyldf(lf._ldf)  # type: ignore
 
