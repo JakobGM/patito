@@ -1,5 +1,6 @@
 """Tests related to polars functionality."""
 
+import enum
 import re
 from datetime import date, datetime
 from io import StringIO
@@ -626,3 +627,19 @@ def test_iter_models_to_list() -> None:
     assert models[1].a == 2
     for model in models:
         assert isinstance(model, Model)
+
+
+def test_list_enum_examples() -> None:
+    """Ensure examples works with list of Enum."""
+
+    class Provenance(str, enum.Enum):
+        A = "A"
+        B = "B"
+        C = "C"
+
+    class Schema(pt.Model):
+        a: int
+        databases: list[Provenance]
+
+    df = Schema.examples({"a": [0, 1]})
+    assert df.row(0) == (0, ["A"])
