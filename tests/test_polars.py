@@ -626,3 +626,15 @@ def test_iter_models_to_list() -> None:
     assert models[1].a == 2
     for model in models:
         assert isinstance(model, Model)
+
+
+def test_exmaple_column_order_18() -> None:
+    """Ensure correct order with iterable."""
+
+    class Test(pt.Model):
+        a: str
+        b: str
+
+    assert Test.examples({"a": ["1"], "b": ["2"]}).columns == ["a", "b"]
+    assert Test.examples({"a": ["1"]}).columns == ["a", "b"]
+    assert Test.examples({"b": ["2"]}).columns == ["a", "b"]
