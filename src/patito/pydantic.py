@@ -788,7 +788,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         cls: type[ModelType],
         data: dict | Iterable | None = None,
         columns: Iterable[str] | None = None,
-    ) -> patito.polars.DataFrame:
+    ) -> patito.polars.DataFrame[ModelType]:
         """Generate polars dataframe with dummy data for all unspecified columns.
 
         This constructor accepts the same data format as polars.DataFrame.
