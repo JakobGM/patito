@@ -960,6 +960,10 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         df = cls.model.DataFrame._from_pydf(pl.read_csv(*args, **kwargs)._df)
         return df.derive()
 
+    def to_polars(self) -> pl.DataFrame:
+        """Convert the custom DataFrame to a polars DataFrame."""
+        return pl.DataFrame._from_pydf(self._df)
+
     # --- Type annotation overrides ---
     def filter(  # noqa: D102
         self: DF,
