@@ -22,6 +22,7 @@ import polars as pl
 from polars.datatypes import DataType, DataTypeClass
 from pydantic import (  # noqa: F401
     BaseModel,
+    ConfigDict,
     create_model,
     fields,
 )
@@ -282,9 +283,20 @@ class ModelMetaclass(PydanticModelMetaclass):
             column for column in cls.columns if infos[column].derived_from is not None
         }
 
+    @property
+    def aliases(cls: type[Model]) -> dict[str, str]:
+        """Return dictionnay of the column aliases."""
+        return {
+            alias: field
+            for field in cls.model_fields
+            if (alias := cls.model_fields[field].alias)
+        }
+
 
 class Model(BaseModel, metaclass=ModelMetaclass):
     """Custom pydantic class for representing table schema and constructing rows."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
     def validate_schema(cls: type[ModelType]):
@@ -699,6 +711,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             Product(product_id=1, name='dummy_string', temperature_zone='dry')
 
         """
+        # unalias kwargs
+        kwargs = {cls.aliases.get(k, k): v for k, v in kwargs.items()}
+
         # Non-iterable values besides strings must be repeated
         wrong_columns = set(kwargs.keys()) - set(cls.columns)
         if wrong_columns:
@@ -852,6 +867,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             kwargs = dict(zip(columns, zip(*data)))
         else:
             kwargs = data
+
+        # unalias kwargs
+        kwargs = {cls.aliases.get(k, k): v for k, v in kwargs.items()}
 
         wrong_columns = set(kwargs.keys()) - set(cls.columns)
         if wrong_columns:

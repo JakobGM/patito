@@ -626,3 +626,18 @@ def test_iter_models_to_list() -> None:
     assert models[1].a == 2
     for model in models:
         assert isinstance(model, Model)
+
+
+def test_examples_with_aliases() -> None:
+    """Ensure exemple and exmaples works with aliases."""
+
+    class Bids(pt.Model):
+        offer_id: str = pt.Field(alias="Offer-ID", unique=True)
+        country_eic: str = pt.Field(alias="Country-EIC")
+        power: int = pt.Field(alias="Power")
+
+    Bids.example(**{"Offer-ID": "a"})
+    Bids.example(offer_id="a")
+
+    Bids.examples({"Offer-ID": ["a", "b"]})
+    Bids.examples({"offer_id": ["a", "b"]})
