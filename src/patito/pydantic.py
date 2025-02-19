@@ -95,12 +95,12 @@ class ModelMetaclass(PydanticModelMetaclass):
         return super().__hash__()
 
     @property
-    def column_infos(cls: type[Model]) -> Mapping[str, ColumnInfo]:
+    def column_infos(cls) -> Mapping[str, ColumnInfo]:
         """Return column information for the model."""
         return column_infos_for_model(cls)
 
     @property
-    def model_schema(cls: type[Model]) -> Mapping[str, Mapping[str, Any]]:
+    def model_schema(cls) -> Mapping[str, Mapping[str, Any]]:
         """Return schema properties where definition references have been resolved.
 
         Returns:
@@ -116,7 +116,11 @@ class ModelMetaclass(PydanticModelMetaclass):
         return schema_for_model(cls)
 
     @property
-    def columns(cls: type[Model]) -> list[str]:
+    def _schema_properties(cls) -> Mapping[str, Any]:
+        return cls.model_schema["properties"]
+
+    @property
+    def columns(cls) -> list[str]:
         """Return the name of the dataframe columns specified by the fields of the model.
 
         Returns:
@@ -135,7 +139,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return list(cls.model_fields.keys())
 
     @property
-    def dtypes(cls: type[Model]) -> dict[str, DataTypeClass | DataType]:
+    def dtypes(cls) -> dict[str, DataType]:
         """Return the polars dtypes of the dataframe.
 
         Unless Field(dtype=...) is specified, the highest signed column dtype
@@ -158,9 +162,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return default_dtypes_for_model(cls)
 
     @property
-    def valid_dtypes(
-        cls: type[Model],
-    ) -> Mapping[str, frozenset[DataTypeClass | DataType]]:
+    def valid_dtypes(cls) -> Mapping[str, frozenset[DataTypeClass | DataType]]:
         """Return a list of polars dtypes which Patito considers valid for each field.
 
         The first item of each list is the default dtype chosen by Patito.
@@ -176,7 +178,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return valid_dtypes_for_model(cls)
 
     @property
-    def defaults(cls: type[Model]) -> dict[str, Any]:
+    def defaults(cls) -> dict[str, Any]:
         """Return default field values specified on the model.
 
         Returns:
@@ -196,12 +198,12 @@ class ModelMetaclass(PydanticModelMetaclass):
         """
         return {
             field_name: props["default"]
-            for field_name, props in cls._schema_properties().items()
+            for field_name, props in cls._schema_properties.items()
             if "default" in props
         }
 
     @property
-    def non_nullable_columns(cls: type[Model]) -> set[str]:
+    def non_nullable_columns(cls) -> set[str]:
         """Return names of those columns that are non-nullable in the schema.
 
         Returns:
@@ -230,7 +232,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         )
 
     @property
-    def nullable_columns(cls: type[Model]) -> set[str]:
+    def nullable_columns(cls) -> set[str]:
         """Return names of those columns that are nullable in the schema.
 
         Returns:
@@ -252,7 +254,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return set(cls.columns) - cls.non_nullable_columns
 
     @property
-    def unique_columns(cls: type[Model]) -> set[str]:
+    def unique_columns(cls) -> set[str]:
         """Return columns with uniqueness constraint.
 
         Returns:
@@ -275,7 +277,7 @@ class ModelMetaclass(PydanticModelMetaclass):
         return {column for column in cls.columns if infos[column].unique}
 
     @property
-    def derived_columns(cls: type[Model]) -> set[str]:
+    def derived_columns(cls) -> set[str]:
         """Return set of columns which are derived from other columns."""
         infos = cls.column_infos
         return {
@@ -539,7 +541,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                 "Only one of 'field' or 'properties' can be provided as argument."
             )
         if field:
-            properties = cls._schema_properties()[field]
+            properties = cls._schema_properties[field]
             info = cls.column_infos[field]
         else:
             info = ColumnInfo()
@@ -705,7 +707,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             raise TypeError(f"{cls.__name__} does not contain fields {wrong_columns}!")
 
         new_kwargs = {}
-        for field_name in cls._schema_properties().keys():
+        for field_name in cls._schema_properties.keys():
             if field_name in kwargs:
                 # The value has been explicitly specified
                 new_kwargs[field_name] = kwargs[field_name]
@@ -788,7 +790,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         cls: type[ModelType],
         data: dict | Iterable | None = None,
         columns: Iterable[str] | None = None,
-    ) -> patito.polars.DataFrame:
+    ) -> patito.polars.DataFrame[ModelType]:
         """Generate polars dataframe with dummy data for all unspecified columns.
 
         This constructor accepts the same data format as polars.DataFrame.
@@ -1161,10 +1163,6 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             model_name=f"Expanded{cls.__name__}",
             field_mapping=fields,
         )
-
-    @classmethod
-    def _schema_properties(cls: type[ModelType]) -> Mapping[str, Any]:
-        return cls.model_schema["properties"]
 
     @classmethod
     def _update_dfn(cls, annotation: Any, schema: dict[str, Any]) -> None:

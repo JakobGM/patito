@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from functools import cache, reduce
 from operator import or_
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import polars as pl
 from polars.datatypes import DataType, DataTypeClass
@@ -56,7 +56,7 @@ def default_dtypes_for_model(
 
 
 def validate_polars_dtype(
-    annotation: type[Any] | None,
+    annotation: type[Any] | Annotated | None,
     dtype: DataType | DataTypeClass | None,
     column: str | None = None,
 ) -> None:
@@ -124,7 +124,7 @@ class DtypeResolver:
             return PT_BASE_SUPPORTED_DTYPES
         return self._valid_polars_dtypes_for_schema(self.schema)
 
-    def default_polars_dtype(self) -> DataType | None:
+    def default_polars_dtype(self) -> DataTypeClass | DataType | None:
         if self.annotation == Any:
             return pl.String()
         return self._default_polars_dtype_for_schema(self.schema)
@@ -191,7 +191,7 @@ class DtypeResolver:
 
     def _default_polars_dtype_for_schema(
         self, schema: dict[str, Any]
-    ) -> DataType | None:
+    ) -> DataTypeClass | DataType | None:
         if "anyOf" in schema:
             if len(schema["anyOf"]) == 2:  # look for optionals first
                 schema = _without_optional(schema)
@@ -208,7 +208,7 @@ class DtypeResolver:
     def _pydantic_subschema_to_default_dtype(
         self,
         props: dict[str, Any],
-    ) -> DataType | None:
+    ) -> DataTypeClass | DataType | None:
         if "column_info" in props:  # user has specified in patito model
             ci = ColumnInfo.model_validate_json(props["column_info"])
             if ci.dtype is not None:

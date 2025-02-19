@@ -183,8 +183,8 @@ def test_model_dataframe_class_creation() -> None:
     assert issubclass(CustomModel.LazyFrame, pt.LazyFrame)
 
     # And the model
-    assert CustomModel.DataFrame.model is CustomModel
-    assert CustomModel.LazyFrame.model is CustomModel
+    assert CustomModel.DataFrame.model is CustomModel  # type: ignore
+    assert CustomModel.LazyFrame.model is CustomModel  # type: ignore
 
 
 def test_mapping_to_polars_dtypes() -> None:
@@ -561,7 +561,7 @@ def test_validation_alias():
         my_val_b: int = pt.Field(validation_alias=AliasChoices("my_val_b", "myValB"))
 
     # code from validators _find_errors showing that we need model_json_schema without aliases
-    for column_name, _column_properties in AliasModel._schema_properties().items():
+    for column_name in AliasModel._schema_properties:
         assert AliasModel.column_infos[column_name] is not None
     AliasModel.examples()
 

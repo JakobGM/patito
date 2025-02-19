@@ -57,7 +57,7 @@ def column_infos_for_model(cls: type[ModelType]) -> Mapping[str, ColumnInfo]:
             raise NotImplementedError(
                 "Callable json_schema_extra not supported by patito."
             )
-        return ColumnInfo.model_validate_json(field.json_schema_extra["column_info"])
+        return ColumnInfo.model_validate_json(field.json_schema_extra["column_info"])  # type: ignore
 
     return {k: get_column_info(v) for k, v in fields.items()}
 

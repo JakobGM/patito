@@ -154,7 +154,7 @@ def test_defaults_basic_annotations() -> None:
     # other
     literal = DtypeResolver(Literal["a", "b", "c"]).default_polars_dtype()
     assert literal == pl.Enum(["a", "b", "c"])
-    assert set(literal.categories) == {"a", "b", "c"}
+    assert set(literal.categories) == {"a", "b", "c"}  # type: ignore
 
     # invalids
     assert DtypeResolver(object).default_polars_dtype() is None
@@ -189,7 +189,7 @@ def test_defaults_nested_annotations() -> None:
     # support for nested models via struct
     many_types = DtypeResolver(ManyTypes).default_polars_dtype()
     assert many_types == pl.Struct
-    assert len(many_types.fields) == len(ManyTypes.columns)
+    assert len(many_types.fields) == len(ManyTypes.columns)  # type: ignore
     assert DtypeResolver(Optional[ManyTypes]).default_polars_dtype() == many_types
 
 

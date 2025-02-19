@@ -43,7 +43,7 @@ docs = [
 ruff = ">=0.2.1"
 pre-commit = "^3.8.0"
 coverage = {version = "*", extras = ["toml"]}
-pyright = ">=1.1.239"
+pyright = ">=1.1.394"
 pytest = ">=7.1.2"
 pytest-cov = ">=3.0.0"
 pytest-watcher = { version = ">=0.2.3", python = ">=3.9,<4.0" }
@@ -93,7 +93,7 @@ show_missing = true
 typeCheckingMode = "basic"
 venvPath =  "."
 venv =  ".venv"
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 
 exclude = [
   ".venv",

@@ -21,6 +21,7 @@ from patito.exceptions import MultipleRowsReturned, RowDoesNotExist
 
 if TYPE_CHECKING:
     import numpy as np
+    from polars.polars import PyDataFrame
 
     from patito.pydantic import Model
 
@@ -169,7 +170,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
 
         """
         derived_columns = []
-        props = self.model._schema_properties()
+        props = self.model._schema_properties
         original_columns = set(self.collect_schema())
         to_derive = self.model.derived_columns if columns is None else columns
         for column_name in to_derive:
@@ -317,7 +318,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
             └───────┴────────────┘
 
         """
-        properties = self.model._schema_properties()
+        properties = self.model._schema_properties
         valid_dtypes = self.model.valid_dtypes
         default_dtypes = self.model.dtypes
         columns = columns or self.collect_schema().names()
@@ -340,6 +341,29 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
             return cls.model.LazyFrame._from_pyldf(super().lazy()._ldf)  # type: ignore
 
         return LazyFrame._from_pyldf(lf._ldf)  # type: ignore
+
+    # --- Type annotation overrides ---
+    def filter(  # noqa: D102
+        self: LDF,
+        predicate: pl.Expr | str | pl.Series | list[bool] | np.ndarray[Any, Any] | bool,
+    ) -> LDF:
+        return cast(LDF, super().filter(predicate))
+
+    def select(  # noqa: D102
+        self: LDF,
+        *exprs: IntoExpr | Iterable[IntoExpr],
+        **named_exprs: IntoExpr,
+    ) -> LDF:
+        return cast(  # pyright: ignore[redundant-cast]
+            LDF, super().select(*exprs, **named_exprs)
+        )
+
+    def with_columns(  # noqa: D102
+        self: LDF,
+        *exprs: IntoExpr | Iterable[IntoExpr],
+        **named_exprs: IntoExpr,
+    ) -> LDF:
+        return cast(LDF, super().with_columns(*exprs, **named_exprs))
 
 
 class DataFrame(pl.DataFrame, Generic[ModelType]):
@@ -445,7 +469,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         """
         return model.DataFrame(self._df)
 
-    def unalias(self: DF) -> DF:
+    def unalias(self: DataFrame[ModelType]) -> DataFrame[ModelType]:
         """Un-aliases column names using information from pydantic validation_alias.
 
         In order of preference - model field name then validation_aliases in order of occurrence
@@ -459,8 +483,10 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
         return self.lazy().unalias().collect()
 
     def cast(
-        self: DF, strict: bool = False, columns: Sequence[str] | None = None
-    ) -> DF:
+        self: DataFrame[ModelType],
+        strict: bool = False,
+        columns: Sequence[str] | None = None,
+    ) -> DataFrame[ModelType]:
         """Cast columns to `dtypes` specified by the associated Patito model.
 
         Args:
@@ -976,9 +1002,23 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             DF, super().select(*exprs, **named_exprs)
         )
 
+    def head(  # noqa: D102
+        self: DF, n: int = 5
+    ) -> DF:
+        return cast(  # pyright: ignore[redundant-cast]
+            DF, super().head(n=n)
+        )
+
     def with_columns(  # noqa: D102
         self: DF,
         *exprs: IntoExpr | Iterable[IntoExpr],
         **named_exprs: IntoExpr,
     ) -> DF:
         return cast(DF, super().with_columns(*exprs, **named_exprs))
+
+    @classmethod
+    def _from_pydf(cls: type[DF], py_df: PyDataFrame) -> DF:
+        """Construct Polars DataFrame from FFI PyDataFrame object."""
+        df = cls.__new__(cls)
+        df._df = py_df
+        return df
