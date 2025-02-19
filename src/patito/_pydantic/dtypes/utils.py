@@ -178,7 +178,7 @@ def _pyd_string_format_to_valid_dtypes(
         return DATE_DTYPES
     elif string_format.value == "date-time":
         return (
-            DATETIME_DTYPES
+            DataTypeGroup(DATETIME_DTYPES)
             if isinstance(DATE_DTYPES, DataTypeGroup)
             else DataTypeGroup(DATE_DTYPES)
         )

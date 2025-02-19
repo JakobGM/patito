@@ -874,7 +874,7 @@ def test_custom_constraint_validation() -> None:
         "msg": "1 row does not match custom constraints.",
         "type": "value_error.rowvalue",
     }
-    df.limit(1).validate()
+    df.head(1).validate()
 
     # We can also validate aggregation queries
     class PizzaSlice(pt.Model):
@@ -1137,11 +1137,13 @@ def test_validate_should_not_mutate_the_original_polars_df_when_aliasing(
 
     if isinstance(df, pd.DataFrame):
         assert isinstance(df, pd.DataFrame)
+        assert isinstance(expected, pd.DataFrame)
         pd_assert_frame_equal(
             df, expected, check_index_type=True, check_column_type=True
         )
     else:
         assert isinstance(df, pl.DataFrame)
+        assert isinstance(expected, pl.DataFrame)
         pl_assert_frame_equal(
             df, expected, check_row_order=True, check_column_order=True
         )

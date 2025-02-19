@@ -199,7 +199,7 @@ def _find_errors(  # noqa: C901
     # Check if any column has a wrong dtype
     valid_dtypes = schema.valid_dtypes
     dataframe_datatypes = dict(zip(dataframe.columns, dataframe.dtypes))
-    for column_name, column_properties in schema._schema_properties().items():
+    for column_name, column_properties in schema._schema_properties.items():
         # We rename to _tmp here to avoid overwriting the dataframe during filters below
         # TODO! Really we should be passing *Series* around rather than the entire dataframe
         dataframe_tmp = dataframe
