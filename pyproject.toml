@@ -48,6 +48,7 @@ dev = [
     "blackdoc",
     "ipykernel>=6.29.4,<7",
     "Sphinx<7",
+    "nox-uv>=0.6.0",
 ]
 
 docs = [
@@ -139,3 +140,6 @@ ignore = ["UP007"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
