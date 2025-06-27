@@ -213,7 +213,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
             lf = lf.with_columns(derived_from.cast(dtype).alias(column_name))
         else:
             raise TypeError(
-                "Can not derive dataframe column from type " f"{type(derived_from)}."
+                f"Can not derive dataframe column from type {type(derived_from)}."
             )
         derived_columns.append(column_name)
         return lf, derived_columns

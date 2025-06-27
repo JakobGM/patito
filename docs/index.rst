@@ -31,8 +31,16 @@ You can simply install Patito with :code:`pip` like so:
 Developer Notes
 ---------------
 
-To run the noxfile with pyenv, first run
+This project is managed with uv. Please install it separately.
+
+To run tests, linting etc, please run:
 
 .. code-block:: console
 
-   pyenv local 3.8 3.9 3.10 3.11
+   uv run nox
+
+To install pre-commit, please run:
+
+.. code-block:: console
+
+   uv run pre-commit install
