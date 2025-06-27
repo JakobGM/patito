@@ -79,7 +79,7 @@ class DataFrameValidationError(Representation, ValueError):
         errors = self.errors()
         no_errors = len(errors)
         return (
-            f'{no_errors} validation error{"" if no_errors == 1 else "s"} for {self.model.__name__}\n'
+            f"{no_errors} validation error{'' if no_errors == 1 else 's'} for {self.model.__name__}\n"
             f"{display_errors(errors)}"
         )
 
@@ -90,7 +90,7 @@ class DataFrameValidationError(Representation, ValueError):
 
 def display_errors(errors: list["ErrorDict"]) -> str:
     return "\n".join(
-        f'{_display_error_loc(e)}\n  {e["msg"]} ({_display_error_type_and_ctx(e)})'
+        f"{_display_error_loc(e)}\n  {e['msg']} ({_display_error_type_and_ctx(e)})"
         for e in errors
     )
 
