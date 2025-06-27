@@ -10,7 +10,7 @@ import nox  # type: ignore
 nox.options.sessions = (
     "lint",
     "test",
-    # "type_check"
+    # "type_check",
     "docs",
 )
 locations = "src", "tests", "noxfile.py", "docs/conf.py"

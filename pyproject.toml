@@ -1,68 +1,71 @@
-[tool.poetry]
+[project]
 name = "patito"
 version = "0.8.4"
 description = "A dataframe modelling library built on top of polars and pydantic."
-authors = ["Jakob Gerhard Martinussen <jakobgm@gmail.com>", "Thomas Aarholt <thomasaarholt@gmail.com>"]
-license = "MIT"
+authors = [
+    { name = "Jakob Gerhard Martinussen", email = "jakobgm@gmail.com" },
+    { name = "Thomas Aarholt", email = "thomasaarholt@gmail.com" },
+]
+requires-python = ">=3.9"
 readme = "README.md"
-homepage = "https://github.com/JakobGM/patito"
-repository = "https://github.com/JakobGM/patito"
-documentation = "https://patito.readthedocs.io"
-keywords = ["validation", "dataframe"]
-
-[tool.poetry.dependencies]
-python = ">=3.9"
-pydantic = ">=2.7.0"
-polars = ">=1.10.0"
-# Required for typing.get_args backports in python3.9 and 3.10
-typing-extensions = "*"
-pandas = {version = "*", optional = true}
-pyarrow = {version = ">=5.0.0", optional = true}
-# Optional docs dependencies
-Sphinx = {version = "<7", optional = true}
-sphinx-rtd-theme = {version = "*", optional = true}
-sphinx-autobuild = {version = "*", optional = true}
-sphinx-autodoc-typehints = {version = "*", optional = true}
-sphinx-toolbox = {version = "*", optional = true}
-sphinxcontrib-mermaid = {version = "*", optional = true}
-
-[tool.poetry.extras]
-# The pyarrow.parquet module is required for writing parquet caches to disk
-caching = ["pyarrow"]
-pandas = ["pandas"]
-docs = [
-  "Sphinx",
-  "sphinx-autobuild",
-  "sphinx-autodoc-typehints",
-  "sphinx-rtd-theme",
-  "sphinx-toolbox",
-  "sphinxcontrib-mermaid",
+license = "MIT"
+keywords = [
+    "validation",
+    "dataframe",
+]
+dependencies = [
+    "pydantic>=2.7.0",
+    "polars>=1.10.0",
+    "typing-extensions",
 ]
 
-[tool.poetry.group.dev.dependencies]
-ruff = ">=0.2.1"
-pre-commit = "^3.8.0"
-coverage = {version = "*", extras = ["toml"]}
-pyright = ">=1.1.239"
-pytest = ">=7.1.2"
-pytest-cov = ">=3.0.0"
-pytest-watcher = { version = ">=0.2.3", python = ">=3.9,<4.0" }
-xdoctest = ">=1.0.0"
+[project.optional-dependencies]
+caching = ["pyarrow>=5.0.0"]
+pandas = ["pandas"]
 
-mypy = ">=0.950"
-types-setuptools = ">=57.4.14"
-pandas-stubs = ">=1.2.0"
-codecov = "^2.1.12"
-blackdoc = "*"
-ipykernel = "^6.29.4"
+[project.urls]
+Homepage = "https://github.com/JakobGM/patito"
+Repository = "https://github.com/JakobGM/patito"
+Documentation = "https://patito.readthedocs.io"
 
+[dependency-groups]
+dev = [
+    "uv",
+    "nox",
+    "nox-uv>=0.6.0",
+    "ruff>=0.2.1",
+    "pre-commit>=3.8.0,<4",
+    "coverage[toml]",
+    "pyright>=1.1.239",
+    "pytest>=7.1.2",
+    "pytest-cov>=3.0.0",
+    "pytest-watcher>=0.2.3 ; python_version >= '3.9' and python_version < '4.0'",
+    "xdoctest>=1.0.0",
+    "mypy>=0.950",
+    "types-setuptools>=57.4.14",
+    "pandas-stubs>=1.2.0",
+    "codecov>=2.1.12,<3",
+    "blackdoc",
+    "ipykernel>=6.29.4,<7",
+    "Sphinx<7",
+]
 
-[tool.poetry.group.docs.dependencies]
-nox = "^2023.4.22"
+docs = [
+    "sphinx-autobuild",
+    "sphinx-autodoc-typehints",
+    "sphinx-rtd-theme",
+    "sphinx-toolbox",
+    "sphinxcontrib-mermaid",]
+
+[tool.uv]
+default-groups = [
+    "dev",
+    "docs",
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 filterwarnings = [
@@ -121,7 +124,6 @@ exclude = [
   "**/__pycache__",
   "**/.*"
 ]
-
 
 [[tool.mypy.overrides]]
 module = ["tests.test_validators"]
