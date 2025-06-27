@@ -44,4 +44,3 @@ To install pre-commit, please run:
 .. code-block:: console
 
    uv run pre-commit install
-
