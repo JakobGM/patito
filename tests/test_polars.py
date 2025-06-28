@@ -67,6 +67,19 @@ def test_dataframe_set_model_method() -> None:
     assert MyModel.DataFrame.model is MyModel
 
 
+def test_lazyframe_from_existing() -> None:
+    """You should be able convert a polars lazyframe to a patito LazyFrame."""
+
+    class Model(pt.Model):
+        a: int
+
+    df = Model.LazyFrame.from_existing(pl.LazyFrame({"a": [0, 1]}))
+    assert "ModelLazyFrame" in str(type(df))
+
+    df = pt.LazyFrame.from_existing(pl.LazyFrame())
+    assert isinstance(df, pt.LazyFrame)
+
+
 def test_fill_nan_with_defaults() -> None:
     """You should be able to fill missing values with declared defaults."""
 
