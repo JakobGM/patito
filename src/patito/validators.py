@@ -129,7 +129,7 @@ def _find_errors(  # noqa: C901
                 )
             )
 
-    if not allow_superfluous_columns:
+    if not (allow_superfluous_columns or schema.model_config.get("extra") == "allow"):
         # Check if any additional columns are included
         for superfluous_column in set(column_subset) - set(schema.columns):
             errors.append(
