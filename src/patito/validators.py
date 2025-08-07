@@ -21,6 +21,7 @@ from patito.exceptions import (
     ErrorWrapper,
     MissingColumnsError,
     MissingValuesError,
+    PrimaryKeyUniquenessError,
     RowValueError,
     SuperfluousColumnsError,
 )
@@ -151,6 +152,21 @@ def _find_errors(  # noqa: C901
                     ),
                     loc=column,
                 )
+            )
+
+    # check for primary keys uniqueness
+    if schema.primary_key_columns:
+        duplicated = dataframe.select(schema.primary_key_columns).filter(
+            pl.struct(pl.all()).is_duplicated()
+        )
+        if duplicated.height:
+            errors.append(
+                ErrorWrapper(
+                    PrimaryKeyUniquenessError(
+                        f"Primary key is not unique \n{duplicated}"
+                    ),
+                    loc=", ".join(schema.primary_key_columns),
+                ),
             )
 
     for column, dtype in schema.dtypes.items():

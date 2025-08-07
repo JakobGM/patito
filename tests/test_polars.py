@@ -580,6 +580,21 @@ def test_validation_alias() -> None:
     assert df.columns == AliasModel.columns
 
 
+def test_validation_primary_key() -> None:
+    """Ensure DataFrame.validate() returns a DataFrame."""
+
+    class Model(pt.Model):
+        a: int = pt.Field(primary_key=True)
+        b: int = pt.Field(primary_key=True)
+
+    Model.DataFrame({"a": [1, 1], "b": [1, 2]}).validate()
+    with pytest.raises(
+        pt.exceptions.DataFrameValidationError,
+        match=re.escape(r"Primary key is not unique"),
+    ):
+        Model.DataFrame({"a": [1, 1], "b": [2, 2]}).validate()
+
+
 def test_validation_returns_df() -> None:
     """Ensure DataFrame.validate() returns a DataFrame."""
 
