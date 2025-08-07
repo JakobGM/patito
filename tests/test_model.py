@@ -620,3 +620,14 @@ def test_json_schema_extra_is_extended_when_it_exists() -> None:
     assert props["b"]["client_column_metadata"]["group1"] == "x"
     assert props["b"]["client_column_metadata"]["group2"] == "y"
     assert props["c"]["client_column_metadata"]["group1"] == "xxx"
+
+
+def test_aliases() -> None:
+    """Test aliases."""
+
+    class Bids(pt.Model):
+        offer_id: str = pt.Field(alias="Offer-ID", unique=True)
+        country_eic: str = pt.Field(alias="Country-EIC")
+        power: int
+
+    assert Bids.aliases == {"Offer-ID": "offer_id", "Country-EIC": "country_eic"}
