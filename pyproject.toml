@@ -15,7 +15,7 @@ keywords = [
 ]
 dependencies = [
     "pydantic>=2.7.0",
-    "polars>=1.10.0",
+    "polars>=1.32.0",
     "typing-extensions",
 ]
 
