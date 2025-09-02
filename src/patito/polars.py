@@ -443,7 +443,7 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             >>> casted_classes.validate()
 
         """
-        return model.DataFrame(self._df)
+        return model.DataFrame._from_pydf(self._df)
 
     def unalias(self: DF) -> DF:
         """Un-aliases column names using information from pydantic validation_alias.
@@ -537,9 +537,8 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
 
         """
         if columns is not None:
-            # I get a single null row if I try to use super() here, so go via
-            # pl.DataFrame instead.
-            return self._from_pydf(pl.DataFrame(self._df).drop(columns)._df)
+            # Use super() to call polars DataFrame drop method directly
+            return self._from_pydf(super().drop(columns)._df)
         else:
             return self.drop(list(set(self.columns) - set(self.model.columns)))
 
