@@ -170,6 +170,16 @@ def test_instantiation_from_pandas_row() -> None:
     assert Model.from_row(pandas_dataframe.loc[0]).a == 1  # type: ignore
 
 
+def test_to_polars() -> None:
+    """You should be able to get a polars Dataframe back."""
+
+    class Model(pt.Model):
+        a: int
+
+    df = Model.validate(pl.DataFrame({"a": [0, 1]}))
+    assert type(df.to_polars()) is pl.DataFrame
+
+
 def test_model_dataframe_class_creation() -> None:
     """Each model should get a custom DataFrame class."""
 
