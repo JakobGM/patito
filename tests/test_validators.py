@@ -270,7 +270,13 @@ def test_drop_superfluous_columns() -> None:
         SingleColumnModel,
         drop_superfluous_columns=True,
     )
-    assert result.columns == ["column_1"]
+    expected_columns = ["column_1"]
+    assert result.columns == expected_columns
+
+    result_from_cls_method = SingleColumnModel.validate(
+        test_df, drop_superfluous_columns=True
+    )
+    assert result_from_cls_method.columns == expected_columns
 
 
 def test_validate_non_nullable_columns() -> None:

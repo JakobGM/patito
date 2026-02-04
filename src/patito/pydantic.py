@@ -466,7 +466,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
               Rows with invalid values: {'oven'}. (type=value_error.rowvalue)
 
         """
-        validate(
+        validated_df = validate(
             dataframe=dataframe,
             schema=cls,
             columns=columns,
@@ -474,7 +474,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             allow_superfluous_columns=allow_superfluous_columns,
             drop_superfluous_columns=drop_superfluous_columns,
         )
-        return cls.DataFrame(dataframe)
+        return cls.DataFrame(validated_df)
 
     @classmethod
     def iter_models(
