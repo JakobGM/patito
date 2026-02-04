@@ -38,7 +38,6 @@ dev = [
     "mypy>=0.950",
     "nox",
     "nox-uv>=0.6.0",
-    "nox-uv>=0.6.0",
     "pandas-stubs>=1.2.0",
     "pre-commit>=3.8.0,<4",
     "pyright>=1.1.239",
