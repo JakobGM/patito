@@ -230,6 +230,25 @@ class ModelMetaclass(PydanticModelMetaclass):
         )
 
     @property
+    def primary_key_columns(cls: type[Model]) -> list[str]:
+        """Return the names of the columns that are part of the primary key.
+
+        Returns:
+            List of column name strings.
+
+        Example:
+            >>> import patito as pt
+            >>> class MyModel(pt.Model):
+            ...     id: int = pt.Field(primary_key=True)
+            ...     name: str
+            ...     age: int = pt.Field(primary_key=True)
+            ...
+            >>> MyModel.primary_key_columns
+            ['id', 'age']
+        """
+        return [k for k, field in cls.column_infos.items() if field.primary_key]
+
+    @property
     def nullable_columns(cls: type[Model]) -> set[str]:
         """Return names of those columns that are nullable in the schema.
 
@@ -861,7 +880,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
         unique_series = []
         for column_name, dtype in cls.dtypes.items():
             if column_name not in kwargs:
-                if column_name in cls.unique_columns:
+                if (
+                    column_name in cls.unique_columns
+                    or column_name in cls.primary_key_columns
+                ):
                     unique_series.append(
                         pl.first().cum_count().cast(dtype).alias(column_name)
                     )
@@ -1278,6 +1300,7 @@ def Field(
         dtype (polars.datatype.DataType): The given dataframe column must have the given
             polars dtype, for instance ``polars.UInt64`` or ``pl.Float32``.
         unique (bool): All row values must be unique.
+        primary_key (bool):  The field is part of the primary keys of the Model.
         gt: All values must be greater than ``gt``.
         ge: All values must be greater than or equal to ``ge``.
         lt: All values must be less than ``lt``.
