@@ -1,6 +1,6 @@
 [project]
 name = "patito"
-version = "0.8.5"
+version = "0.8.6"
 description = "A dataframe modelling library built on top of polars and pydantic."
 authors = [
     { name = "Jakob Gerhard Martinussen", email = "jakobgm@gmail.com" },
