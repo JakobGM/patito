@@ -30,25 +30,25 @@ Documentation = "https://patito.readthedocs.io"
 
 [dependency-groups]
 dev = [
-    "uv",
+    "Sphinx<7",
+    "blackdoc",
+    "codecov>=2.1.12,<3",
+    "coverage[toml]",
+    "ipykernel>=6.29.4,<7",
+    "mypy>=0.950",
     "nox",
     "nox-uv>=0.6.0",
-    "ruff>=0.2.1",
+    "nox-uv>=0.6.0",
+    "pandas-stubs>=1.2.0",
     "pre-commit>=3.8.0,<4",
-    "coverage[toml]",
     "pyright>=1.1.239",
-    "pytest>=7.1.2",
     "pytest-cov>=3.0.0",
     "pytest-watcher>=0.2.3 ; python_version >= '3.9' and python_version < '4.0'",
-    "xdoctest>=1.0.0",
-    "mypy>=0.950",
+    "pytest>=7.1.2",
+    "ruff>=0.2.1",
     "types-setuptools>=57.4.14",
-    "pandas-stubs>=1.2.0",
-    "codecov>=2.1.12,<3",
-    "blackdoc",
-    "ipykernel>=6.29.4,<7",
-    "Sphinx<7",
-    "nox-uv>=0.6.0",
+    "uv",
+    "xdoctest>=1.0.0",
 ]
 
 docs = [
