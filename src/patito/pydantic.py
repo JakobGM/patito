@@ -867,9 +867,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                     )
                 else:
                     example_value = cls.example_value(field=column_name)
-                    series.append(
-                        pl.Series(column_name, values=[example_value], dtype=dtype)
-                    )
+                    series.append(pl.lit(example_value, dtype=dtype).alias(column_name))
                 continue
 
             value = kwargs.get(column_name)
@@ -881,7 +879,9 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             else:
                 series.append(pl.lit(value, dtype=dtype).alias(column_name))
 
-        return cls.DataFrame().with_columns(series).with_columns(unique_series)
+        return cls.DataFrame._from_pydf(
+            pl.select(series).with_columns(unique_series)._df
+        )
 
     @classmethod
     def join(
