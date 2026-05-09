@@ -94,6 +94,7 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
         dtype (polars.datatype.DataType): The given dataframe column must have the given
             polars dtype, for instance ``polars.UInt64`` or ``pl.Float32``.
         unique (bool): All row values must be unique.
+        primary_key (bool): The field is part of the primary keys of the Model.
 
     """
 
@@ -111,6 +112,7 @@ class ColumnInfo(BaseModel, arbitrary_types_allowed=True):
         BeforeValidator(expr_or_col_name_deserializer),
     ] = None
     unique: Optional[bool] = None
+    primary_key: bool = False
 
     def __repr__(self) -> str:
         """Print only Field attributes whose values are not default (mainly None)."""

@@ -465,6 +465,23 @@ def test_nullable_columns() -> None:
     assert set(Test2.valid_dtypes["foo"]) == {pl.UInt32}
 
 
+def test_primary_key_columns() -> None:
+    """Ensure primary_key is parsed correclty."""
+
+    class Model(pt.Model):
+        id: int = pt.Field(primary_key=True)
+        name: str
+        age: int = pt.Field(primary_key=True)
+
+    assert Model.primary_key_columns == ["id", "age"]
+
+    class ModelNoPimary(pt.Model):
+        id: int
+        name: str
+
+    assert ModelNoPimary.primary_key_columns == []
+
+
 def test_conflicting_type_dtype() -> None:
     """Ensure model annotation is compatible with Field dtype."""
     with pytest.raises(ValueError, match="Invalid dtype String"):
