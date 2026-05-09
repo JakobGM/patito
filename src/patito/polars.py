@@ -926,17 +926,15 @@ class DataFrame(pl.DataFrame, Generic[ModelType]):
             ...     b: str = pt.Field(derived_from="source_of_b")
             ...
             >>> csv_file = io.StringIO("a,source_of_b\n1,1")
-
-
-            # >>> CSVModel.DataFrame.read_csv(csv_file).drop()
-            # shape: (1, 2)
-            # ┌─────┬─────┐
-            # │ a   ┆ b   │
-            # │ --- ┆ --- │
-            # │ f64 ┆ str │
-            # ╞═════╪═════╡
-            # │ 1.0 ┆ 1   │
-            # └─────┴─────┘
+            >>> CSVModel.DataFrame.read_csv(csv_file).drop()
+            shape: (1, 2)
+            ┌─────┬─────┐
+            │ a   ┆ b   │
+            │ --- ┆ --- │
+            │ f64 ┆ str │
+            ╞═════╪═════╡
+            │ 1.0 ┆ 1   │
+            └─────┴─────┘
 
         """
         kwargs.setdefault("schema_overrides", cls.model.dtypes)
