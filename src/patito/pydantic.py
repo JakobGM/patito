@@ -863,7 +863,7 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             if column_name not in kwargs:
                 if column_name in cls.unique_columns:
                     unique_series.append(
-                        pl.first().cum_count().cast(dtype).alias(column_name)
+                        pl.int_range(pl.len()).cast(dtype).alias(column_name)
                     )
                 else:
                     example_value = cls.example_value(field=column_name)
@@ -881,7 +881,12 @@ class Model(BaseModel, metaclass=ModelMetaclass):
             else:
                 series.append(pl.lit(value, dtype=dtype).alias(column_name))
 
-        return cls.DataFrame().with_columns(series).with_columns(unique_series)
+        return (
+            cls.DataFrame()
+            .with_columns(series)
+            .with_columns(unique_series)
+            .select(cls.columns)  # reorder columns
+        )
 
     @classmethod
     def join(
