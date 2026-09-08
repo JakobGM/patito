@@ -51,6 +51,7 @@ except ImportError:
 if TYPE_CHECKING:
     import patito.polars
 
+
 # The generic type of a single row in given Relation.
 # Should be a typed subclass of Model.
 ModelType = TypeVar("ModelType", bound="Model")
@@ -866,9 +867,10 @@ class Model(BaseModel, metaclass=ModelMetaclass):
                         pl.first().cum_count().cast(dtype).alias(column_name)
                     )
                 else:
-                    example_value = cls.example_value(field=column_name)
                     series.append(
-                        pl.Series(column_name, values=[example_value], dtype=dtype)
+                        pl.lit(cls.example_value(field=column_name), dtype=dtype).alias(
+                            column_name
+                        )
                     )
                 continue
 

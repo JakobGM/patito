@@ -68,9 +68,9 @@ def _transform_df(dataframe: pl.DataFrame, schema: type[Model]) -> pl.DataFrame:
     if alias_gen := schema.model_config.get("alias_generator"):
         if isinstance(alias_gen, AliasGenerator):
             alias_func = alias_gen.validation_alias or alias_gen.alias
-            assert (
-                alias_func is not None
-            ), "An AliasGenerator must contain a transforming function"
+            assert alias_func is not None, (
+                "An AliasGenerator must contain a transforming function"
+            )
         else:  # alias_gen is a function
             alias_func = alias_gen
 

@@ -115,6 +115,7 @@ Take the following function as an example:
 ```py
 import polars as pl
 
+
 def num_products_for_sale(products: pl.DataFrame) -> int:
     Product.validate(products)
     return products.filter(pl.col("is_for_sale")).height
@@ -185,7 +186,8 @@ class Product(pt.Model):
     status: Literal["draft", "for-sale", "discontinued"] = "for-sale"
     # The eurocent cost is extracted from the Euro cost string "€X.Y EUR"
     eurocent_cost: int = pt.Field(
-        derived_from=100 * pl.col("cost").str.extract(r"€(\d+\.+\d+)").cast(float).round(2)
+        derived_from=100
+        * pl.col("cost").str.extract(r"€(\d+\.+\d+)").cast(float).round(2)
     )
 
 
@@ -231,6 +233,7 @@ Patito allows you to embed row-level logic in methods defined on the model.
 # models.py
 import patito as pt
 
+
 class Product(pt.Model):
     product_id: int = pt.Field(unique=True)
     name: str
@@ -262,7 +265,6 @@ print(milk.url)
 If you "connect" the `Product` model with the `DataFrame` by the use of `patito.DataFrame.set_model()`, or alternatively by using `Product.DataFrame` directly, you can use the `.get()` method in order to filter the data frame down to a single row _and_ cast it to the respective model class:
 
 ```py
-
 products = Product.DataFrame(
     {
         "product_id": [1, 2],
